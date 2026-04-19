@@ -96,8 +96,8 @@ draft → active → paused → active (resume)
 | Plan | Task/ngày |
 |---|---|
 | Free | 3 |
-| Grower ($4/tháng) | 10 |
-| Master ($9/tháng) | 16 |
+| Pro ($4/tháng) | 10 |
+| Premium ($9/tháng) | 16 |
 
 > "Task" tính là task được **Start** (chuyển sang `active`). Pause rồi resume không tốn thêm slot. Task `given_up` vẫn tốn slot — đây là một phần của cơ chế phạt nhẹ dù penalty mode OFF.
 
@@ -506,6 +506,7 @@ task_notes (
   user_id uuid FK,
   content text,              -- Main note content, required, indexed for search
   created_at timestamptz,
+  updated_at timestamptz,    -- For audit trail metadata
   CONSTRAINT task_note_content_check CHECK (char_length(trim(content)) > 0)
 )
 -- Indexes: idx_task_notes_task_id (task_id DESC), idx_task_notes_user_id (user_id, created_at DESC)
@@ -513,9 +514,9 @@ task_notes (
 -- Task Daily Quota
 task_daily_quotas (
   user_id uuid,
-  date date,
-  used int DEFAULT 0,
-  PRIMARY KEY (user_id, date)
+  target_date date,
+  usage_count int DEFAULT 0,
+  PRIMARY KEY (user_id, target_date)
 )
 
 -- Items (master catalog)

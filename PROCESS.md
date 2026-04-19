@@ -183,8 +183,9 @@ focusflow/
     └── docker-compose.yml
 
 # 2. Init SQL Sandbox
-    - public.tasks (continuing -> to complete sqls relative)
+    - public.tasks (done)
+    - public.task_notes (done)
     - public.users (ny)
-    - task_daily_quote (ny)
+    - public.task_daily_quotas (done)
     - garden_items (ny)
     - transaction (ny)
