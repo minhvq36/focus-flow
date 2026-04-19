@@ -1,0 +1,58 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "Prometheus",
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "gnetId": null,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "rate(tasks_completed_total[5m])"
+        }
+      ],
+      "title": "Tasks Completed Rate",
+      "type": "graph"
+    },
+    {
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sessions_started_total"
+        }
+      ],
+      "title": "Total Sessions Started",
+      "type": "stat"
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 30,
+  "style": "dark",
+  "tags": ["focusflow", "operations"],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "title": "FocusFlow Operations",
+  "uid": "focusflow-ops",
+  "version": 1
+}

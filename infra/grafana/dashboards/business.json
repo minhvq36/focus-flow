@@ -1,0 +1,58 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "Prometheus",
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "gnetId": null,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "tasks_created_total"
+        }
+      ],
+      "title": "Total Tasks Created",
+      "type": "stat"
+    },
+    {
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "tasks_completed_total"
+        }
+      ],
+      "title": "Total Tasks Completed",
+      "type": "stat"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 30,
+  "style": "dark",
+  "tags": ["focusflow", "business"],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "title": "FocusFlow Business Metrics",
+  "uid": "focusflow-business",
+  "version": 1
+}
