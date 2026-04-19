@@ -43,9 +43,8 @@ User fill form trước khi bắt đầu:
 | **Tiêu đề** | Tên task |
 | **Todo List** | Danh sách checkbox, hỗ trợ indent (checkbox con). Tối thiểu 1 item |
 | **Thời lượng** | Chọn trước: 15 / 25 / 45 / 60 / 90 / 120 phút (hoặc custom) |
-| **Ghi chú** | Optional, text tự do |
 
-Sau khi fill xong → bấm **"Start Task"** → vào màn hình Focus.
+Sau khi fill xong → bấm **"Start Task"** → vào màn hình Focus. Ghi chú được thêm vào trong Focus screen (append-only audit trail).
 
 ### 3.2 Màn Hình Focus (Minimalist)
 
@@ -63,7 +62,12 @@ Màn hình cực tối giản, không có gì gây distraction:
 │  [ ] Todo item 3                     │
 │  [+ Add todo]  [🗑 xóa todo đang chọn]│  ← Thêm/xóa todo (min 1 item)
 │                                      │
-│  📝 Notes...                         │  ← Text field thêm ghi chú live
+│  � Notes:                           │  ← Append-only audit trail (scrollable)
+│  ┌──────────────────────────────────┐│
+│  │ 14:32 Bắt đầu research logic...  ││
+│  │ 15:15 Phát hiện race condition   ││
+│  │ [+ Add note]                     ││
+│  └──────────────────────────────────┘│
 │                                      │
 │  [⏸ Pause]  [⏩ +15 min]            │
 │                                      │
@@ -75,7 +79,7 @@ Màn hình cực tối giản, không có gì gây distraction:
 
 - **Pause / Resume:** Dừng đồng hồ, vẫn ở màn hình focus.
 - **+15 min (Extend):** Thêm 15 phút vào thời lượng còn lại. Không giới hạn số lần extend.
-- **Pause Task:** Dừng task, lưu trạng thái (đồng hồ pausing, todo state, notes). User thoát về màn hình chính. Task xuất hiện trong list với badge "Paused — tiếp tục?". Có thể resume bất cứ lúc nào.
+- **Pause Task:** Dừng task, lưu trạng thái (đồng hồ pausing, todo state, notes audit trail). User thoát về màn hình chính. Task xuất hiện trong list với badge "Paused — tiếp tục?". Có thể resume bất cứ lúc nào.
 - **Submit Task:** Kiểm tra tất cả todo đã check. Nếu còn todo chưa check → hiện modal cảnh báo danh sách chưa xong, không cho submit. Khi tất cả checked → submit thành công → trigger reward flow.
 - **Give Up:** Confirm dialog "Bạn chắc chắn muốn bỏ task này?" → Xác nhận → task về trạng thái `given_up` → trigger penalty flow (nếu penalty mode ON).
 
@@ -446,7 +450,6 @@ tasks (
   user_id uuid FK,
   title text,
   todos jsonb,               -- [{id, text, checked, indent_level, parent_id}]
-  notes text,
   estimated_minutes int,
   actual_minutes int,
   extended_minutes int DEFAULT 0,
@@ -456,6 +459,17 @@ tasks (
   submitted_at timestamptz,
   created_at timestamptz
 )
+
+-- Task Notes (1-n audit trail) — Append-only notes during task execution
+task_notes (
+  id uuid PK,
+  task_id uuid FK,
+  user_id uuid FK,
+  content text,              -- Main note content, required, indexed for search
+  created_at timestamptz,
+  CONSTRAINT task_note_content_check CHECK (char_length(trim(content)) > 0)
+)
+-- Indexes: idx_task_notes_task_id (task_id DESC), idx_task_notes_user_id (user_id, created_at DESC)
 
 -- Task Daily Quota
 task_daily_quotas (
@@ -597,7 +611,6 @@ daily_recaps (
 Index: "tasks"
 {
   "title":        { "type": "text", "analyzer": "standard" },
-  "notes":        { "type": "text" },
   "status":       { "type": "keyword" },
   "user_id":      { "type": "keyword" },
   "submitted_at": { "type": "date" }
@@ -672,10 +685,11 @@ PATCH  /api/auth/me              { display_name, penalty_mode }
 ### Tasks
 ```
 GET    /api/tasks                ?status=&date=
-POST   /api/tasks                { title, todos[], estimated_minutes, notes }
+POST   /api/tasks                { title, todos[], estimated_minutes }
 GET    /api/tasks/:id
+GET    /api/tasks/:id/notes      ← Fetch all notes (ordered by created_at DESC)
+POST   /api/tasks/:id/notes      { content }  ← Add a note (append-only)
 PATCH  /api/tasks/:id/todos      { todos[] }
-PATCH  /api/tasks/:id/notes      { notes }
 POST   /api/tasks/:id/start
 POST   /api/tasks/:id/pause-timer
 POST   /api/tasks/:id/resume-timer
