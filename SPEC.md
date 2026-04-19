@@ -255,6 +255,7 @@ Server-side cronjob chạy hàng ngày:
 - Cổng, hàng rào, đường đi.
 - Đài phun nước (nhiều loại).
 - Vật trang trí: ghế đá, đèn lồng, biển tên vườn, cầu nhỏ...
+- **Avatar Frames** (cosmetic): Common → Epic, dùng để trang trí avatar profile. Query profile join frame → lấy asset URL.
 - **Nước tưới:** hồi phục 1 item `wilted` → `healthy`. Giá 50 bạc/lọ.
 
 **Thu mua lại (sell):**
@@ -470,7 +471,8 @@ users (
   username text UNIQUE,
   display_name text,
   avatar_url text,
-  plan varchar,              -- free | grower | master
+  active_frame_id uuid,       -- FK to user_frames (avatar frame cosmetic)
+  plan varchar,              -- free | pro | premium
   penalty_mode boolean DEFAULT false,
   silver_balance bigint DEFAULT 0,
   gold_balance int DEFAULT 0,
@@ -539,6 +541,27 @@ inventory (
   is_placed boolean DEFAULT false,
   obtained_via varchar,      -- task_reward|shop|marketplace
   obtained_at timestamptz
+)
+
+-- Avatar Frames (master catalog)
+frames (
+  id uuid PK,
+  name text,
+  rarity varchar,            -- common|uncommon|rare|epic|legendary
+  shop_price int,            -- NULL nếu không bán
+  asset_key text,            -- CSS frame border / SVG asset
+  description text,
+  created_at timestamptz
+)
+
+-- User-owned Frames
+user_frames (
+  id uuid PK,
+  user_id uuid FK,
+  frame_id uuid FK,
+  acquired_at timestamptz,
+  source varchar,            -- achievement|shop|event|reward
+  UNIQUE(user_id, frame_id)
 )
 
 -- Gardens

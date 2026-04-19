@@ -3,6 +3,7 @@ create table if not exists public.tasks (
     user_id uuid not null references public.users(id) on delete cascade,
     title text not null check (char_length(trim(title)) > 0),
     todos jsonb not null default '[]'::jsonb, 
+    penalty_mode boolean not null default false,
     status text not null default 'active' 
         check (status in ('active', 'paused', 'submitted', 'given_up')),
     registered_duration_min int not null check (registered_duration_min > 0),
@@ -19,15 +20,7 @@ create index if not exists idx_tasks_user_active
 on public.tasks (user_id) 
 where (deleted_at is null and status = 'active');
 
-create or replace function fn_update_task_timestamp()
-returns trigger as $$
-begin
-    new.updated_at = now();
-    return new;
-end;
-$$ language plpgsql;
-
 create trigger trg_update_tasks_modtime
     before update on public.tasks
     for each row
-    execute procedure fn_update_task_timestamp();
+    execute procedure fn_set_updated_at();
