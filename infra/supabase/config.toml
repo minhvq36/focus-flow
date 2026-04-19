@@ -1,0 +1,22 @@
+# Supabase project configuration
+
+[api]
+enabled = true
+max_body_size = "20mb"
+
+[db]
+major_version = 15
+
+[realtime]
+enabled = true
+max_connections = 100
+
+[auth]
+enable_signup = true
+external = {}
+
+[storage]
+enabled = true
+
+[edge_functions]
+enabled = true
