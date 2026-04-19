@@ -28,9 +28,13 @@ CREATE TABLE IF NOT EXISTS public.task_notes (
     task_id UUID NOT NULL REFERENCES public.tasks(id) ON DELETE CASCADE,
     user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
     
-    content TEXT NOT NULL CHECK (char_length(trim(content)) > 0),
+    content TEXT NOT NULL,
     
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     
     CONSTRAINT task_note_must_have_content CHECK (char_length(trim(content)) > 0)
 );
+
+-- Indexes for task_notes queries
+CREATE INDEX idx_task_notes_task_id ON public.task_notes(task_id DESC);
+CREATE INDEX idx_task_notes_user_id ON public.task_notes(user_id, created_at DESC);

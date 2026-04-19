@@ -101,6 +101,41 @@ draft → active → paused → active (resume)
 
 > "Task" tính là task được **Start** (chuyển sang `active`). Pause rồi resume không tốn thêm slot. Task `given_up` vẫn tốn slot — đây là một phần của cơ chế phạt nhẹ dù penalty mode OFF.
 
+### 3.5 Timer System
+
+**Schema Design:** Dùng `started_at` làm mốc "đang chạy" và `actual_duration_sec` là tổng thời gian đã lưu (append-only).
+
+| Field | Type | Mô tả |
+|---|---|---|
+| `registered_duration_min` | INT | Thời gian ban đầu (15/25/45/60/90/120 min hoặc custom). Có thể tăng qua Extend. |
+| `actual_duration_sec` | INT | Tổng thời gian đã lưu (không bao gồm delta đang chạy). Chỉ tăng khi pause task hoặc submit. |
+| `started_at` | TIMESTAMPTZ | Mốc khi bắt đầu hoặc resume. NULL = đang dừng. |
+
+**Thời gian thực tế:** `actual_duration_sec + (NOW() - started_at)` khi `started_at` không NULL.
+
+**Event Rules:**
+
+| Sự kiện | started_at | actual_duration_sec | Ghi chú |
+|---|---|---|---|
+| **Start** | = NOW() | không đổi | Task chuyển active, bắt đầu đếm |
+| **Pause Timer** | = NULL | += delta (NOW() - started_at) | Tạm dừng đồng hồ, nhưng task vẫn active |
+| **Resume Timer** | = NOW() | không đổi | Tiếp tục từ lúc dừng |
+| **Submit** | = NULL | += delta (nếu started_at còn) | Lưu lại thời gian cuối, task → submitted |
+| **Given Up** | = NULL | không đổi | Không tính thời gian cuối, task → given_up |
+| **Extend +N min** | không đổi | không đổi | Tăng `registered_duration_min += N` |
+
+**Recovery (tab close / mất mạng):**
+- Frontend query lại task: nếu `status = active` + `started_at` còn → tự tính `actual_duration_sec + (NOW() - started_at)` và đếm tiếp. Không cần DB update.
+
+**Cap Limit:**
+- Frontend tự dừng đồng hồ khi `actual_duration_sec + (NOW() - started_at) >= registered_duration_min * 60`.
+- Hiện nút Extend, người dùng chọn extend thêm hoặc submit.
+- Không heartbeat, không constraint DB.
+
+**Validation:**
+- Backend kiểm tra khi nhận `pause-timer`, `submit`, `give-up`: thời gian gửi lên có hợp lý không (tolerance ~10 giây).
+- DB chỉ giữ `CHECK (actual_duration_sec >= 0)`.
+
 ---
 
 ## 4. Garden System
@@ -449,15 +484,19 @@ tasks (
   id uuid PK,
   user_id uuid FK,
   title text,
-  todos jsonb,               -- [{id, text, checked, indent_level, parent_id}]
-  estimated_minutes int,
-  actual_minutes int,
-  extended_minutes int DEFAULT 0,
-  status varchar,            -- draft|active|paused|submitted|given_up
-  paused_elapsed_seconds int,   -- elapsed khi pause task (để resume)
-  started_at timestamptz,
+  todos jsonb,
+  status varchar,
+  registered_duration_min int,
+  actual_duration_sec int DEFAULT 0,
+  started_at timestamptz,          -- Mốc "đang chạy". NULL = dừng. Cập nhật khi start/resume.
+  created_at timestamptz,
+  updated_at timestamptz,
   submitted_at timestamptz,
-  created_at timestamptz
+  deleted_at timestamptz,
+  
+  -- Constraints
+  CONSTRAINT task_duration_positive CHECK (registered_duration_min > 0),
+  CONSTRAINT task_elapsed_positive CHECK (actual_duration_sec >= 0)
 )
 
 -- Task Notes (1-n audit trail) — Append-only notes during task execution
