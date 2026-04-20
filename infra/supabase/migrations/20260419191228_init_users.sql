@@ -1,10 +1,10 @@
 
--- TODO: Consider splitting frame into other migration file
--- Consider all text fields to be of type varchar(255) for better performance, unless we expect them to exceed that length.
 create table if not exists public.frames (
     id uuid primary key default gen_random_uuid(),
     name varchar(255) not null,
     asset_url text not null,
+    silver_price int DEFAULT null,
+    gold_price int DEFAULT null,
     created_at timestamptz default now()
 );
 
@@ -16,6 +16,14 @@ create table if not exists public.users (
     active_frame_id uuid references public.frames(id) on delete set null default null,
     created_at timestamptz not null default now(),
     updated_at timestamptz not null default now()
+);
+
+create table if not exists public.user_frames (
+    id uuid primary key default gen_random_uuid(),
+    user_id uuid not null references public.users(id) on delete cascade,
+    frame_id uuid not null references public.frames(id) on delete restrict,
+    acquired_at timestamptz default now(),
+    unique(user_id, frame_id)
 );
 
 create table if not exists public.user_private (
@@ -48,6 +56,10 @@ begin
     values (new.id)
     on conflict (user_id) do nothing;
 
+    insert into public.gardens (user_id, garden_index)
+    values (new.id, 1)
+    on conflict (user_id, garden_index) do nothing;
+
     return new;
 end;
 $$;
@@ -67,7 +79,7 @@ create trigger trg_update_user_private_modtime
     for each row
     execute procedure fn_set_updated_at();
 
-create trigger trg_update_user_wallets_modtime(
+create trigger trg_update_user_wallets_modtime
     before update on public.user_wallets
     for each row
     execute procedure fn_set_updated_at();

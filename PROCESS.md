@@ -183,9 +183,26 @@ focusflow/
     └── docker-compose.yml
 
 # 2. Init SQL Sandbox
+# Migrated Tables from Supabase:
     - public.tasks (done)
     - public.task_notes (done)
-    - public.users (ny)
+    - public.users (done)
+    - public.user_private (done)
+    - public.user_wallets (done)
+    - public.plan_quotas (done)
     - public.task_daily_quotas (done)
-    - garden_items (ny)
-    - transaction (ny)
+    - public.items (done)
+    - public.inventory (done)
+    - public.frames (done)
+    - public.gardens (done)
+    - public.garden_placements (done)
+    - public.user_frames (done)
+
+# TODO: Migrate Next Tables
+    - public.friendships (ny)
+    - public.feed_events (ny)
+    - public.marketplace_listings (ny)
+    - public.economy_transactions (ny)
+    - public.reward_rolls (ny)
+    - public.daily_recaps (ny)
+    
