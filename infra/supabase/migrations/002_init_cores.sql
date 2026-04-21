@@ -17,6 +17,7 @@ create table if not exists public.frames (
     silver_price int DEFAULT null,
     gold_price int DEFAULT null,
     is_purchasable boolean default true,
+    unlock_condition jsonb default null,
     created_at timestamptz default now()
 );
 
@@ -33,7 +34,17 @@ create table if not exists public.items (
     gold_price int DEFAULT NULL CHECK (gold_price > 0),
     buyback_silver int DEFAULT NULL CHECK (buyback_silver > 0),
     buyback_gold int DEFAULT NULL CHECK (buyback_gold > 0),
-    is_purchasable boolean default true,
+    is_purchasable boolean default true, -- for app shop selling
     can_wilt boolean default false,
+    unlock_condition jsonb default null,
     created_at timestamptz default now()
+);
+
+create table if not exists public.gardens (
+    id uuid primary key default gen_random_uuid(),
+    garden_index int not null check (garden_index between 1 and 20),
+    grid_size int not null default 5 check (grid_size > 0), -- always square
+    is_expandable boolean not null default false, -- if false, user cannot expand this garden anymore, logic to set in backend based on max expansion level
+    unlock_condition jsonb default null,
+    created_at timestamptz default now(),
 );

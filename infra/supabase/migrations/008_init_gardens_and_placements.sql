@@ -1,18 +1,17 @@
-create table if not exists public.gardens (
+create table if not exists public.user_gardens (
     id uuid primary key default gen_random_uuid(),
     user_id uuid not null references public.users(id) on delete cascade,
-    garden_index int not null check (garden_index between 1 and 20),
-    grid_size int not null default 5 check (grid_size > 0), -- always square
-    expansion_level int default 0 check (expansion_level >= 0), -- apply for garden level 20
+    garden_id uuid not null references public.gardens(id) on delete cascade,
+    expansion_level int not null default 0 check (expansion_level >= 0), -- tracks how many times user has expanded this garden, validate logic in backend
     created_at timestamptz default now(),
     updated_at timestamptz default now(),
-    unique(user_id, garden_index)
+    unique (user_id, garden_id)
 );
 
 -- NOTE: Collab with backend for control overlap placement. Too complex to enforce purely at DB level
 create table if not exists public.garden_placements (
     id uuid primary key default gen_random_uuid(),
-    garden_id uuid not null references public.gardens(id) on delete cascade,
+    user_garden_id uuid not null references public.user_gardens(id) on delete cascade,
     inventory_id uuid not null unique references public.inventory(id) on delete cascade, -- inventory global unique constraint to prevent double placement
     grid_x int not null check (grid_x >= 0),
     grid_y int not null check (grid_y >= 0),
@@ -21,7 +20,7 @@ create table if not exists public.garden_placements (
     wilted_at timestamptz default null,
     placed_at timestamptz default now(),
     updated_at timestamptz default now(),
-    unique (garden_id, grid_x, grid_y)
+    unique (user_garden_id, grid_x, grid_y)
 );
 
 create or replace function fn_sync_inventory_placement()
@@ -49,8 +48,8 @@ create trigger trg_after_garden_placement_change
     after insert or update or delete on public.garden_placements
     for each row execute procedure fn_sync_inventory_placement();
 
-create trigger trg_update_gardens_modtime
-    before update on public.gardens
+create trigger trg_update_user_gardens_modtime
+    before update on public.user_gardens
     for each row
     execute procedure fn_set_updated_at();
 
