@@ -200,6 +200,15 @@
   4. Update DB
 - **Output:** updated task
 
+#### UpdateTodos (Debounced Autosave)
+- **Input:** task_id, todos[]
+- **Logic:**
+  1. Fetch task, validate status='active'
+  2. Update task.todos = new todos[] in DB
+  3. Return updated todos (confirmation)
+- **Output:** todos[], 200 OK
+- **Note:** Called from frontend on ~1 sec idle (debounced). No need to validate all-checked at this point — that's done on Submit. This is just persistence.
+
 #### AddTaskNote
 - **Input:** task_id, content
 - **Logic:**
@@ -655,6 +664,7 @@ GET    /api/tasks/:id         Get task detail
 POST   /api/tasks/:id/start   Start task (sets started_at)
 POST   /api/tasks/:id/pause   Pause timer
 POST   /api/tasks/:id/resume  Resume timer
+PATCH  /api/tasks/:id/todos   Update todos (debounced autosave from Focus screen)
 POST   /api/tasks/:id/submit  Submit task (validate todos, trigger reward)
 POST   /api/tasks/:id/give-up Give up task (trigger penalty if enabled)
 POST   /api/tasks/:id/extend  Extend duration (+15 min)

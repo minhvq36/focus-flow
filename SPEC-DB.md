@@ -82,7 +82,8 @@ premium  → 16 tasks/day
 id                  uuid PK
 user_id             uuid NOT NULL → users(id) [CASCADE delete]
 title               text NOT NULL (non-empty)
-todos               jsonb NOT NULL DEFAULT []  -- array of {text, checked}
+todos               jsonb NOT NULL DEFAULT []  -- array of {id, text, checked, indent}
+                                                   -- synced via PATCH /api/tasks/:id/todos (debounced)
 penalty_mode        boolean DEFAULT false      -- snapshot of user.penalty_mode at creation
 status              text DEFAULT 'active'
                     CHECK (status IN ('active', 'paused', 'submitted', 'given_up'))

@@ -226,8 +226,11 @@
 - **Todos:**
   - Checkbox-based, nested (indent = sub-item)
   - Drag-drop to reorder (optional)
-  - Add/remove on-the-fly
-  - Minimum 1 item enforced
+  - Add/remove on-the-fly (minimum 1 item enforced)
+  - **Real-time sync feedback:** Show subtle sync indicator (✓ saved / 🔄 syncing) next to todos section
+    - User checks todo → Instant visual update → Debounce 1 sec → Backend syncs
+    - If sync pending > 2 sec, show warning toast "Changes may be lost"
+  - Recovery on page reload: todos restored from DB
 
 - **Notes Audit Trail:**
   - Append-only, shows timestamps
@@ -523,29 +526,97 @@ type EconomyStore = {
 
 ## 5. Custom Hooks
 
-### 5.1 useTaskSession
+### 5.1 useTaskSession (with Todos Debounce)
+
+**State Management Strategy:**
+- **Local state is source of truth** during Focus session
+- Todos edited in real-time → Zustand taskStore → Debounce 1-2s → PATCH DB
+- Force sync (bypass debounce) on: Pause Task, Submit, Give Up
+- Tab close/crash: Recovery syncs todos from DB (may lose edits in last 2 sec, acceptable for edge case)
+
 ```typescript
 const useTaskSession = (taskId: string) => {
-  const [state, dispatch] = useState<'active' | 'paused' | 'submitted'>('active');
+  const [state, setState] = useState<'active' | 'paused' | 'submitted'>('active');
   const [elapsedSec, setElapsedSec] = useState(0);
+  const [todos, setTodos] = useTaskStore(state => [state.todos, state.setTodos]);
+  const [todosSyncPending, setTodosSyncPending] = useState(false);
   
-  const start = () => { /* set started_at in Redis */ };
-  const pause = () => { /* accumulate actual_duration_sec */ };
-  const resume = () => { /* reset started_at */ };
-  const submit = () => { /* finalize, send to API */ };
-  const giveUp = () => { /* penalty flow */ };
+  // Debounced todos sync to DB (1 sec idle)
+  const debouncedSaveTodos = useMemo(
+    () => debounce(async (updatedTodos) => {
+      try {
+        setTodosSyncPending(true);
+        await fetch(`/api/tasks/${taskId}/todos`, {
+          method: 'PATCH',
+          body: JSON.stringify({ todos: updatedTodos })
+        });
+        setTodosSyncPending(false);
+      } catch (err) {
+        // Retry on next idle, or show toast
+        setTodosSyncPending(false);
+      }
+    }, 1000),
+    [taskId]
+  );
   
-  // Recovery on mount: query API for task state
-  useEffect(() => {
-    // if page reloaded, fetch latest state from server
-    fetchTaskState(taskId).then(task => {
-      // sync with local state
+  const updateTodos = (newTodos) => {
+    setTodos(newTodos);  // Instant local update
+    debouncedSaveTodos(newTodos);  // Debounced DB sync
+  };
+  
+  // Force sync: used when leaving Focus screen
+  const forceSyncTodos = async () => {
+    await fetch(`/api/tasks/${taskId}/todos`, {
+      method: 'PATCH',
+      body: JSON.stringify({ todos })
     });
-  }, []);
+  };
   
-  return { state, elapsedSec, start, pause, resume, submit, giveUp };
+  const start = () => { /* set started_at, query DB for todos */ };
+  const pause = () => { /* accumulate actual_duration_sec, force sync todos */ };
+  const resume = () => { /* reset started_at */ };
+  const submit = () => { /* force sync todos, validate all checked */ };
+  const giveUp = () => { /* force sync todos, penalty flow */ };
+  
+  // Recovery on mount: fetch latest state from server
+  useEffect(() => {
+    fetchTaskState(taskId).then(task => {
+      setTodos(task.todos);  // Restore todos from DB
+      setElapsedSec(calculateElapsedSec(task));
+    });
+  }, [taskId]);
+  
+  return { 
+    state, 
+    elapsedSec, 
+    todos, 
+    updateTodos, 
+    forceSyncTodos,
+    todosSyncPending,
+    start, 
+    pause, 
+    resume, 
+    submit, 
+    giveUp 
+  };
 };
 ```
+
+**Todos Object Structure:**
+```typescript
+interface TodoItem {
+  id: string;        // UUID for unique tracking
+  text: string;
+  checked: boolean;
+  indent: number;    // 0 = root, 1 = sub-item, 2 = sub-sub, etc.
+}
+```
+
+**When to Force Sync:**
+- User clicks "Pause Task" → `forceSyncTodos()` before navigation
+- User clicks "Submit" → `forceSyncTodos()` before validation
+- User clicks "Give Up" → `forceSyncTodos()` before penalty flow
+- Tab close/beforeunload → `forceSyncTodos()` (optional safety net)
 
 ### 5.2 useGarden
 ```typescript
