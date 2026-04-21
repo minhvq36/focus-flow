@@ -485,11 +485,12 @@ users (
   updated_at timestamptz
 )
 
--- User Private (email, plan - not exposed in public queries)
+-- User Private (email, plan, penalty mode - not exposed in public queries)
 user_private (
   user_id uuid PK,
   email varchar(255) UNIQUE,
   plan_type varchar,             -- free|pro|premium (refs plan_quotas)
+  penalty_mode boolean DEFAULT true,  -- user-level setting (can be toggled)
   updated_at timestamptz
 )
 
@@ -514,7 +515,7 @@ tasks (
   user_id uuid FK,
   title text,
   todos jsonb,                   -- array of checkbox items
-  penalty_mode boolean DEFAULT false,  -- per-task penalty setting
+  penalty_mode boolean DEFAULT false,  -- captured from user.penalty_mode at task creation
   status varchar,                -- active|paused|submitted|given_up
   registered_duration_min int,
   actual_duration_sec int DEFAULT 0,
@@ -529,6 +530,7 @@ tasks (
   CONSTRAINT task_must_have_todos CHECK (jsonb_array_length(todos) > 0)
 )
 -- Index: idx_tasks_user_active (user_id) WHERE deleted_at IS NULL AND status='active'
+-- Note: penalty_mode is a snapshot of user's penalty setting at task creation time
 
 -- Task Notes (1-n audit trail) — Append-only
 task_notes (
@@ -580,6 +582,16 @@ frames (
   name varchar(255),
   asset_url text,                -- CSS border / SVG asset
   created_at timestamptz
+)
+
+-- User-owned Frames
+user_frames (
+  id uuid PK,
+  user_id uuid FK,
+  frame_id uuid FK,
+  acquired_at timestamptz,
+  source varchar,            -- achievement|shop|event|reward
+  UNIQUE(user_id, frame_id)
 )
 
 -- Gardens
@@ -671,6 +683,7 @@ reward_rolls (
   seed text,
   rarity_result varchar,
   item_id uuid FK,
+  silver_amount int,
   created_at timestamptz
 )
 
@@ -678,8 +691,13 @@ reward_rolls (
 daily_recaps (
   id uuid PK,
   user_id uuid FK,
-  date date,
+  date date UNIQUE,
   content text,
+  tasks_completed int,
+  tasks_given_up int,
+  silver_earned bigint,
+  items_earned jsonb,
+  ai_suggestions jsonb,
   created_at timestamptz
 )
 ```

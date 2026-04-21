@@ -197,12 +197,4 @@ focusflow/
     - public.gardens (done)
     - public.garden_placements (done)
     - public.user_frames (done)
-
-# TODO: Migrate Next Tables
-    - public.friendships (ny)
-    - public.feed_events (ny)
-    - public.marketplace_listings (ny)
-    - public.economy_transactions (ny)
-    - public.reward_rolls (ny)
-    - public.daily_recaps (ny)
     
