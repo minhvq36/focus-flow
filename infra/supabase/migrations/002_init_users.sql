@@ -1,13 +1,3 @@
-create table if not exists public.frames (
-    id uuid primary key default gen_random_uuid(),
-    name varchar(255) not null,
-    asset_url text not null,
-    silver_price int DEFAULT null,
-    gold_price int DEFAULT null,
-    is_purchasable boolean default true,
-    created_at timestamptz default now()
-);
-
 create table if not exists public.users (
     id uuid primary key references auth.users(id) on delete cascade,
     display_name varchar(255) not null check (char_length(display_name) >= 2),

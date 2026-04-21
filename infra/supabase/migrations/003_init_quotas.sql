@@ -1,15 +1,3 @@
-create table if not exists public.plan_quotas (
-    plan_type text primary key,
-    daily_task_limit int not null
-);
-
-insert into public.plan_quotas (plan_type, daily_task_limit)
-values 
-    ('free', 3),
-    ('pro', 10),
-    ('premium', 16)
-on conflict (plan_type) do update set daily_task_limit = excluded.daily_task_limit;
-
 create table if not exists public.task_daily_quotas (
     user_id uuid not null references public.users(id) on delete cascade,
     target_date date not null default current_date,
@@ -44,7 +32,6 @@ begin
 end;
 $$ language plpgsql;
 
-/* trigger: giữ nguyên */
 create trigger trg_pre_insert_task_quota
     before insert on public.tasks
     for each row

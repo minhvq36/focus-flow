@@ -1,3 +1,25 @@
+create table if not exists public.plan_quotas (
+    plan_type text primary key,
+    daily_task_limit int not null
+);
+
+insert into public.plan_quotas (plan_type, daily_task_limit)
+values 
+    ('free', 3),
+    ('pro', 10),
+    ('premium', 16)
+on conflict (plan_type) do update set daily_task_limit = excluded.daily_task_limit;
+
+create table if not exists public.frames (
+    id uuid primary key default gen_random_uuid(),
+    name varchar(255) not null,
+    asset_url text not null,
+    silver_price int DEFAULT null,
+    gold_price int DEFAULT null,
+    is_purchasable boolean default true,
+    created_at timestamptz default now()
+);
+
 -- TODO: Check performance when backend have to query for item details for inven and shop -> rpc
 create table if not exists public.items (
     id uuid primary key default gen_random_uuid(),
@@ -14,12 +36,4 @@ create table if not exists public.items (
     is_purchasable boolean default true,
     can_wilt boolean default false,
     created_at timestamptz default now()
-);
-
-create table if not exists public.inventory (
-    id uuid primary key default gen_random_uuid(),
-    user_id uuid not null references public.users(id) on delete cascade,
-    item_id uuid not null references public.items(id) on delete restrict,
-    is_placed boolean default false, -- Optimization to filter available items in UI
-    acquired_at timestamptz default now()
 );
