@@ -18,12 +18,36 @@ alter table public.users enable row level security;
 create policy "allow_read_for_all_auth_users" on public.users
     for select to authenticated using (true);
 create policy "allow_update_for_owner" on public.users
-    for update to authenticated using (select auth.uid() = id)
-    with check (select auth.uid() = id);
+    for update to authenticated using ( auth.uid() = id )
+    with check ( auth.uid() = id );
+
 alter table public.user_frames enable row level security;
+create policy "allow_read_for_owner" on public.user_frames
+    for select to authenticated 
+    using ( auth.uid() = user_id );
+
 alter table public.user_private enable row level security;
+create policy "allow_read_for_owner" on public.user_private
+    for select to authenticated 
+    using ( auth.uid() = user_id );
+
 alter table public.user_wallets enable row level security;
+create policy "allow_read_for_owner" on public.user_wallets
+    for select to authenticated 
+    using ( auth.uid() = user_id );
+
 alter table public.tasks enable row level security;
+create policy "allow_read_for_owner" on public.tasks
+    for select to authenticated 
+    using ( auth.uid() = user_id );
+create policy "allow_insert_for_owner" on public.tasks
+    for insert to authenticated 
+    with check ( auth.uid() = user_id );
+create policy "allow_update_for_owner" on public.tasks
+    for update to authenticated 
+    using ( auth.uid() = user_id )
+    with check ( auth.uid() = user_id );
+
 alter table public.task_notes enable row level security;
 alter table public.task_daily_quotas enable row level security;
 alter table public.inventory enable row level security;

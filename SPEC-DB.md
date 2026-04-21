@@ -145,30 +145,48 @@ updated_at          timestamptz
 
 ### 1.4 Garden System
 
-#### `gardens`
+#### `gardens` (core template - no user_id)
 ```sql
 id                  uuid PK
-user_id             uuid NOT NULL → users(id) [CASCADE delete]
 garden_index        int NOT NULL CHECK BETWEEN 1 AND 20
-expansion_level     int DEFAULT 0 CHECK >= 0
+grid_size           int NOT NULL DEFAULT 5 CHECK > 0
+is_expandable       boolean NOT NULL DEFAULT false
+unlock_condition    jsonb DEFAULT NULL
 created_at          timestamptz
-updated_at          timestamptz
-UNIQUE              (user_id, garden_index)
 ```
 
 **Logic:**
-- User starts with garden_index=1 (5×5 grid)
-- Grid size derived from garden_index: `5 + garden_index` × `5 + garden_index` (max level 20)
-- Level 20 can expand: grid becomes (25 + 5×expansion_level) × (25 + 5×expansion_level)
-- When user fills all slots at level N → garden_index increments to N+1 (unlocks next level)
+- Core resource table: defines garden templates for each level (1-20)
+- `grid_size`: base grid dimensions (5×5 for level 1, increments per level, max 25×25 base for level 20)
+- `is_expandable`: whether users can expand this garden (only true for level 20)
+- `unlock_condition`: JSON conditions to unlock this garden level (e.g., `{"min_level": 5}` or null for always available)
+- Grid size calculated at level N: (5 + N) × (5 + N), with expansions applied via `user_gardens.expansion_level`
+
+#### `user_gardens` (user ownership & progression)
+```sql
+id                  uuid PK
+user_id             uuid NOT NULL → users(id) [CASCADE delete]
+garden_id           uuid NOT NULL → gardens(id) [CASCADE delete]
+expansion_level     int NOT NULL DEFAULT 0 CHECK >= 0
+created_at          timestamptz
+updated_at          timestamptz
+UNIQUE              (user_id, garden_id)
+```
+
+**Logic:**
+- User-specific record linking a user to a garden level they own
+- `expansion_level` tracks how many times user expanded (only for garden_index=20)
+  - Expanded grid size: (base + 5×expansion_level) × (base + 5×expansion_level)
+- User automatically gets `garden_id=1` on signup
+- When all slots filled at level N → backend creates new `user_gardens` record for level N+1
 
 **Triggers:**
-- `trg_update_gardens_modtime`
+- `trg_update_user_gardens_modtime`
 
 #### `garden_placements`
 ```sql
 id                  uuid PK
-garden_id           uuid NOT NULL → gardens(id) [CASCADE delete]
+user_garden_id      uuid NOT NULL → user_gardens(id) [CASCADE delete]
 inventory_id        uuid NOT NULL UNIQUE → inventory(id) [CASCADE delete]
 grid_x              int NOT NULL CHECK >= 0
 grid_y              int NOT NULL CHECK >= 0
@@ -177,12 +195,13 @@ health_status       varchar DEFAULT 'healthy' CHECK IN ('healthy', 'wilted')
 wilted_at           timestamptz DEFAULT NULL
 placed_at           timestamptz DEFAULT now()
 updated_at          timestamptz
-UNIQUE              (garden_id, grid_x, grid_y)
+UNIQUE              (user_garden_id, grid_x, grid_y)
 ```
 
 **Logic:**
 - Each garden placement occupies one grid cell (1×1)
-- `inventory_id` UNIQUE globally prevents item placed twice
+- `user_garden_id` references `user_gardens`, isolating placements by user+garden
+- `inventory_id` UNIQUE globally prevents item placed twice across all gardens
 - `health_status`: 
   - `healthy` (default) — item displays normally, counts toward garden value
   - `wilted` — item lost luster (from penalty or inactive 7 days), doesn't count toward value
