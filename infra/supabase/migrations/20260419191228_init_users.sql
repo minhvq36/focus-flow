@@ -1,10 +1,10 @@
-
 create table if not exists public.frames (
     id uuid primary key default gen_random_uuid(),
     name varchar(255) not null,
     asset_url text not null,
     silver_price int DEFAULT null,
     gold_price int DEFAULT null,
+    is_purchasable boolean default true,
     created_at timestamptz default now()
 );
 
@@ -20,10 +20,10 @@ create table if not exists public.users (
 
 create table if not exists public.user_frames (
     id uuid primary key default gen_random_uuid(),
-    user_id uuid not null references public.users(id) on delete cascade,
-    frame_id uuid not null references public.frames(id) on delete restrict,
-    acquired_at timestamptz default now(),
-    unique(user_id, frame_id)
+    user_id uuid NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+    frame_id uuid NOT NULL REFERENCES public.frames(id) ON DELETE RESTRICT,
+    acquired_at timestamptz DEFAULT now(),
+    UNIQUE(user_id, frame_id)
 );
 
 create table if not exists public.user_private (
