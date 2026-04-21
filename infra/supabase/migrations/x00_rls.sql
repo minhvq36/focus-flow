@@ -1,0 +1,14 @@
+alter table public.plan_quotas enable row level security;
+alter table public.frames enable row level security;
+alter table public.items enable row level security;
+alter table public.users enable row level security;
+alter table public.user_frames enable row level security;
+alter table public.user_private enable row level security;
+alter table public.user_wallets enable row level security;
+alter table public.tasks enable row level security;
+alter table public.task_notes enable row level security;
+alter table public.task_daily_quotas enable row level security;
+alter table public.inventory enable row level security;
+alter table public.gardens enable row level security;
+alter table public.garden_placements enable row level security;
+alter table public.reward_rolls enable row level security;
