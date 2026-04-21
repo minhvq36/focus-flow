@@ -42,9 +42,9 @@ create table if not exists public.items (
 
 create table if not exists public.gardens (
     id uuid primary key default gen_random_uuid(),
-    garden_index int not null check (garden_index between 1 and 20),
+    garden_index int not null,
     grid_size int not null default 5 check (grid_size > 0), -- always square
     is_expandable boolean not null default false, -- if false, user cannot expand this garden anymore, logic to set in backend based on max expansion level
     unlock_condition jsonb default null,
-    created_at timestamptz default now(),
+    created_at timestamptz default now()
 );

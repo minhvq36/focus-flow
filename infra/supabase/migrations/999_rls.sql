@@ -15,6 +15,11 @@ create policy "allow_read_for_all_auth_users" on public.gardens
     for select to authenticated using (true);
 
 alter table public.users enable row level security;
+create policy "allow_read_for_all_auth_users" on public.users
+    for select to authenticated using (true);
+create policy "allow_update_for_owner" on public.users
+    for update to authenticated using (select auth.uid() = id)
+    with check (select auth.uid() = id);
 alter table public.user_frames enable row level security;
 alter table public.user_private enable row level security;
 alter table public.user_wallets enable row level security;
@@ -22,6 +27,6 @@ alter table public.tasks enable row level security;
 alter table public.task_notes enable row level security;
 alter table public.task_daily_quotas enable row level security;
 alter table public.inventory enable row level security;
-alter table public.gardens enable row level security;
+alter table public.user_gardens enable row level security;
 alter table public.garden_placements enable row level security;
 alter table public.reward_rolls enable row level security;
