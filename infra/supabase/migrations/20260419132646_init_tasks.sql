@@ -1,7 +1,7 @@
 create table if not exists public.tasks (
     id uuid primary key default gen_random_uuid(),
     user_id uuid not null references public.users(id) on delete cascade,
-    title text not null check (char_length(trim(title)) > 0),
+    title text not null check (char_length(trim(title)) > 0 and char_length(title) <= 255),
     todos jsonb not null default '[]'::jsonb, 
     penalty_mode boolean not null default false,
     status text not null default 'active' 
@@ -13,7 +13,7 @@ create table if not exists public.tasks (
     updated_at timestamptz not null default now(),
     completed_at timestamptz,
     deleted_at timestamptz,
-    constraint task_must_have_todos check (jsonb_array_length(todos) > 0)
+    constraint task_must_have_todos check (jsonb_array_length(todos)>0 and jsonb_array_length(todos)<=50) -- TODO: need valid with backend to handle nested deep structured + valid with frontend for max length of kind of text
 );
 
 create index if not exists idx_tasks_user_active 
