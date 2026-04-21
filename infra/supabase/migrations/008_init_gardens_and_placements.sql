@@ -25,7 +25,10 @@ create table if not exists public.garden_placements (
 );
 
 create or replace function fn_sync_inventory_placement()
-returns trigger language plpgsql as $$
+returns trigger language plpgsql
+security definer
+set search_path = public
+as $$
 begin
     if (TG_OP = 'INSERT') then
         update public.inventory set is_placed = true where id = new.inventory_id;

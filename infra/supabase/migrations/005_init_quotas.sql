@@ -6,7 +6,10 @@ create table if not exists public.task_daily_quotas (
 );
 
 create or replace function fn_enforce_task_quota()
-returns trigger as $$
+returns trigger
+security definer
+set search_path = public
+as $$
 declare
     v_daily_limit int;
 begin

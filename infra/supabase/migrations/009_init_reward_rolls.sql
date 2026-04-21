@@ -16,7 +16,10 @@ create or replace function fn_submit_task_reward(
     p_item_id uuid,
     p_silver_amount int,
     p_seed text
-) returns void as $$
+) returns void
+security definer
+set search_path = public
+as $$
 begin
     update public.user_wallets
     set silver_balance = silver_balance + p_silver_amount
