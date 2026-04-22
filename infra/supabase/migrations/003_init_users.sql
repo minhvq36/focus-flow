@@ -33,7 +33,18 @@ create table if not exists public.user_wallets (
 create or replace function public.handle_new_auth_user()
 returns trigger language plpgsql security definer
 set search_path = public as $$
+declare
+    v_starter_garden_id uuid;
 begin
+    select g.id into v_starter_garden_id
+    from public.gardens as g
+    where g.id = '00000000-0000-0000-0000-000000000001';
+
+    if v_starter_garden_id is null then
+        raise exception
+        'SYSTEM NOT READY: starter garden is missing. User registration blocked.';
+    end if;
+
     insert into public.users (id, display_name)
     values (new.id, split_part(new.email, '@', 1))
     on conflict (id) do nothing;
@@ -46,9 +57,9 @@ begin
     values (new.id)
     on conflict (user_id) do nothing;
 
-    insert into public.gardens (user_id, garden_index)
-    values (new.id, 1)
-    on conflict (user_id, garden_index) do nothing;
+    insert into public.user_gardens (user_id, garden_id)
+    values (new.id, '00000000-0000-0000-0000-000000000001')
+    on conflict do nothing;
 
     return new;
 end;

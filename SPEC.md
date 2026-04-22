@@ -44,7 +44,7 @@ User fill form trước khi bắt đầu:
 | **Todo List** | Danh sách checkbox, hỗ trợ indent (checkbox con). Tối thiểu 1 item |
 | **Thời lượng** | Chọn trước: 15 / 25 / 45 / 60 / 90 / 120 phút (hoặc custom) |
 
-Sau khi fill xong → bấm **"Start Task"** → vào màn hình Focus. Ghi chú được thêm vào trong Focus screen (append-only audit trail).
+Sau khi fill xong → bấm **"Create Task"** → task được tạo và đồng hồ tự động bắt đầu → vào màn hình Focus. Ghi chú được thêm vào trong Focus screen (append-only audit trail).
 
 ### 3.2 Màn Hình Focus (Minimalist)
 
@@ -91,7 +91,7 @@ active (created & waiting to start) → paused → active (resume)
                                            └→ given_up  (🏳 penalty)
 ```
 
-**Note:** Task không có `draft` state. Khi tạo task form → task được lưu vào DB ngay với status `active` (nhưng `started_at = NULL`, tức đồng hồ chưa chạy). Khi user bấm "Start Task" → `started_at` được set = NOW().
+**Note:** Task không có `draft` state. Khi tạo task form → task được lưu vào DB ngay với status `active` và `started_at = NOW()` (đồng hồ tự động bắt đầu). ⚠️ **Design Note:** Original spec intended started_at=NULL until user clicks "Start Task", nhưng current migration auto-initializes timer on creation.
 
 ### 3.4 Daily Task Limits (by Plan)
 
@@ -557,7 +557,7 @@ items (
   id uuid PK,
   name varchar(255),
   type varchar,                  -- flower|structure|decoration|path
-  rarity varchar,                -- common|uncommon|rare|epic|legendary
+  rarity varchar,                -- common|uncommon|rare|epic|legendary|eternal
   asset_key varchar(255),        -- sprite/asset reference
   height int DEFAULT 1,          -- grid cell height
   width int DEFAULT 1,           -- grid cell width

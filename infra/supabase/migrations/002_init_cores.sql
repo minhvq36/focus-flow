@@ -3,13 +3,6 @@ create table if not exists public.plan_quotas (
     daily_task_limit int not null
 );
 
-insert into public.plan_quotas (plan_type, daily_task_limit)
-values 
-    ('free', 3),
-    ('pro', 10),
-    ('premium', 16)
-on conflict (plan_type) do update set daily_task_limit = excluded.daily_task_limit;
-
 create table if not exists public.frames (
     id uuid primary key default gen_random_uuid(),
     name varchar(255) not null,
@@ -48,3 +41,15 @@ create table if not exists public.gardens (
     unlock_condition jsonb default null,
     created_at timestamptz default now()
 );
+
+-- TODO/IMPORTANT: Add Seed data for frames, items, gardens app
+insert into public.plan_quotas (plan_type, daily_task_limit)
+values 
+    ('free', 3),
+    ('pro', 10),
+    ('premium', 16)
+on conflict (plan_type) do update set daily_task_limit = excluded.daily_task_limit;
+
+insert into public.gardens (id, garden_index, grid_size)
+values ('00000000-0000-0000-0000-000000000001', 1, 5)
+on conflict do nothing;

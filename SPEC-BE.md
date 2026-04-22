@@ -137,20 +137,21 @@
 - **Input:** user_id, title, todos[], duration_min
 - **Logic:**
   1. Validate todos non-empty
-  2. Create task with status='active', started_at=NULL
+  2. Create task with status='active', started_at=NOW() (auto-starts immediately)
   3. Insert into DB (status='active')
   4. Increment task_daily_quotas (via trigger)
   5. If quota exceeded → transaction rolls back, return 409 Conflict
 - **Output:** task_id, redirect to Focus screen
+- **Note:** Migration 004 automatically sets started_at=NOW() on task creation (timer auto-starts)
 
 #### StartTask
 - **Input:** task_id
 - **Logic:**
   1. Fetch task, validate status='active'
-  2. Set task.started_at = NOW()
-  3. Store in Redis: `task:{task_id}:started_at = now(), actual_duration_sec = 0`
-  4. Update DB task.started_at
+  2. **TODO:** Migration 004 already sets started_at=NOW() on creation, so this endpoint may be redundant or needs redesign
+  3. For now: assume task timer is already running from creation time
 - **Output:** task object, 200 OK
+- **Design Note:** Current migration behavior differs from original spec (timer auto-starts on creation vs user-initiated start)
 
 #### PauseTimer
 - **Input:** task_id
@@ -236,6 +237,7 @@ Uncommon:   20%  ×1.0 multiplier
 Rare:        7%  ×1.5 multiplier (higher rarity = higher silver)
 Epic:      2.5%  ×2.0 multiplier
 Legendary: 0.5%  ×2.5 multiplier (capped at ×2.5)
+Eternal:  < 0.5% (reserved for future expansion)
 
 Difficulty multiplier (based on task duration):
 < 30 min:   ×1.0
@@ -661,7 +663,7 @@ market_price = latest legendary transaction price (default 5 gold = 50000 silver
 POST   /api/tasks              Create task (title, todos, duration_min)
 GET    /api/tasks             List user tasks (paginated, filters)
 GET    /api/tasks/:id         Get task detail
-POST   /api/tasks/:id/start   Start task (sets started_at)
+POST   /api/tasks/:id/start   Start task (⚠️ TODO: Redundant? Timer already starts on creation)
 POST   /api/tasks/:id/pause   Pause timer
 POST   /api/tasks/:id/resume  Resume timer
 PATCH  /api/tasks/:id/todos   Update todos (debounced autosave from Focus screen)

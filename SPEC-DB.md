@@ -31,9 +31,10 @@ updated_at          timestamptz
 user_id             uuid PK → users(id) [CASCADE delete]
 email               varchar(255) UNIQUE NOT NULL
 plan_type           text DEFAULT 'free' → plan_quotas(plan_type)
-penalty_mode        boolean DEFAULT true    -- user-level penalty setting
 updated_at          timestamptz
 ```
+
+**Note:** Penalty mode is stored per-task (`penalty_mode` field in tasks table) captured at task creation time. User-level default preference can be stored in frontend localStorage or added to this table later if needed.
 
 **Purpose:** Stores sensitive user data (email), subscription plan, and penalty mode setting. Never queried in public endpoints.
 
@@ -107,11 +108,11 @@ deleted_at          timestamptz
 - `idx_tasks_user_active` — (user_id) WHERE deleted_at IS NULL AND status='active'
 
 **Logic Notes:**
-- Task created with status='active' but `started_at` IS NULL (timer not running)
-- When user clicks "Start", `started_at` = NOW()
+- Task created with status='active' and `started_at` = NOW() (timer auto-starts immediately via migration 004 sanitize trigger)
+- **Design Note:** Original spec intended started_at=NULL until user clicks "Start", but current migration auto-initializes it
 - When paused, `actual_duration_sec` += (NOW() - started_at), then `started_at` = NULL
 - When submitted/given_up, finalize `actual_duration_sec` and set `completed_at`
-- `penalty_mode` captured at task creation from user.penalty_mode (never changes after)
+- `penalty_mode` captured at task creation from user.penalty_mode at task creation time (never changes after)
 
 #### `task_daily_quotas` (auto-increment via trigger)
 ```sql
@@ -224,7 +225,7 @@ name                varchar(255) NOT NULL
 type                varchar(50) NOT NULL
                     CHECK (type IN ('flower', 'structure', 'decoration', 'path'))
 rarity              varchar(50) NOT NULL
-                    CHECK (rarity IN ('common', 'uncommon', 'rare', 'epic', 'legendary'))
+                    CHECK (rarity IN ('common', 'uncommon', 'rare', 'epic', 'legendary', 'eternal'))
 asset_key           varchar(255) NOT NULL
 height              int DEFAULT 1 CHECK > 0
 width               int DEFAULT 1 CHECK > 0
@@ -301,7 +302,7 @@ reward_rolls (
   task_id uuid FK → tasks(id),
   user_id uuid FK → users(id),
   seed text,                      -- deterministic RNG seed
-  rarity_result varchar,          -- common|uncommon|rare|epic|legendary
+  rarity_result varchar,          -- common|uncommon|rare|epic|legendary|eternal
   item_id uuid FK → items(id),
   silver_amount int,
   created_at timestamptz
