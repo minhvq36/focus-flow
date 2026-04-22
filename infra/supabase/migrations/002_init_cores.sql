@@ -26,7 +26,7 @@ create table if not exists public.items (
     id uuid primary key default gen_random_uuid(),
     name varchar(255) not null,
     type varchar(50) not null check (type in ('flower', 'structure', 'decoration', 'path')),
-    rarity varchar(50) not null check (rarity in ('common', 'uncommon', 'rare', 'epic', 'legendary')),
+    rarity varchar(50) not null check (rarity in ('common', 'uncommon', 'rare', 'epic', 'legendary', 'eternal')),
     asset_key varchar(255) not null,
     height int default 1 check (height > 0),
     width int default 1 check (width > 0),

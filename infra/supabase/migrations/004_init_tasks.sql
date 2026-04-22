@@ -24,3 +24,62 @@ create trigger trg_update_tasks_modtime
     before update on public.tasks
     for each row
     execute procedure fn_set_updated_at();
+
+
+-- TODO: hard test
+create or replace function tasks_insert_sanitize()
+returns trigger as $$
+begin
+    -- Force initial state
+    new.status := 'active';
+    new.actual_duration_sec := 0;
+    new.started_at := now();
+    new.completed_at := null;
+    new.deleted_at := null;
+
+    -- Ensure timestamps
+    new.created_at := now();
+
+    return new;
+end;
+$$ language plpgsql;
+
+create trigger trg_tasks_insert_sanitize
+    before insert on public.tasks
+    for each row
+    execute procedure tasks_insert_sanitize();
+
+create or replace function public.fn_tasks_protect_system_fields()
+returns trigger as $$
+begin
+    -- Allow backend (service role) to bypass all checks
+    if auth.role() = 'service_role' then
+        return new;
+    end if;
+
+    -- Prevent changing immutable fields
+    if new.created_at is distinct from old.created_at then
+        raise exception 'Cannot modify created_at';
+    end if;
+
+    -- Prevent modifying system-managed fields
+    if (
+        new.penalty_mode is distinct from old.penalty_mode or
+        new.status is distinct from old.status or
+        new.started_at is distinct from old.started_at or
+        new.actual_duration_sec is distinct from old.actual_duration_sec or
+        new.completed_at is distinct from old.completed_at or
+        new.deleted_at is distinct from old.deleted_at
+    ) then
+        raise exception 'System fields cannot be modified directly';
+    end if;
+
+    return new;
+end;
+$$ language plpgsql;
+
+create trigger trg_tasks_protect_system_fields
+before update on public.tasks
+for each row
+execute function public.fn_tasks_protect_system_fields();
+
