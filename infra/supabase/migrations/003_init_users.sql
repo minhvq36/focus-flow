@@ -1,6 +1,6 @@
 create table if not exists public.users (
     id uuid primary key references auth.users(id) on delete cascade,
-    display_name varchar(255) not null check (char_length(display_name) >= 2),
+    display_name varchar(255) not null check (char_length(trim(display_name)) >= 1),
     bio varchar(255),
     avatar_url text,
     active_frame_id uuid references public.frames(id) on delete set null default null,
