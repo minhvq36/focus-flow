@@ -14,9 +14,9 @@ declare
     v_daily_limit int;
 begin
     select q.daily_task_limit into v_daily_limit
-    from public.users u
-    join public.plan_quotas q on u.plan_type = q.plan_type
-    where u.id = new.user_id;
+    from public.user_private up
+    join public.plan_quotas q on up.plan_type = q.plan_type
+    where up.user_id = new.user_id;
 
     v_daily_limit := coalesce(v_daily_limit, 3);
 
