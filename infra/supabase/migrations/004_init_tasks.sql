@@ -28,7 +28,9 @@ create trigger trg_update_tasks_modtime
 
 -- TODO: hard test
 create or replace function tasks_insert_sanitize()
-returns trigger as $$
+returns trigger
+set search_path = public
+as $$
 begin
     -- Force initial state
     new.status := 'active';
@@ -50,7 +52,9 @@ create trigger trg_tasks_insert_sanitize
     execute procedure tasks_insert_sanitize();
 
 create or replace function public.fn_tasks_protect_system_fields()
-returns trigger as $$
+returns trigger
+set search_path = public
+as $$
 begin
     -- Allow backend (service role) to bypass all checks
     if auth.role() = 'service_role' then

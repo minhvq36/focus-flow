@@ -24,33 +24,33 @@ create policy "allow_update_for_owner" on public.users
 alter table public.user_frames enable row level security;
 create policy "allow_read_for_owner" on public.user_frames
     for select to authenticated 
-    using ( auth.uid() = user_id );
+    using ( (select auth.uid()) = user_id );
 
 alter table public.user_private enable row level security;
 create policy "allow_read_for_owner" on public.user_private
     for select to authenticated 
-    using ( auth.uid() = user_id );
+    using ( (select auth.uid()) = user_id );
 
 alter table public.user_wallets enable row level security;
 create policy "allow_read_for_owner" on public.user_wallets
     for select to authenticated 
-    using ( auth.uid() = user_id );
+    using ( (select auth.uid()) = user_id );
 
 alter table public.tasks enable row level security;
 create policy "allow_read_for_owner" on public.tasks
     for select to authenticated 
-    using ( auth.uid() = user_id );
+    using ( (select auth.uid()) = user_id );
 create policy "allow_insert_for_owner" on public.tasks
     for insert to authenticated 
-    with check ( auth.uid() = user_id ); -- ATTACH: insert with sanitizer
+    with check ( (select auth.uid()) = user_id ); -- ATTACH: insert with sanitizer
 create policy "allow_update_for_owner" on public.tasks
     for update to authenticated 
     using (
-        auth.uid() = user_id
+        (select auth.uid()) = user_id
         and deleted_at is null
         )
     with check (
-        auth.uid() = user_id
+        (select auth.uid()) = user_id
         and deleted_at is null
         ); -- ATTACH: update with protected trigger
 
@@ -107,12 +107,12 @@ create policy "allow_delete_for_owner" on public.task_notes
 alter table public.task_daily_quotas enable row level security;
 create policy "allow_read_for_owner" on public.task_daily_quotas
     for select to authenticated
-    using ( auth.uid() = user_id );
+    using ( (select auth.uid()) = user_id );
 
 alter table public.inventory enable row level security;
 create policy "allow_read_for_owner" on public.inventory
     for select to authenticated
-    using ( auth.uid() = user_id );
+    using ( (select auth.uid()) = user_id );
 
 alter table public.user_gardens enable row level security;
 create policy "allow_public_gardens_view" on public.user_gardens
@@ -161,4 +161,4 @@ create policy "allow_delete_garden_placements_for_owner" on public.garden_placem
 alter table public.reward_rolls enable row level security;
 create policy "allow_read_for_owner" on public.reward_rolls
     for select to authenticated
-    using ( auth.uid() = user_id );
+    using ( (select auth.uid()) = user_id );
