@@ -106,35 +106,37 @@ create policy "allow_delete_for_owner" on public.task_notes
 
 alter table public.task_daily_quotas enable row level security;
 create policy "allow_read_for_owner" on public.task_daily_quotas
-    for select to authenticated 
+    for select to authenticated
     using ( auth.uid() = user_id );
 
 alter table public.inventory enable row level security;
 create policy "allow_read_for_owner" on public.inventory
-    for select to authenticated 
+    for select to authenticated
     using ( auth.uid() = user_id );
 
 alter table public.user_gardens enable row level security;
 create policy "allow_read_for_owner" on public.user_gardens
-    for select to authenticated 
+    for select to authenticated
     using ( auth.uid() = user_id );
 
 alter table public.garden_placements enable row level security;
 create policy "allow_read_for_owner" on public.garden_placements
-    for select to authenticated 
-    using ( auth.uid() = user_id );
-create policy "allow_insert_for_owner" on public.garden_placements
-    for insert to authenticated
-    with check ( auth.uid() = user_id );
-create policy "allow_update_for_owner" on public.garden_placements
-    for update to authenticated 
-    using ( auth.uid() = user_id )
-    with check ( auth.uid() = user_id );
-create policy "allow_delete_for_owner" on public.garden_placements
-    for delete to authenticated 
-    using ( auth.uid() = user_id );
+    for all to authenticated
+    using (
+        exists (
+            select 1 from public.user_gardens ug
+            where ug.id = user_garden_id
+             and ug.user_id = (select auth.uid())
+        )
+    with check (
+        exists (
+            select 1 from public.user_gardens ug
+            where ug.id = user_garden_id
+             and ug.user_id = (select auth.uid())
+        )
+    );
 
 alter table public.reward_rolls enable row level security;
 create policy "allow_read_for_owner" on public.reward_rolls
-    for select to authenticated 
+    for select to authenticated
     using ( auth.uid() = user_id );

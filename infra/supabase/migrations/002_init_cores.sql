@@ -50,6 +50,6 @@ values
     ('premium', 16)
 on conflict (plan_type) do update set daily_task_limit = excluded.daily_task_limit;
 
-insert into public.gardens (id, garden_index, grid_size)
-values ('00000000-0000-0000-0000-000000000001', 1, 5)
+insert into public.gardens (id, garden_index, grid_size, is_expandable)
+values ('00000000-0000-0000-0000-000000000001', 1, 5, false)
 on conflict do nothing;
