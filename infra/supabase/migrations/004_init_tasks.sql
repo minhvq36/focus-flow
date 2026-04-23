@@ -55,7 +55,8 @@ set search_path = public
 as $$
 begin
     -- Allow backend (service role) to bypass all checks
-    if auth.role() = 'service_role' then
+    if pg_has_role(current_user, 'postgres', 'member')
+        or auth.role() = 'service_role' then
         return new;
     end if;
 
