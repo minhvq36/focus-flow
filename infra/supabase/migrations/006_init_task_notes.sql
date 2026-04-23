@@ -8,7 +8,9 @@ create table if not exists public.task_notes (
     constraint task_note_must_have_content check (char_length(trim(content))>0 and char_length(content)<=22000)
 );
 
-create index if not exists idx_task_notes_task_id on public.task_notes(task_id desc);
+-- Index for foreign keys: task_id, user_id
+create index if not exists idx_task_notes_task_id on public.task_notes(task_id);
+create index if not exists idx_task_notes_user_id on public.task_notes(user_id);
 
 create trigger trg_update_task_notes_modtime
     before update on public.task_notes

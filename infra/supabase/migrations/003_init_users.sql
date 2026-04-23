@@ -8,6 +8,9 @@ create table if not exists public.users (
     updated_at timestamptz not null default now()
 );
 
+-- Index for foreign key: active_frame_id
+create index if not exists idx_users_active_frame_id on public.users(active_frame_id);
+
 create table if not exists public.user_frames (
     id uuid primary key default gen_random_uuid(),
     user_id uuid NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
@@ -16,12 +19,18 @@ create table if not exists public.user_frames (
     UNIQUE(user_id, frame_id)
 );
 
+-- Index for foreign key: frame_id
+create index if not exists idx_user_frames_frame_id on public.user_frames(frame_id);
+
 create table if not exists public.user_private (
     user_id uuid primary key references public.users(id) on delete cascade,
     email varchar(255) unique not null,
     plan_type text default 'free' references public.plan_quotas(plan_type),
     updated_at timestamptz not null default now()
 );
+
+-- Index for foreign key: plan_type
+create index if not exists idx_user_private_plan_type on public.user_private(plan_type);
 
 create table if not exists public.user_wallets (
     user_id uuid primary key references public.users(id) on delete cascade,

@@ -18,8 +18,8 @@ alter table public.users enable row level security;
 create policy "allow_read_for_all_auth_users" on public.users
     for select to authenticated using (true);
 create policy "allow_update_for_owner" on public.users
-    for update to authenticated using ( auth.uid() = id )
-    with check ( auth.uid() = id ); -- TODO: Check if need to restrict fields that can be updated by user (avatar, created_at)
+    for update to authenticated using ( (select auth.uid()) = id )
+    with check ( (select auth.uid()) = id ); -- TODO: Check if need to restrict fields that can be updated by user (avatar, created_at)
 
 alter table public.user_frames enable row level security;
 create policy "allow_read_for_owner" on public.user_frames

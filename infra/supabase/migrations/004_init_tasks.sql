@@ -16,9 +16,7 @@ create table if not exists public.tasks (
     constraint task_must_have_todos check (jsonb_array_length(todos)>0 and jsonb_array_length(todos)<=50) -- TODO: need valid with backend to handle nested deep structured + valid with frontend for max length of kind of text
 );
 
-create index if not exists idx_tasks_user_active 
-on public.tasks (user_id) 
-where (deleted_at is null and status = 'active');
+create index if not exists idx_tasks_user_id on public.tasks(user_id);
 
 create trigger trg_update_tasks_modtime
     before update on public.tasks

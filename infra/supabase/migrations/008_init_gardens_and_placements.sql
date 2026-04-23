@@ -8,6 +8,9 @@ create table if not exists public.user_gardens (
     unique (user_id, garden_id)
 );
 
+-- Index for foreign key: garden_id
+create index if not exists idx_user_gardens_garden_id on public.user_gardens(garden_id);
+
 -- NOTE: Collab with backend for control overlap placement. Too complex to enforce purely at DB level
 create table if not exists public.garden_placements (
     id uuid primary key default gen_random_uuid(),

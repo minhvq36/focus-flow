@@ -8,7 +8,10 @@ create table if not exists public.reward_rolls (
     created_at timestamptz default now()
 );
 
-create index idx_reward_rolls_user_id on public.reward_rolls(user_id);
+-- Indexes for foreign keys: task_id, user_id, item_id
+create index if not exists idx_reward_rolls_task_id on public.reward_rolls(task_id);
+create index if not exists idx_reward_rolls_user_id on public.reward_rolls(user_id);
+create index if not exists idx_reward_rolls_item_id on public.reward_rolls(item_id);
 
 create or replace function fn_submit_task_reward(
     p_task_id uuid,
