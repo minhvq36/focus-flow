@@ -115,20 +115,42 @@ create policy "allow_read_for_owner" on public.inventory
     using ( auth.uid() = user_id );
 
 alter table public.user_gardens enable row level security;
-create policy "allow_read_for_owner" on public.user_gardens
+create policy "allow_public_gardens_view" on public.user_gardens
     for select to authenticated
-    using ( auth.uid() = user_id );
+    using ( true );
 
 alter table public.garden_placements enable row level security;
-create policy "allow_read_for_owner" on public.garden_placements
-    for all to authenticated
+create policy "allow_public_garden_placements_view" on public.garden_placements
+    for select to authenticated
+    using ( true );
+create policy "allow_insert_garden_placements_for_owner" on public.garden_placements
+    for insert to authenticated
+    with check (
+        exists (
+            select 1 from public.user_gardens ug
+            where ug.id = user_garden_id
+             and ug.user_id = (select auth.uid())
+        )
+    );
+create policy "allow_update_garden_placements_for_owner" on public.garden_placements
+    for update to authenticated
     using (
         exists (
             select 1 from public.user_gardens ug
             where ug.id = user_garden_id
              and ug.user_id = (select auth.uid())
         )
+    )
     with check (
+        exists (
+            select 1 from public.user_gardens ug
+            where ug.id = user_garden_id
+             and ug.user_id = (select auth.uid())
+        )
+    );
+create policy "allow_delete_garden_placements_for_owner" on public.garden_placements
+    for delete to authenticated
+    using (
         exists (
             select 1 from public.user_gardens ug
             where ug.id = user_garden_id
