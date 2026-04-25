@@ -43,9 +43,8 @@ User fill form trước khi bắt đầu:
 | **Tiêu đề** | Tên task |
 | **Todo List** | Danh sách checkbox, hỗ trợ indent (checkbox con). Tối thiểu 1 item |
 | **Thời lượng** | Chọn trước: 15 / 25 / 45 / 60 / 90 / 120 phút (hoặc custom) |
-| **Ghi chú** | Optional, text tự do |
 
-Sau khi fill xong → bấm **"Start Task"** → vào màn hình Focus.
+Sau khi fill xong → bấm **"Create Task"** → task được tạo và đồng hồ tự động bắt đầu → vào màn hình Focus. Ghi chú được thêm vào trong Focus screen (append-only audit trail).
 
 ### 3.2 Màn Hình Focus (Minimalist)
 
@@ -63,7 +62,12 @@ Màn hình cực tối giản, không có gì gây distraction:
 │  [ ] Todo item 3                     │
 │  [+ Add todo]  [🗑 xóa todo đang chọn]│  ← Thêm/xóa todo (min 1 item)
 │                                      │
-│  📝 Notes...                         │  ← Text field thêm ghi chú live
+│  � Notes:                           │  ← Append-only audit trail (scrollable)
+│  ┌──────────────────────────────────┐│
+│  │ 14:32 Bắt đầu research logic...  ││
+│  │ 15:15 Phát hiện race condition   ││
+│  │ [+ Add note]                     ││
+│  └──────────────────────────────────┘│
 │                                      │
 │  [⏸ Pause]  [⏩ +15 min]            │
 │                                      │
@@ -75,27 +79,64 @@ Màn hình cực tối giản, không có gì gây distraction:
 
 - **Pause / Resume:** Dừng đồng hồ, vẫn ở màn hình focus.
 - **+15 min (Extend):** Thêm 15 phút vào thời lượng còn lại. Không giới hạn số lần extend.
-- **Pause Task:** Dừng task, lưu trạng thái (đồng hồ pausing, todo state, notes). User thoát về màn hình chính. Task xuất hiện trong list với badge "Paused — tiếp tục?". Có thể resume bất cứ lúc nào.
+- **Pause Task:** Dừng task, lưu trạng thái (đồng hồ pausing, todo state, notes audit trail). User thoát về màn hình chính. Task xuất hiện trong list với badge "Paused — tiếp tục?". Có thể resume bất cứ lúc nào.
 - **Submit Task:** Kiểm tra tất cả todo đã check. Nếu còn todo chưa check → hiện modal cảnh báo danh sách chưa xong, không cho submit. Khi tất cả checked → submit thành công → trigger reward flow.
 - **Give Up:** Confirm dialog "Bạn chắc chắn muốn bỏ task này?" → Xác nhận → task về trạng thái `given_up` → trigger penalty flow (nếu penalty mode ON).
 
 ### 3.3 Task States
 
 ```
-draft → active → paused → active (resume)
-                        └→ submitted (✅ completed)
-                        └→ given_up  (🏳 penalty)
+active (created & waiting to start) → paused → active (resume)
+                                           └→ submitted (✅ completed)
+                                           └→ given_up  (🏳 penalty)
 ```
+
+**Note:** Task không có `draft` state. Khi tạo task form → task được lưu vào DB ngay với status `active` và `started_at = NOW()` (đồng hồ tự động bắt đầu). ⚠️ **Design Note:** Original spec intended started_at=NULL until user clicks "Start Task", nhưng current migration auto-initializes timer on creation.
 
 ### 3.4 Daily Task Limits (by Plan)
 
 | Plan | Task/ngày |
 |---|---|
 | Free | 3 |
-| Grower ($4/tháng) | 10 |
-| Master ($9/tháng) | 16 |
+| Pro ($4/tháng) | 10 |
+| Premium ($9/tháng) | 16 |
 
 > "Task" tính là task được **Start** (chuyển sang `active`). Pause rồi resume không tốn thêm slot. Task `given_up` vẫn tốn slot — đây là một phần của cơ chế phạt nhẹ dù penalty mode OFF.
+
+### 3.5 Timer System
+
+**Schema Design:** Dùng `started_at` làm mốc "đang chạy" và `actual_duration_sec` là tổng thời gian đã lưu (append-only).
+
+| Field | Type | Mô tả |
+|---|---|---|
+| `registered_duration_min` | INT | Thời gian ban đầu (15/25/45/60/90/120 min hoặc custom). Có thể tăng qua Extend. |
+| `actual_duration_sec` | INT | Tổng thời gian đã lưu (không bao gồm delta đang chạy). Chỉ tăng khi pause task hoặc submit. |
+| `started_at` | TIMESTAMPTZ | Mốc khi bắt đầu hoặc resume. NULL = đang dừng. |
+
+**Thời gian thực tế:** `actual_duration_sec + (NOW() - started_at)` khi `started_at` không NULL.
+
+**Event Rules:**
+
+| Sự kiện | started_at | actual_duration_sec | Ghi chú |
+|---|---|---|---|
+| **Start** | = NOW() | không đổi | Task chuyển active, bắt đầu đếm |
+| **Pause Timer** | = NULL | += delta (NOW() - started_at) | Tạm dừng đồng hồ, nhưng task vẫn active |
+| **Resume Timer** | = NOW() | không đổi | Tiếp tục từ lúc dừng |
+| **Submit** | = NULL | += delta (nếu started_at còn) | Lưu lại thời gian cuối, task → submitted |
+| **Given Up** | = NULL | không đổi | Không tính thời gian cuối, task → given_up |
+| **Extend +N min** | không đổi | không đổi | Tăng `registered_duration_min += N` |
+
+**Recovery (tab close / mất mạng):**
+- Frontend query lại task: nếu `status = active` + `started_at` còn → tự tính `actual_duration_sec + (NOW() - started_at)` và đếm tiếp. Không cần DB update.
+
+**Cap Limit:**
+- Frontend tự dừng đồng hồ khi `actual_duration_sec + (NOW() - started_at) >= registered_duration_min * 60`.
+- Hiện nút Extend, người dùng chọn extend thêm hoặc submit.
+- Không heartbeat, không constraint DB.
+
+**Validation:**
+- Backend kiểm tra khi nhận `pause-timer`, `submit`, `give-up`: thời gian gửi lên có hợp lý không (tolerance ~10 giây).
+- DB chỉ giữ `CHECK (actual_duration_sec >= 0)`.
 
 ---
 
@@ -103,9 +144,11 @@ draft → active → paused → active (resume)
 
 ### 4.1 Garden Levels (20 Level)
 
-Vườn được chia thành 20 level. Mỗi level là một grid pixel canvas lớn hơn level trước. Level sau mở khóa khi **toàn bộ pixel của level hiện tại đã được đặt item**.
+Vườn được chia thành 20 level. Mỗi level là một grid canvas lớn hơn level trước. Level sau mở khóa khi **toàn bộ ô của level hiện tại đã được đặt item**.
 
-| Level | Grid Size | Đặc điểm |
+**Grid Size lookup (được tính trong backend từ `garden_index`):**
+
+| Level (garden_index) | Grid Size | Đặc điểm |
 |---|---|---|
 | 1 | 5×5 (25 ô) | Mảnh đất nhỏ, starter |
 | 2 | 6×6 (36 ô) | Thêm hàng rào đơn giản |
@@ -113,15 +156,19 @@ Vườn được chia thành 20 level. Mỗi level là một grid pixel canvas l
 | 6–10 | 10–14×10–14 | Mở cổng, đài phun nước nhỏ |
 | 11–15 | 15–20×15–20 | Vườn trung bình, nhiều loại hoa |
 | 16–19 | 21–30×21–30 | Vườn lớn, vật trang trí đặc biệt |
-| **20** | **Unlimited expand** | Mỗi lần mở rộng thêm 5×5 ô, giá bạc tăng dần theo công thức |
+| **20** | **Variable (base 25×25 + expansions)** | Mỗi lần mở rộng thêm 5×5 ô, giá bạc tăng dần |
 
-**Level 20 expand pricing:**
+**Level 20 expand pricing (tracked via `expansion_level`):**
 ```
 Lần mở rộng thứ n: cost = 1,000 × (1.5^n) bạc
 Lần 1: 1,500 bạc | Lần 2: 2,250 | Lần 3: 3,375 | ...
+
+Grid size tại level 20: (25 + 5*expansion_level) × (25 + 5*expansion_level)
 ```
 
-**Hoàn thành level:** Khi tất cả ô trong grid đã có item đặt vào (không được để trống) → level hoàn thành → unlock level tiếp theo với animation.
+**Hoàn thành level:** Khi tất cả ô trong grid đã có item đặt vào (không được để trống) → `garden_index` tăng 1 → unlock level tiếp theo với animation.
+
+> **Note:** DB không lưu `grid_width`/`grid_height` — chúng được derived từ `garden_index` và `expansion_level` trong backend để tối ưu dữ liệu.
 
 ### 4.2 Item Rarities
 
@@ -216,6 +263,7 @@ Server-side cronjob chạy hàng ngày:
 - Cổng, hàng rào, đường đi.
 - Đài phun nước (nhiều loại).
 - Vật trang trí: ghế đá, đèn lồng, biển tên vườn, cầu nhỏ...
+- **Avatar Frames** (cosmetic): Common → Epic, dùng để trang trí avatar profile. Query profile join frame → lấy asset URL.
 - **Nước tưới:** hồi phục 1 item `wilted` → `healthy`. Giá 50 bạc/lọ.
 
 **Thu mua lại (sell):**
@@ -423,21 +471,42 @@ Vào Marketplace
 
 ### 8.4 Data Models (Supabase / PostgreSQL)
 
+**Migrated (✓):**
+
 ```sql
--- Users
+-- Users (public profile info)
 users (
   id uuid PK,
-  email text UNIQUE,
-  username text UNIQUE,
-  display_name text,
+  display_name varchar(255),
+  bio varchar(255),
   avatar_url text,
-  plan varchar,              -- free | grower | master
-  penalty_mode boolean DEFAULT false,
-  silver_balance bigint DEFAULT 0,
-  gold_balance int DEFAULT 0,
-  pity_counter int DEFAULT 0,  -- task count since last legendary
-  last_login_at timestamptz,
-  created_at timestamptz
+  active_frame_id uuid FK,       -- references frames
+  created_at timestamptz,
+  updated_at timestamptz
+)
+
+-- User Private (email, plan, penalty mode - not exposed in public queries)
+user_private (
+  user_id uuid PK,
+  email varchar(255) UNIQUE,
+  plan_type varchar,             -- free|pro|premium (refs plan_quotas)
+  penalty_mode boolean DEFAULT true,  -- user-level setting (can be toggled)
+  updated_at timestamptz
+)
+
+-- User Wallets (currency balances)
+user_wallets (
+  user_id uuid PK,
+  silver_balance bigint DEFAULT 0 CHECK (silver_balance >= 0),
+  gold_balance int DEFAULT 0 CHECK (gold_balance >= 0),
+  updated_at timestamptz
+)
+
+-- Plan Quotas (lookup table for daily task limits)
+plan_quotas (
+  plan_type varchar PK,
+  daily_task_limit int
+  -- Data: free=3, pro=10, premium=16
 )
 
 -- Tasks
@@ -445,36 +514,57 @@ tasks (
   id uuid PK,
   user_id uuid FK,
   title text,
-  todos jsonb,               -- [{id, text, checked, indent_level, parent_id}]
-  notes text,
-  estimated_minutes int,
-  actual_minutes int,
-  extended_minutes int DEFAULT 0,
-  status varchar,            -- draft|active|paused|submitted|given_up
-  paused_elapsed_seconds int,   -- elapsed khi pause task (để resume)
-  started_at timestamptz,
-  submitted_at timestamptz,
-  created_at timestamptz
+  todos jsonb,                   -- array of checkbox items
+  penalty_mode boolean DEFAULT false,  -- captured from user.penalty_mode at task creation
+  status varchar,                -- active|paused|submitted|given_up
+  registered_duration_min int,
+  actual_duration_sec int DEFAULT 0,
+  started_at timestamptz,        -- NULL = stopped. Updated on start/resume.
+  created_at timestamptz,
+  updated_at timestamptz,
+  completed_at timestamptz,      -- when task submitted
+  deleted_at timestamptz,
+  
+  CONSTRAINT task_duration_positive CHECK (registered_duration_min > 0),
+  CONSTRAINT task_elapsed_positive CHECK (actual_duration_sec >= 0),
+  CONSTRAINT task_must_have_todos CHECK (jsonb_array_length(todos) > 0)
 )
+-- Index: idx_tasks_user_active (user_id) WHERE deleted_at IS NULL AND status='active'
+-- Note: penalty_mode is a snapshot of user's penalty setting at task creation time
 
--- Task Daily Quota
+-- Task Notes (1-n audit trail) — Append-only
+task_notes (
+  id uuid PK,
+  task_id uuid FK,
+  user_id uuid FK,
+  content text,
+  created_at timestamptz,
+  updated_at timestamptz,
+  CONSTRAINT task_note_must_have_content CHECK (char_length(trim(content)) > 0)
+)
+-- Index: idx_task_notes_task_id (task_id DESC)
+
+-- Task Daily Quota (auto-incremented via trigger)
 task_daily_quotas (
-  user_id uuid,
-  date date,
-  used int DEFAULT 0,
-  PRIMARY KEY (user_id, date)
+  user_id uuid FK,
+  target_date date,
+  usage_count int DEFAULT 0 CHECK (usage_count >= 0),
+  PRIMARY KEY (user_id, target_date)
 )
 
 -- Items (master catalog)
 items (
   id uuid PK,
-  name text,
-  type varchar,              -- flower|gate|fence|path|fountain|decoration|water
-  rarity varchar,            -- common|uncommon|rare|epic|legendary
-  shop_price int,            -- NULL nếu không bán
-  buyback_price int,         -- NULL nếu legendary
-  asset_key text,
-  description text
+  name varchar(255),
+  type varchar,                  -- flower|structure|decoration|path
+  rarity varchar,                -- common|uncommon|rare|epic|legendary|eternal
+  asset_key varchar(255),        -- sprite/asset reference
+  height int DEFAULT 1,          -- grid cell height
+  width int DEFAULT 1,           -- grid cell width
+  base_price_silver int DEFAULT 0,
+  is_purchasable boolean DEFAULT true,
+  can_wilt boolean DEFAULT false,
+  created_at timestamptz
 )
 
 -- User Inventory
@@ -482,33 +572,66 @@ inventory (
   id uuid PK,
   user_id uuid FK,
   item_id uuid FK,
-  is_placed boolean DEFAULT false,
-  obtained_via varchar,      -- task_reward|shop|marketplace
-  obtained_at timestamptz
+  is_placed boolean DEFAULT false,  -- optimization: filter available items
+  acquired_at timestamptz DEFAULT now()
+)
+
+-- Avatar Frames (master catalog)
+frames (
+  id uuid PK,
+  name varchar(255),
+  asset_url text,                -- CSS border / SVG asset
+  created_at timestamptz
+)
+
+-- User-owned Frames
+user_frames (
+  id uuid PK,
+  user_id uuid FK,
+  frame_id uuid FK,
+  acquired_at timestamptz,
+  source varchar,            -- achievement|shop|event|reward
+  UNIQUE(user_id, frame_id)
 )
 
 -- Gardens
 gardens (
   id uuid PK,
-  user_id uuid FK UNIQUE,
-  current_level int DEFAULT 1,
-  grid_width int DEFAULT 5,
-  grid_height int DEFAULT 5,
-  expand_count int DEFAULT 0,   -- lần expand ở level 20
-  total_hearts int DEFAULT 0,
-  updated_at timestamptz
+  user_id uuid FK,
+  garden_index int,              -- garden level (1-20)
+  expansion_level int DEFAULT 0, -- expand count at level 20
+  created_at timestamptz,
+  updated_at timestamptz,
+  UNIQUE(user_id, garden_index)
 )
 
 -- Garden Placements
 garden_placements (
   id uuid PK,
   garden_id uuid FK,
-  inventory_id uuid FK,
+  inventory_id uuid FK UNIQUE,   -- global unique: each item placed once
   grid_x int,
   grid_y int,
-  health varchar DEFAULT 'healthy',  -- healthy|wilted
+  rotation smallint DEFAULT 0,   -- 0|90|180|270
+  health_status varchar DEFAULT 'healthy',  -- healthy|wilted
   placed_at timestamptz,
-  wilted_at timestamptz
+  updated_at timestamptz,
+  
+  UNIQUE(garden_id, grid_x, grid_y),  -- no overlapping placements
+  CHECK (rotation IN (0, 90, 180, 270))
+)
+```
+
+**TODO (Migration pending):**
+
+```sql
+-- User-owned Frames (ownership tracking for avatar cosmetics)
+user_frames (
+  id uuid PK,
+  user_id uuid FK,
+  frame_id uuid FK,
+  acquired_at timestamptz,
+  UNIQUE(user_id, frame_id)
 )
 
 -- Friendships
@@ -516,7 +639,7 @@ friendships (
   id uuid PK,
   requester_id uuid FK,
   addressee_id uuid FK,
-  status varchar,            -- pending|accepted
+  status varchar,                -- pending|accepted
   created_at timestamptz,
   UNIQUE(requester_id, addressee_id)
 )
@@ -525,7 +648,7 @@ friendships (
 feed_events (
   id uuid PK,
   user_id uuid FK,
-  event_type varchar,        -- level_up|legendary_drop|top10|streak_milestone
+  event_type varchar,            -- level_up|legendary_drop|top10|streak_milestone
   payload jsonb,
   created_at timestamptz
 )
@@ -535,8 +658,8 @@ marketplace_listings (
   id uuid PK,
   seller_id uuid FK,
   inventory_id uuid FK,
-  price_gold int,            -- >= 5
-  status varchar,            -- active|sold|cancelled
+  price_gold int,                -- >= 5
+  status varchar,                -- active|sold|cancelled
   listed_at timestamptz,
   sold_at timestamptz
 )
@@ -545,14 +668,14 @@ marketplace_listings (
 economy_transactions (
   id uuid PK,
   user_id uuid FK,
-  type varchar,              -- earn_silver|spend_silver|earn_gold|spend_gold|iap
+  type varchar,                  -- earn_silver|spend_silver|earn_gold|spend_gold|iap
   amount bigint,
   reference_id uuid,
   note text,
   created_at timestamptz
 )
 
--- Reward Rolls (audit trail for RNG)
+-- Reward Rolls (audit trail for seeded RNG)
 reward_rolls (
   id uuid PK,
   task_id uuid FK,
@@ -579,6 +702,17 @@ daily_recaps (
 )
 ```
 
+**Schema Changes from Original SPEC:**
+- Users normalized: `users` (public) + `user_private` (email, plan) + `user_wallets` (currency).
+- Task status: no `draft` state — created task goes directly to `active`.
+- Task: `completed_at` instead of `submitted_at`.
+- Garden: `garden_index` (1-20) + `expansion_level` replaces `current_level` + `grid_width/height`.
+- Items: `type` values limited to `(flower, structure, decoration, path)` — structures encompass gates, fences, etc.
+- Garden placements: `inventory_id` UNIQUE globally → each item placed only once system-wide.
+- Garden placements: added `rotation` field (0/90/180/270).
+- `pity_counter`, `username`, `last_login_at`, `total_hearts` not yet in DB (Redis/computed).
+- Bảng friendships, feed_events, marketplace_listings, economy_transactions, reward_rolls, daily_recaps chưa migrate.
+
 ### 8.5 Redis Usage
 
 | Key Pattern | TTL | Dùng để |
@@ -597,7 +731,6 @@ daily_recaps (
 Index: "tasks"
 {
   "title":        { "type": "text", "analyzer": "standard" },
-  "notes":        { "type": "text" },
   "status":       { "type": "keyword" },
   "user_id":      { "type": "keyword" },
   "submitted_at": { "type": "date" }
@@ -672,10 +805,11 @@ PATCH  /api/auth/me              { display_name, penalty_mode }
 ### Tasks
 ```
 GET    /api/tasks                ?status=&date=
-POST   /api/tasks                { title, todos[], estimated_minutes, notes }
+POST   /api/tasks                { title, todos[], estimated_minutes }
 GET    /api/tasks/:id
+GET    /api/tasks/:id/notes      ← Fetch all notes (ordered by created_at DESC)
+POST   /api/tasks/:id/notes      { content }  ← Add a note (append-only)
 PATCH  /api/tasks/:id/todos      { todos[] }
-PATCH  /api/tasks/:id/notes      { notes }
 POST   /api/tasks/:id/start
 POST   /api/tasks/:id/pause-timer
 POST   /api/tasks/:id/resume-timer
