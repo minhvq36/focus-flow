@@ -1,8 +1,0 @@
-github.com/gorilla/mux v1.8.0 h1:i40ztqXznAQjwznpNmh5q1C1oEoX3RjWIGn7F6NMnw=
-github.com/gorilla/mux v1.8.0/go.mod h1:DVbg23sWSpFRCP4SdM6jCwQ8IsmariPomu9OYICZBM8=
-github.com/prometheus/client_golang v1.17.0 h1:rl2sfUW3EaNwvzBc9iOY4Y40dyjnVMZvVCQVK5Gyl0=
-github.com/prometheus/client_golang v1.17.0/go.mod h1:wgz89+/e9H1nLg5CuI8a7qo8C8u+41vkGBZ9h+JEjk=
-github.com/supabase-community/supabase-go v0.0.0-20230804165110-66ea842b5ad6 h1:7qL8gu9l9w1h9gVLqFRbHc7jJ8JM9Hm5EaUnKBD6v4=
-github.com/supabase-community/supabase-go v0.0.0-20230804165110-66ea842b5ad6/go.mod h1:xaUhY3ZFcnZSmRKH6mVhLeBLaRKo8Gs6pjKtRIQhPc=
-github.com/joho/godotenv v1.5.1 h1:7eLL/wHHa/HtisnnCFV67pJbXD39aBYSfhpihAW5Xs=
-github.com/joho/godotenv v1.5.1/go.mod h1:f4LDr5Voq0i2e/R5DDNOoa2zzDfwtkZa49BgUW2QsE=

@@ -15,7 +15,7 @@
 #### `users` (public profile)
 ```sql
 id                  uuid PK
-display_name        varchar(255) NOT NULL (2+ chars)
+display_name        varchar(50) NOT NULL CHECK (char_length(trim(display_name)) >= 1)
 bio                 varchar(255)
 avatar_url          text
 active_frame_id     uuid FK → frames(id) [SET NULL on delete]
@@ -129,7 +129,7 @@ PRIMARY KEY         (user_id, target_date)
 id                  uuid PK
 task_id             uuid NOT NULL → tasks(id) [CASCADE delete]
 user_id             uuid NOT NULL → users(id) [CASCADE delete]
-content             text NOT NULL (non-empty)
+content             text NOT NULL CHECK (char_length(trim(content)) > 0 AND char_length(content) <= 22000)
 created_at          timestamptz
 updated_at          timestamptz
 ```
@@ -158,10 +158,10 @@ created_at          timestamptz
 
 **Logic:**
 - Core resource table: defines garden templates for each level (1-20)
-- `grid_size`: base grid dimensions (5×5 for level 1, increments per level, max 25×25 base for level 20)
+- `grid_size`: base grid dimensions stored in DB (5×5 for level 1, increments per level, max 25×25 base for level 20)
 - `is_expandable`: whether users can expand this garden (only true for level 20)
 - `unlock_condition`: JSON conditions to unlock this garden level (e.g., `{"min_level": 5}` or null for always available)
-- Grid size calculated at level N: (5 + N) × (5 + N), with expansions applied via `user_gardens.expansion_level`
+- Grid size at level N is determined by garden_index; expansions applied via `user_gardens.expansion_level`
 
 #### `user_gardens` (user ownership & progression)
 ```sql
@@ -235,6 +235,7 @@ buyback_silver      int DEFAULT NULL CHECK > 0  -- shop sell-back price (silver)
 buyback_gold        int DEFAULT NULL CHECK > 0  -- reserved for future use
 is_purchasable      boolean DEFAULT true
 can_wilt            boolean DEFAULT false        -- only true for flowers/plants
+unlock_condition    jsonb DEFAULT NULL
 created_at          timestamptz
 ```
 
@@ -271,6 +272,8 @@ name                varchar(255) NOT NULL
 asset_url           text NOT NULL              -- CSS border or SVG
 silver_price        int DEFAULT NULL CHECK > 0
 gold_price          int DEFAULT NULL CHECK > 0
+is_purchasable      boolean DEFAULT true
+unlock_condition    jsonb DEFAULT NULL
 created_at          timestamptz
 ```
 
@@ -302,7 +305,6 @@ reward_rolls (
   task_id uuid FK → tasks(id),
   user_id uuid FK → users(id),
   seed text,                      -- deterministic RNG seed
-  rarity_result varchar,          -- common|uncommon|rare|epic|legendary|eternal
   item_id uuid FK → items(id),
   silver_amount int,
   created_at timestamptz
