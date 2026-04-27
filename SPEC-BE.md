@@ -120,9 +120,139 @@
 
 ---
 
-## 3. Core Services
+## 3. Configuration Setup & Dependency Injection
 
-### 3.1 Task Service
+### 3.1 Environment Variables
+
+**Required in `.env` or production environment:**
+
+```env
+# Server
+ENV=development|production
+PORT=8080
+
+# Database (Supabase PostgreSQL)
+DATABASE_URL=postgresql://user:pass@host:5432/focus_flow
+
+# Auth (Supabase)
+SUPABASE_URL=https://xxxxx.supabase.co
+
+# Cache (Redis)
+REDIS_URL=redis://localhost:6379
+
+# Search (Elasticsearch)
+ELASTICSEARCH_URL=http://localhost:9200
+
+# AI (Anthropic)
+ANTHROPIC_API_KEY=sk-ant-...
+
+# Payments (Stripe)
+STRIPE_SECRET_KEY=sk_live_...
+STRIPE_PUBLIC_KEY=pk_live_...
+
+# Monitoring (Prometheus)
+PROMETHEUS_ENABLED=true
+
+# Realtime (Supabase)
+SUPABASE_ANON_KEY=...
+```
+
+### 3.2 Config Struct (pkg/config/config.go)
+
+**Current Implementation:**
+```go
+type Config struct {
+    Env         string  // development | production
+    Port        string  // default: 8080
+    DatabaseURL string  // PostgreSQL connection string (required)
+    SupabaseURL string  // Supabase JWKS endpoint (required)
+}
+```
+
+**Extended Config (To Be Implemented):**
+```go
+type Config struct {
+    // Server
+    Env         string
+    Port        string
+    
+    // Database
+    DatabaseURL string
+    MaxPoolConns int     // configurable from env (default: 10)
+    
+    // Cache
+    RedisURL    string
+    
+    // Search
+    ElasticsearchURL string
+    
+    // Auth
+    SupabaseURL string
+    SupabaseKey string // anon key for direct access
+    
+    // AI
+    AnthropicKey string
+    
+    // Payments
+    StripeSecretKey string
+    StripePublicKey string
+    
+    // Realtime
+    SupabaseRealtimeURL string
+    
+    // Monitoring
+    PrometheusEnabled bool
+}
+```
+
+### 3.3 Wire Setup (cmd/server/wire.go)
+
+Wire is used for dependency injection. Build as:
+```bash
+go install github.com/google/wire/cmd/wire@latest
+wire ./cmd/server
+```
+
+**Dependencies to wire:**
+- `*pgxpool.Pool` (from db.NewPool)
+- `*redis.Client` (from cache.NewRedis)
+- `*elasticsearch.Client` (from search.NewElasticsearch)
+- Service layer: TaskService, RewardService, GardenService, etc.
+- HTTP handlers: TaskHandler, RewardHandler, etc.
+
+### 3.4 Implementation Status
+
+**✅ Completed:**
+- [x] `cmd/server/main.go` - Basic HTTP server setup with Chi router
+- [x] `cmd/server/routes.go` - Router initialization with health endpoint
+- [x] `pkg/config/config.go` - Environment variable loading (Env, Port, DatabaseURL, SupabaseURL)
+- [x] `pkg/db/postgres.go` - PostgreSQL connection pool with pgxpool
+- [x] `internal/auth/` - JWT middleware integration with Supabase JWKS
+
+**⏳ In Progress / Needs Extension:**
+- [ ] `pkg/config/config.go` - Add Redis, Elasticsearch, Anthropic, Stripe, Prometheus config fields
+- [ ] `cmd/server/wire.go` - Implement Wire DI setup
+- [ ] `pkg/config/loader.go` - Implement extended config loader
+- [ ] `pkg/db/postgres.go` - Make MaxConns configurable from env (currently hardcoded to 10)
+
+**⚠️ Known TODOs (in code):**
+1. postgres.go: "Chuyển tất cả comment, log sang tiếng Anh, thêm tag [] để debug"
+2. postgres.go: "Tune or tối ưu hóa code để xử lý tải lớn, đọc từ .env or .yml"
+3. config.go: "Determine for Backend Port" - PORT should be configurable
+4. config.go: "Consider to upgrade to Asymmetric Key JWKS" - May need key rotation mechanism
+5. routes.go: "Task routes — thêm vào đây sau" - Need to add task endpoints
+
+**Not Yet Started:**
+- [ ] `pkg/cache/redis.go` - Redis client wrapper
+- [ ] `pkg/realtime/supabase.go` - Supabase Realtime client
+- [ ] Service layer implementations (Task, Reward, Garden, etc.)
+- [ ] Handler layer implementations
+
+---
+
+## 4. Core Services
+
+### 4.1 Task Service
 
 **State Machine:**
 ```
@@ -228,7 +358,7 @@
 
 ---
 
-### 3.2 Reward Service
+### 4.2 Reward Service
 
 **Drop Table:**
 ```
@@ -275,7 +405,7 @@ Final Silver = base(10-50) × difficulty × rarity_multiplier
 
 ---
 
-### 3.3 Penalty Service
+### 4.3 Penalty Service
 
 **Apply Penalty Logic:**
 - **Input:** task_id, user_id
@@ -303,7 +433,7 @@ Final Silver = base(10-50) × difficulty × rarity_multiplier
 
 ---
 
-### 3.4 Garden Service
+### 4.4 Garden Service
 
 **Key Operations:**
 
@@ -396,7 +526,7 @@ Final Silver = base(10-50) × difficulty × rarity_multiplier
 
 ---
 
-### 3.5 Shop Service
+### 4.5 Shop Service
 
 **Key Operations:**
 
@@ -451,7 +581,7 @@ Final Silver = base(10-50) × difficulty × rarity_multiplier
 
 ---
 
-### 3.6 Marketplace Service
+### 4.6 Marketplace Service
 
 **Key Operations:**
 
@@ -493,7 +623,7 @@ Final Silver = base(10-50) × difficulty × rarity_multiplier
 
 ---
 
-### 3.7 Leaderboard Service
+### 4.7 Leaderboard Service
 
 **Garden Value Calculation:**
 ```
@@ -537,7 +667,7 @@ market_price = latest legendary transaction price (default 5 gold = 50000 silver
 
 ---
 
-### 3.8 Social Service
+### 4.8 Social Service
 
 **Key Operations:**
 
@@ -595,7 +725,7 @@ market_price = latest legendary transaction price (default 5 gold = 50000 silver
 
 ---
 
-### 3.9 Search Service
+### 4.9 Search Service
 
 **Key Operations:**
 
@@ -617,7 +747,7 @@ market_price = latest legendary transaction price (default 5 gold = 50000 silver
 
 ---
 
-### 3.10 AI Service
+### 4.10 AI Service
 
 **Key Operations:**
 
@@ -655,7 +785,7 @@ market_price = latest legendary transaction price (default 5 gold = 50000 silver
 
 ---
 
-## 4. API Endpoints
+## 5. API Endpoints
 
 ### 4.1 Task Management
 
@@ -743,7 +873,7 @@ GET    /api/metrics                     Prometheus metrics
 
 ---
 
-## 5. Rate Limiting & Quotas
+## 6. Rate Limiting & Quotas
 
 | Endpoint | Limit | Window |
 |---|---|---|
@@ -756,7 +886,7 @@ GET    /api/metrics                     Prometheus metrics
 
 ---
 
-## 6. Error Handling
+## 7. Error Handling
 
 ```json
 {
@@ -777,7 +907,7 @@ GET    /api/metrics                     Prometheus metrics
 
 ---
 
-## 7. Background Jobs (Cronjob Service)
+## 8. Background Jobs (Cronjob Service)
 
 **Run every 24 hours (midnight UTC):**
 1. **Inactive Penalty**
@@ -796,7 +926,7 @@ GET    /api/metrics                     Prometheus metrics
 
 ---
 
-## 8. Monitoring & Observability
+## 9. Monitoring & Observability
 
 ### Prometheus Metrics
 - `task_submissions_total` — counter, by status (submitted/given_up)
@@ -815,7 +945,7 @@ GET    /api/metrics                     Prometheus metrics
 
 ---
 
-## 9. Security Checklist
+## 10. Security Checklist
 
 - [ ] All write endpoints require JWT auth (Supabase)
 - [ ] RLS policies on sensitive tables (user_private, user_wallets)
