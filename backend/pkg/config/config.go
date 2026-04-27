@@ -11,6 +11,7 @@ type Config struct {
 	Env         string
 	Port        string
 	DatabaseURL string
+	SupabaseURL string
 }
 
 func Load() *Config {
@@ -23,6 +24,7 @@ func Load() *Config {
 		Env:         getEnv("ENV", "development"),
 		Port:        getEnv("PORT", "8080"), // TODO: Determine for Backend Port
 		DatabaseURL: requireEnv("DATABASE_URL"),
+		SupabaseURL: requireEnv("SUPABASE_URL"), // TODO: Consider to upgrade to Asymmetric Key JWKS
 	}
 
 	return cfg
