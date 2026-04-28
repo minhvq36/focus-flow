@@ -1,6 +1,7 @@
 create table if not exists public.plan_quotas (
     plan_type text primary key,
-    daily_task_limit int not null
+    daily_task_limit int not null,
+    details jsonb default null
 );
 
 create table if not exists public.frames (
@@ -11,6 +12,7 @@ create table if not exists public.frames (
     gold_price int DEFAULT null,
     is_purchasable boolean default true,
     unlock_condition jsonb default null,
+    details jsonb default null,
     created_at timestamptz default now()
 );
 
@@ -30,6 +32,7 @@ create table if not exists public.items (
     is_purchasable boolean default true, -- for app shop selling
     can_wilt boolean default false,
     unlock_condition jsonb default null,
+    details jsonb default null,
     created_at timestamptz default now()
 );
 
@@ -39,6 +42,7 @@ create table if not exists public.gardens (
     grid_size int not null default 5 check (grid_size > 0), -- always square
     is_expandable boolean not null default false, -- if false, user cannot expand this garden anymore, logic to set in backend based on max expansion level
     unlock_condition jsonb default null,
+    details jsonb default null,
     created_at timestamptz default now()
 );
 

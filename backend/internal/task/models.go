@@ -136,6 +136,7 @@ type CreateTaskRequest struct {
 	Title                 string     `json:"title"                validate:"required,min=1,max=255"`
 	Todos                 []TodoItem `json:"todos"                validate:"required,min=1"`
 	RegisteredDurationMin int        `json:"registered_duration_min" validate:"required,min=25"` // TODO: Check if all these config should add to contract or spec
+	PenaltyMode           bool       `json:"penalty_mode"`
 }
 
 // AddNoteRequest — FE gửi lên khi thêm note
