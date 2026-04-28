@@ -6,10 +6,12 @@ import (
 	"github.com/MicahParks/keyfunc/v3"
 	"github.com/go-chi/chi/v5"
 	chiMiddleware "github.com/go-chi/chi/v5/middleware"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/minhvq36/focus-flow/backend/internal/auth"
+	"github.com/minhvq36/focus-flow/backend/internal/task"
 )
 
-func setupRoutes(jwks keyfunc.Keyfunc) *chi.Mux {
+func setupRoutes(jwks keyfunc.Keyfunc, db *pgxpool.Pool) *chi.Mux {
 	r := chi.NewRouter()
 
 	r.Use(chiMiddleware.Logger)
@@ -19,7 +21,7 @@ func setupRoutes(jwks keyfunc.Keyfunc) *chi.Mux {
 
 	r.Group(func(r chi.Router) {
 		r.Use(auth.RequireAuth(jwks))
-		// Task routes — thêm vào đây sau
+		r.Route("/api/tasks", task.Routes(db))
 	})
 
 	return r

@@ -83,7 +83,8 @@ premium  → 16 tasks/day
 id                  uuid PK
 user_id             uuid NOT NULL → users(id) [CASCADE delete]
 title               text NOT NULL (non-empty)
-todos               jsonb NOT NULL DEFAULT []  -- array of {id, text, checked, indent}
+todos               jsonb NOT NULL DEFAULT []  -- array of {id, text, done, children[]}
+                                                   -- nested structure: max depth 5, max 50 total items
                                                    -- synced via PATCH /api/tasks/:id/todos (debounced)
 penalty_mode        boolean DEFAULT false      -- snapshot of user.penalty_mode at creation
 status              text DEFAULT 'active'
@@ -94,7 +95,7 @@ started_at          timestamptz                -- NULL when paused/submitted
 created_at          timestamptz
 updated_at          timestamptz
 completed_at        timestamptz                -- set when submitted
-deleted_at          timestamptz
+deleted_at          timestamptz                -- soft delete, not restored in current phase
 ```
 
 **Constraints:**
@@ -108,11 +109,16 @@ deleted_at          timestamptz
 - `idx_tasks_user_active` — (user_id) WHERE deleted_at IS NULL AND status='active'
 
 **Logic Notes:**
-- Task created with status='active' and `started_at` = NOW() (timer auto-starts immediately via migration 004 sanitize trigger)
-- **Design Note:** Original spec intended started_at=NULL until user clicks "Start", but current migration auto-initializes it
+- Task created with status='active' and `started_at` = NOW() (timer auto-starts immediately)
 - When paused, `actual_duration_sec` += (NOW() - started_at), then `started_at` = NULL
 - When submitted/given_up, finalize `actual_duration_sec` and set `completed_at`
-- `penalty_mode` captured at task creation from user.penalty_mode at task creation time (never changes after)
+- `penalty_mode` captured at task creation from user.penalty_mode (never changes after)
+- `deleted_at` used for soft delete; restore feature not implemented in current phase
+- **Todo Structure:**
+  - Nested array format: `{id, text, done, children: [{id, text, done, children}, ...]}`
+  - Max nesting depth: 5 levels
+  - Max total todos per task: 50
+  - All todos at a given level are unordered
 
 #### `task_daily_quotas` (auto-increment via trigger)
 ```sql

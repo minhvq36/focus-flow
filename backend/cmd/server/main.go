@@ -22,7 +22,7 @@ func main() {
 		log.Fatalf("Failed to create JWKS: %v", err)
 	}
 
-	r := setupRoutes(jwks)
+	r := setupRoutes(jwks, pool)
 
 	log.Printf("Server chạy tại :%s\n", cfg.Port)
 	if err := http.ListenAndServe(":"+cfg.Port, r); err != nil {

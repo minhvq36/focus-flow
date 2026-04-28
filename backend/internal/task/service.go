@@ -6,14 +6,19 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+type RepositoryInterface interface {
+	GetAllByUser(ctx context.Context, userID string) ([]Task, error)
+}
+
 type Service struct {
-	repo *Repository
-} // TODO: Research and apply interface instead?
+	repo RepositoryInterface
+}
 
 func NewService(db *pgxpool.Pool) *Service {
 	return &Service{repo: NewRepository(db)}
 }
 
+// TODO: Check naming of service and repo
 func (s *Service) GetUserTasks(ctx context.Context, userID string) ([]Task, error) {
 	return s.repo.GetAllByUser(ctx, userID)
 }

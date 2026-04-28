@@ -16,6 +16,7 @@ func NewRepository(db *pgxpool.Pool) *Repository {
 	return &Repository{db: db}
 }
 
+// TODO: Add filter by date, status, pagination, etc.
 func (r *Repository) GetAllByUser(ctx context.Context, userID string) ([]Task, error) {
 	rows, err := r.db.Query(ctx, `
 		SELECT id, user_id, title, todos, penalty_mode, status,
