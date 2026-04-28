@@ -7,7 +7,7 @@ import (
 )
 
 type RepositoryInterface interface {
-	GetAllByUser(ctx context.Context, userID string) ([]Task, error)
+	GetAllByUser(ctx context.Context, userID string) ([]TaskSummary, error)
 }
 
 type Service struct {
@@ -19,6 +19,6 @@ func NewService(db *pgxpool.Pool) *Service {
 }
 
 // TODO: Check naming of service and repo
-func (s *Service) GetUserTasks(ctx context.Context, userID string) ([]Task, error) {
+func (s *Service) GetUserTasks(ctx context.Context, userID string) ([]TaskSummary, error) {
 	return s.repo.GetAllByUser(ctx, userID)
 }

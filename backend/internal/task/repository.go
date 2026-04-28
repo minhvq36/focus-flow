@@ -2,7 +2,6 @@ package task
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -17,11 +16,18 @@ func NewRepository(db *pgxpool.Pool) *Repository {
 }
 
 // TODO: Add filter by date, status, pagination, etc.
-func (r *Repository) GetAllByUser(ctx context.Context, userID string) ([]Task, error) {
+// GetAllByUser — list view, không load todos đầy đủ
+func (r *Repository) GetAllByUser(ctx context.Context, userID string) ([]TaskSummary, error) {
 	rows, err := r.db.Query(ctx, `
-		SELECT id, user_id, title, todos, penalty_mode, status,
+		SELECT id, title, status,
 		       registered_duration_min, actual_duration_sec,
-		       started_at, created_at, updated_at, completed_at
+		       started_at, created_at, completed_at,
+		       jsonb_array_length(todos) as todo_count,
+		       (
+		           SELECT COUNT(*)
+		           FROM jsonb_array_elements(todos) t
+		           WHERE (t->>'done')::boolean = true
+		       ) as todo_done_count
 		FROM tasks
 		WHERE user_id = $1
 		  AND deleted_at IS NULL
@@ -32,20 +38,17 @@ func (r *Repository) GetAllByUser(ctx context.Context, userID string) ([]Task, e
 	}
 	defer rows.Close()
 
-	var tasks []Task // TODO: Dont need deleted_ate for now because we don't handle restore for this phase
+	var tasks []TaskSummary
 	for rows.Next() {
-		var t Task
-		var todosJSON []byte
+		var t TaskSummary
 		err := rows.Scan(
-			&t.ID, &t.UserID, &t.Title, &todosJSON, &t.PenaltyMode,
-			&t.Status, &t.RegisteredDurationMin, &t.ActualDurationSec,
-			&t.StartedAt, &t.CreatedAt, &t.UpdatedAt, &t.CompletedAt,
+			&t.ID, &t.Title, &t.Status,
+			&t.RegisteredDurationMin, &t.ActualDurationSec,
+			&t.StartedAt, &t.CreatedAt, &t.CompletedAt,
+			&t.TodoCount, &t.TodoDoneCount,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("GetAllByUser scan: %w", err)
-		}
-		if err := json.Unmarshal(todosJSON, &t.Todos); err != nil {
-			return nil, fmt.Errorf("GetAllByUser unmarshal todos: %w", err)
 		}
 		tasks = append(tasks, t)
 	}

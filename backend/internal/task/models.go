@@ -105,6 +105,21 @@ func ValidateTodosAllDone(todos []TodoItem) error {
 	return nil
 }
 
+// TaskSummary — dùng cho list view (Dashboard)
+// Không load todos đầy đủ, chỉ count
+type TaskSummary struct {
+	ID                    string     `json:"id"`
+	Title                 string     `json:"title"`
+	Status                TaskStatus `json:"status"`
+	RegisteredDurationMin int        `json:"registered_duration_min"`
+	ActualDurationSec     int        `json:"actual_duration_sec"`
+	StartedAt             *time.Time `json:"started_at"`
+	CreatedAt             time.Time  `json:"created_at"`
+	CompletedAt           *time.Time `json:"completed_at"`
+	TodoCount             int        `json:"todo_count"`
+	TodoDoneCount         int        `json:"todo_done_count"`
+}
+
 type TaskNote struct {
 	ID        string    `json:"id"`
 	TaskID    string    `json:"task_id"`
