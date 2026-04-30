@@ -32,7 +32,7 @@ begin
     if not found then
         raise exception 'User wallet not found'
         using
-            errcode = 'DB007',
+            errcode = 'Z0007',
             detail = format('Wallet record does not exist for user %s', p_user_id);
     end if;
 

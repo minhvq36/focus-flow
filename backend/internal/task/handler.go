@@ -1,20 +1,28 @@
 package task
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/minhvq36/focus-flow/backend/internal/auth"
+	"github.com/minhvq36/focus-flow/backend/pkg/apperr"
 	"github.com/minhvq36/focus-flow/backend/pkg/response"
 )
 
-type Handler struct {
-	service *Service
+type ServiceInterface interface {
+	GetUserTasks(ctx context.Context, userID string) ([]TaskSummary, error)
+	GetTaskByID(ctx context.Context, taskID, userID string) (*Task, error)
+	CreateTask(ctx context.Context, userID string, req CreateTaskRequest) (*Task, error)
 }
 
-func NewHandler(service *Service) *Handler {
+type Handler struct {
+	service ServiceInterface
+}
+
+func NewHandler(service ServiceInterface) *Handler {
 	return &Handler{service: service}
 }
 
@@ -49,11 +57,12 @@ func (h *Handler) GetTaskByID(w http.ResponseWriter, r *http.Request) {
 
 	task, err := h.service.GetTaskByID(r.Context(), taskID, userID)
 	if err != nil {
-		if errors.Is(err, ErrNotFound) {
+		switch {
+		case errors.Is(err, apperr.ErrNotFound):
 			response.NotFound(w, "Task")
-			return
+		default:
+			response.InternalError(w)
 		}
-		response.InternalError(w)
 		return
 	}
 
@@ -75,11 +84,14 @@ func (h *Handler) CreateTask(w http.ResponseWriter, r *http.Request) {
 
 	task, err := h.service.CreateTask(r.Context(), userID, req)
 	if err != nil {
-		if errors.Is(err, ErrValidation) {
+		switch {
+		case errors.Is(err, apperr.ErrValidation):
 			response.BadRequest(w, "VALIDATION_ERROR", err.Error())
-			return
+		case errors.Is(err, apperr.ErrQuotaExceeded):
+			response.Conflict(w, "QUOTA_EXCEEDED", err.Error())
+		default:
+			response.InternalError(w)
 		}
-		response.InternalError(w)
 		return
 	}
 

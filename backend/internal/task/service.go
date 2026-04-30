@@ -3,7 +3,7 @@ package task
 import (
 	"context"
 
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/minhvq36/focus-flow/backend/pkg/apperr"
 )
 
 type RepositoryInterface interface {
@@ -16,8 +16,8 @@ type Service struct {
 	repo RepositoryInterface
 }
 
-func NewService(db *pgxpool.Pool) *Service {
-	return &Service{repo: NewRepository(db)}
+func NewService(repo RepositoryInterface) *Service {
+	return &Service{repo: repo}
 }
 
 // TODO: Check naming of service and repo
@@ -32,7 +32,7 @@ func (s *Service) GetTaskByID(ctx context.Context, taskID, userID string) (*Task
 func (s *Service) CreateTask(ctx context.Context, userID string, req CreateTaskRequest) (*Task, error) {
 	// Validate todos before creating
 	if err := ValidateTodos(req.Todos); err != nil {
-		return nil, &ValidationError{Message: err.Error()}
+		return nil, &apperr.ValidationError{Message: err.Error()}
 	}
 	return s.repo.Create(ctx, userID, req)
 }

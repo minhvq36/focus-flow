@@ -8,6 +8,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/minhvq36/focus-flow/backend/pkg/apperr"
+	dbpkg "github.com/minhvq36/focus-flow/backend/pkg/db"
 )
 
 type Repository struct {
@@ -77,7 +79,7 @@ func (r *Repository) GetByID(ctx context.Context, taskID, userID string) (*Task,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, &NotFoundError{}
+			return nil, &apperr.NotFoundError{Resource: "Task"}
 		}
 		return nil, fmt.Errorf("GetByID: %w", err)
 	}
@@ -109,8 +111,13 @@ func (r *Repository) Create(ctx context.Context, userID string, req CreateTaskRe
 		&t.StartedAt, &t.CreatedAt, &t.UpdatedAt, &t.CompletedAt,
 	)
 	if err != nil {
+		switch dbpkg.AppErrCode(err) {
+		case dbpkg.ErrZ0001QuotaExceeded:
+			return nil, &apperr.QuotaExceededError{}
+		}
 		return nil, fmt.Errorf("Create: %w", err)
 	}
+
 	if err := json.Unmarshal(todosRaw, &t.Todos); err != nil {
 		return nil, fmt.Errorf("Create unmarshal todos: %w", err)
 	}

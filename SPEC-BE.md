@@ -908,19 +908,19 @@ GET    /api/metrics                     Prometheus metrics
 **Database Error Codes (PostgreSQL `errcode`):**
 | Code | Trigger | Detail |
 |---|---|---|
-| **DB001** | `handle_new_auth_user()` | Starter garden not found on registration |
-| **DB002** | `fn_tasks_protect_system_fields()` | Immutable `created_at` field modification attempt |
-| **DB003** | `fn_tasks_protect_system_fields()` | System-managed fields cannot be modified (penalty_mode, status, timing fields) |
-| **DB004** | `fn_enforce_task_quota()` | Daily task quota exceeded (exceeded available slots for plan) |
-| **DB005** | `fn_enforce_task_note_limit()` | Task note ownership validation failed (user doesn't own task) |
-| **DB006** | `fn_enforce_task_note_limit()` | Task note limit exceeded (max 5 notes per task) |
-| **DB007** | `fn_submit_task_reward()` | User wallet not found (wallet record missing) |
-| **DB008** | `fn_submit_task_reward()` | Task already submitted or not found (state validation failed) |
+| **Z0001** | `handle_new_auth_user()` | Starter garden not found on registration |
+| **Z0002** | `fn_tasks_protect_system_fields()` | Immutable `created_at` field modification attempt |
+| **Z0003** | `fn_tasks_protect_system_fields()` | System-managed fields cannot be modified (penalty_mode, status, timing fields) |
+| **Z0004** | `fn_enforce_task_quota()` | Daily task quota exceeded (exceeded available slots for plan) |
+| **Z0005** | `fn_enforce_task_note_limit()` | Task note ownership validation failed (user doesn't own task) |
+| **Z0006** | `fn_enforce_task_note_limit()` | Task note limit exceeded (max 5 notes per task) |
+| **Z0007** | `fn_submit_task_reward()` | User wallet not found (wallet record missing) |
+| **Z0008** | `fn_submit_task_reward()` | Task already submitted or not found (state validation failed) |
 
 **API-Level Error Contract (minimal):**
 ```json
 {
-  "error": "DB004",
+  "error": "Z0004",
   "message": "Daily task quota exceeded",
   "detail": "User has exceeded the daily task limit (3 tasks/day). Used: 3, Limit: 3"
 }

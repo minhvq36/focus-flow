@@ -28,7 +28,7 @@ begin
     if not found then
         raise exception 'Task not owned by user'
         using
-            errcode = 'DB005',
+            errcode = 'Z0005',
             detail = format('User %s does not own task %s', new.user_id, new.task_id);
     end if;
 
@@ -39,7 +39,7 @@ begin
     if v_note_count >= 5 then
         raise exception 'Task note limit exceeded'
         using
-            errcode = 'DB006',
+            errcode = 'Z0006',
             detail = format('Task %s has reached maximum note limit. Current: %s notes, Max allowed: 5', new.task_id, v_note_count);
     end if;
 

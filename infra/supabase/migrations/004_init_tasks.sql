@@ -64,7 +64,7 @@ begin
     if new.created_at is distinct from old.created_at then
         raise exception 'Cannot modify created_at'
         using
-            errcode = 'DB002',
+            errcode = 'Z0002',
             detail = format('Immutable field created_at cannot be modified. Old: %s, Attempted: %s', old.created_at, new.created_at);
     end if;
 
@@ -79,7 +79,7 @@ begin
     ) then
         raise exception 'System-managed fields cannot be modified directly'
         using
-            errcode = 'DB003',
+            errcode = 'Z0003',
             detail = 'Only backend service role can modify system-managed fields (penalty_mode, status, started_at, actual_duration_sec, completed_at, deleted_at)';
     end if;
 
