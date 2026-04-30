@@ -27,8 +27,13 @@ begin
     where task_daily_quotas.usage_count < v_daily_limit;
 
     if not found then
-        raise exception 'quota_exceeded' 
-            using detail = 'User has exceeded the daily task limit (' || v_daily_limit || ' task/day).';
+        raise exception 'Daily task quota exceeded'
+        using
+            errcode = 'DB004',
+            detail = format('User has exceeded the daily task limit (%s tasks/day). Used: %s, Limit: %s',
+                v_daily_limit, 
+                (select usage_count from public.task_daily_quotas where user_id = new.user_id and target_date = current_date),
+                v_daily_limit);
     end if;
 
     return new;

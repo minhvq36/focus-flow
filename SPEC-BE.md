@@ -896,7 +896,7 @@ GET    /api/metrics                     Prometheus metrics
 }
 ```
 
-**Common Error Codes:**
+**HTTP Status Codes:**
 - `400 Bad Request` — invalid input
 - `401 Unauthorized` — missing/expired JWT
 - `403 Forbidden` — user doesn't own resource
@@ -904,6 +904,28 @@ GET    /api/metrics                     Prometheus metrics
 - `409 Conflict` — quota exceeded, business logic violation
 - `429 Too Many Requests` — rate limited
 - `500 Internal Server Error` — server error
+
+**Database Error Codes (PostgreSQL `errcode`):**
+| Code | Trigger | Detail |
+|---|---|---|
+| **DB001** | `handle_new_auth_user()` | Starter garden not found on registration |
+| **DB002** | `fn_tasks_protect_system_fields()` | Immutable `created_at` field modification attempt |
+| **DB003** | `fn_tasks_protect_system_fields()` | System-managed fields cannot be modified (penalty_mode, status, timing fields) |
+| **DB004** | `fn_enforce_task_quota()` | Daily task quota exceeded (exceeded available slots for plan) |
+| **DB005** | `fn_enforce_task_note_limit()` | Task note ownership validation failed (user doesn't own task) |
+| **DB006** | `fn_enforce_task_note_limit()` | Task note limit exceeded (max 5 notes per task) |
+| **DB007** | `fn_submit_task_reward()` | User wallet not found (wallet record missing) |
+| **DB008** | `fn_submit_task_reward()` | Task already submitted or not found (state validation failed) |
+
+**API-Level Error Contract (minimal):**
+```json
+{
+  "error": "DB004",
+  "message": "Daily task quota exceeded",
+  "detail": "User has exceeded the daily task limit (3 tasks/day). Used: 3, Limit: 3"
+}
+```
+Backend translates DB errors to user-friendly messages with original `errcode` in response for debugging.
 
 ---
 

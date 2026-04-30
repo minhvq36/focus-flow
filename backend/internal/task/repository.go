@@ -41,7 +41,6 @@ func (r *Repository) GetAllByUser(ctx context.Context, userID string) ([]TaskSum
 		return nil, fmt.Errorf("GetAllByUser: %w", err)
 	}
 	defer rows.Close()
-
 	var tasks []TaskSummary
 	for rows.Next() {
 		var t TaskSummary
@@ -88,7 +87,7 @@ func (r *Repository) GetByID(ctx context.Context, taskID, userID string) (*Task,
 	return &t, nil
 }
 
-// TODO: Check create with quota
+// TODO: quota exceed trigger db single source of truth, REPO to convert error
 func (r *Repository) Create(ctx context.Context, userID string, req CreateTaskRequest) (*Task, error) {
 	todosJSON, err := json.Marshal(req.Todos)
 	if err != nil {

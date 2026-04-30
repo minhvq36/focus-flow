@@ -62,7 +62,10 @@ begin
 
     -- Prevent changing immutable fields
     if new.created_at is distinct from old.created_at then
-        raise exception 'Cannot modify created_at';
+        raise exception 'Cannot modify created_at'
+        using
+            errcode = 'DB002',
+            detail = format('Immutable field created_at cannot be modified. Old: %s, Attempted: %s', old.created_at, new.created_at);
     end if;
 
     -- Prevent modifying system-managed fields
@@ -74,7 +77,10 @@ begin
         new.completed_at is distinct from old.completed_at or
         new.deleted_at is distinct from old.deleted_at
     ) then
-        raise exception 'System fields cannot be modified directly';
+        raise exception 'System-managed fields cannot be modified directly'
+        using
+            errcode = 'DB003',
+            detail = 'Only backend service role can modify system-managed fields (penalty_mode, status, started_at, actual_duration_sec, completed_at, deleted_at)';
     end if;
 
     return new;
