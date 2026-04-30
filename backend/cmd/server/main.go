@@ -24,8 +24,8 @@ func main() {
 
 	r := setupRoutes(jwks, pool)
 
-	log.Printf("Server chạy tại :%s\n", cfg.Port)
+	log.Printf("Server running on :%s\n", cfg.Port)
 	if err := http.ListenAndServe(":"+cfg.Port, r); err != nil {
-		log.Fatalf("Server lỗi: %v", err)
+		log.Fatalf("Server error: %v", err)
 	}
 }

@@ -5,27 +5,27 @@ import (
 	"net/http"
 )
 
-// ErrorPayload — chi tiết lỗi
+// ErrorPayload — Error details
 type ErrorPayload struct {
 	Code    string `json:"code"`
 	Message string `json:"message"`
 }
 
-// ApiResponse — wrapper chuẩn cho tất cả response
+// ApiResponse — Standard wrapper for all responses
 type ApiResponse struct {
 	Success bool          `json:"success"`
 	Data    interface{}   `json:"data,omitempty"` // object, array, or null, etc.
 	Error   *ErrorPayload `json:"error,omitempty"`
 }
 
-// JSON — ghi response ra http.ResponseWriter
+// JSON — Write response to http.ResponseWriter
 func JSON(w http.ResponseWriter, status int, resp ApiResponse) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	json.NewEncoder(w).Encode(resp)
 }
 
-// Success — trả data thành công
+// Success — Return successful data
 func Success(w http.ResponseWriter, data interface{}) {
 	JSON(w, http.StatusOK, ApiResponse{
 		Success: true,
@@ -33,7 +33,7 @@ func Success(w http.ResponseWriter, data interface{}) {
 	})
 }
 
-// Created — trả data vừa tạo
+// Created — Return newly created data
 func Created(w http.ResponseWriter, data interface{}) {
 	JSON(w, http.StatusCreated, ApiResponse{
 		Success: true,
@@ -41,12 +41,12 @@ func Created(w http.ResponseWriter, data interface{}) {
 	})
 }
 
-// NoContent — thành công, không có data (204)
+// NoContent — Success with no data (204)
 func NoContent(w http.ResponseWriter) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// Error — trả lỗi với code và message
+// Error — Return error with code and message
 func Error(w http.ResponseWriter, status int, code, message string) {
 	JSON(w, status, ApiResponse{
 		Success: false,
@@ -57,22 +57,22 @@ func Error(w http.ResponseWriter, status int, code, message string) {
 	})
 }
 
-// --- Shorthand errors hay dùng nhất ---
+// --- Most common shorthand errors ---
 // TODO: To add contract with error from DB
 func BadRequest(w http.ResponseWriter, code, message string) {
 	Error(w, http.StatusBadRequest, code, message)
 }
 
 func Unauthorized(w http.ResponseWriter) {
-	Error(w, http.StatusUnauthorized, "UNAUTHORIZED", "Bạn cần đăng nhập")
+	Error(w, http.StatusUnauthorized, "UNAUTHORIZED", "You need to login")
 }
 
 func Forbidden(w http.ResponseWriter) {
-	Error(w, http.StatusForbidden, "FORBIDDEN", "Bạn không có quyền thực hiện hành động này")
+	Error(w, http.StatusForbidden, "FORBIDDEN", "You don't have permission to perform this action")
 }
 
 func NotFound(w http.ResponseWriter, resource string) {
-	Error(w, http.StatusNotFound, "NOT_FOUND", resource+" không tồn tại")
+	Error(w, http.StatusNotFound, "NOT_FOUND", resource+" does not exist")
 }
 
 func Conflict(w http.ResponseWriter, code, message string) {
@@ -80,5 +80,5 @@ func Conflict(w http.ResponseWriter, code, message string) {
 }
 
 func InternalError(w http.ResponseWriter) {
-	Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", "Có lỗi xảy ra, vui lòng thử lại")
+	Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", "An error occurred, please try again")
 }

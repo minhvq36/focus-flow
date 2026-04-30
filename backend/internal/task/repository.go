@@ -21,7 +21,7 @@ func NewRepository(db *pgxpool.Pool) *Repository {
 }
 
 // TODO: Add filter by date, status, pagination, etc.
-// GetAllByUser — list view, không load todos đầy đủ
+// GetAllByUser — list view, does not load full todos
 func (r *Repository) GetAllByUser(ctx context.Context, userID string) ([]TaskSummary, error) {
 	// TODO: Need to contract todos with FE
 	rows, err := r.db.Query(ctx, `

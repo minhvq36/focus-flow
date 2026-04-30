@@ -1,3 +1,3 @@
 package ai
 
-// Logic gợi ý task thông minh
+// Smart task suggestion logic

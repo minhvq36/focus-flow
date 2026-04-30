@@ -1,3 +1,3 @@
 package social
 
-// Social events (User A vừa trồng cây hiếm)
+// Social events (User A just planted a rare plant)

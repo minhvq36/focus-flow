@@ -33,10 +33,10 @@ type Task struct {
 	Status                TaskStatus `json:"status"`
 	RegisteredDurationMin int        `json:"registered_duration_min"`
 	ActualDurationSec     int        `json:"actual_duration_sec"`
-	StartedAt             *time.Time `json:"started_at"` // NULL = đang dừng
+	StartedAt             *time.Time `json:"started_at"` // NULL = paused
 	CreatedAt             time.Time  `json:"created_at"`
 	UpdatedAt             time.Time  `json:"updated_at"`
-	CompletedAt           *time.Time `json:"completed_at"` // NULL = chưa xong
+	CompletedAt           *time.Time `json:"completed_at"` // NULL = not completed
 }
 
 // TODO: Also need to validate on FE
@@ -49,16 +49,16 @@ func isValidUUID(s string) bool {
 }
 
 func validateTodosRecursive(todos []TodoItem, depth int) error {
-	if depth > 5 { // TODO: Check if need to move to config or env
-		return fmt.Errorf("độ sâu phân cấp không được vượt quá 5 cấp")
+	if depth > 5 { // TODO: Check if needs to move to config or env
+		return fmt.Errorf("Hierarchy depth cannot exceed 5 levels")
 	}
 
 	for _, todo := range todos {
 		if !isValidUUID(todo.ID) {
-			return fmt.Errorf("todo ID không hợp lệ: %s", todo.ID)
+			return fmt.Errorf("Invalid todo ID: %s", todo.ID)
 		}
 		if strings.TrimSpace(todo.Text) == "" {
-			return fmt.Errorf("todo không được để trống text")
+			return fmt.Errorf("Todo text cannot be empty")
 		}
 		if len(todo.Children) > 0 {
 			if err := validateTodosRecursive(todo.Children, depth+1); err != nil {
@@ -80,21 +80,21 @@ func countTodos(todos []TodoItem) int {
 
 func ValidateTodos(todos []TodoItem) error {
 	if len(todos) == 0 {
-		return fmt.Errorf("cần ít nhất 1 todo")
+		return fmt.Errorf("At least 1 todo is required")
 	}
 
 	total := countTodos(todos)
 	if total > 50 {
-		return fmt.Errorf("tổng số todo không được vượt quá 50 (hiện tại: %d)", total)
+		return fmt.Errorf("Total number of todos cannot exceed 50 (current: %d)", total)
 	}
 
-	return validateTodosRecursive(todos, 1) // bắt đầu từ cấp 1
+	return validateTodosRecursive(todos, 1) // start from level 1
 }
 
 func ValidateTodosAllDone(todos []TodoItem) error {
 	for _, todo := range todos {
 		if !todo.Done {
-			return fmt.Errorf("todo '%s' chưa hoàn thành", todo.Text)
+			return fmt.Errorf("Todo '%s' is not completed", todo.Text)
 		}
 		if len(todo.Children) > 0 {
 			if err := ValidateTodosAllDone(todo.Children); err != nil {
@@ -105,8 +105,8 @@ func ValidateTodosAllDone(todos []TodoItem) error {
 	return nil
 }
 
-// TaskSummary — dùng cho list view (Dashboard)
-// Không load todos đầy đủ, chỉ count
+// TaskSummary — Used for list view (Dashboard)
+// Does not load full todos, only count
 type TaskSummary struct {
 	ID                    string     `json:"id"`
 	Title                 string     `json:"title"`
@@ -131,7 +131,7 @@ type TaskNote struct {
 
 // --- DTOs (request/response) ---
 
-// CreateTaskRequest — FE gửi lên khi tạo task
+// CreateTaskRequest — Sent from FE when creating a task
 type CreateTaskRequest struct {
 	Title                 string     `json:"title"                validate:"required,min=1,max=255"`
 	Todos                 []TodoItem `json:"todos"                validate:"required,min=1"`
@@ -139,17 +139,17 @@ type CreateTaskRequest struct {
 	PenaltyMode           bool       `json:"penalty_mode"`
 }
 
-// AddNoteRequest — FE gửi lên khi thêm note
+// AddNoteRequest — Sent from FE when adding a note
 type AddNoteRequest struct {
 	Content string `json:"content" validate:"required,min=1,max=22000"`
 }
 
-// UpdateTodosRequest — FE gửi lên khi autosave todos
+// UpdateTodosRequest — Sent from FE when autosaving todos
 type UpdateTodosRequest struct {
 	Todos []TodoItem `json:"todos" validate:"required,min=1,max=50"`
 }
 
-// ExtendRequest — FE gửi lên khi extend thêm thời gian
+// ExtendRequest — Sent from FE when extending time
 type ExtendRequest struct {
 	AddMinutes int `json:"add_minutes" validate:"required,min=1"`
 }

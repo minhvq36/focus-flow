@@ -11,20 +11,20 @@ import (
 func NewPool(ctx context.Context, databaseURL string) *pgxpool.Pool {
 	config, err := pgxpool.ParseConfig(databaseURL)
 	if err != nil {
-		log.Fatalf("Cấu hình DB sai: %v", err) // TODO: Chuyển tất cả comment, log sang tiếng Anh, thêm tag [] để debug
+		log.Fatalf("Invalid DB configuration: %v", err) // TODO: Convert all comments and logs to English, add [] tag for debugging
 	}
 
-	config.MaxConns = 10 // TODO: Tune or tối ưu hóa code để xử lý tải lớn, đọc từ .env or .yml
+	config.MaxConns = 10 // TODO: Tune or optimize code to handle large load, read from .env or .yml
 
 	pool, err := pgxpool.NewWithConfig(ctx, config)
 	if err != nil {
-		log.Fatalf("Không tạo được pool: %v", err)
+		log.Fatalf("Failed to create pool: %v", err)
 	}
 
 	if err := pool.Ping(ctx); err != nil {
-		log.Fatalf("Không ping được DB: %v", err)
+		log.Fatalf("Failed to ping DB: %v", err)
 	}
 
-	fmt.Println("Kết nối DB thành công!")
+	fmt.Println("Database connection successful!")
 	return pool
 }

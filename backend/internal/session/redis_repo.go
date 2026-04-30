@@ -1,3 +1,3 @@
 package session
 
-// Lưu trạng thái timer tạm thời vào Redis
+// Save temporary timer state to Redis

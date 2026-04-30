@@ -18,20 +18,20 @@ func NewJWKS(supabaseURL string) (keyfunc.Keyfunc, error) {
 	return keyfunc.NewDefault([]string{jwksURL})
 }
 
-// Đăng ký jwtSecret ở đây để middleware có thể dùng, tránh phải truyền đi truyền lại nhiều chỗ
+// Register jwtSecret here so middleware can use it, avoid passing around multiple places
 func RequireAuth(k keyfunc.Keyfunc) func(http.Handler) http.Handler {
-	// Nhận kết nối cho các route cần auth
+	// Handle connections for routes that require auth
 	return func(next http.Handler) http.Handler {
-		// Auth cho mọi request đi qua route đó
+		// Authenticate all requests passing through this route
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Lấy token từ header
+			// Get token from header
 			authHeader := r.Header.Get("Authorization")
 			if authHeader == "" {
 				http.Error(w, `{"error":"missing authorization header"}`, http.StatusUnauthorized)
 				return
 			}
 
-			// Kiểm tra format "Bearer <token>"
+			// Check format "Bearer <token>"
 			parts := strings.SplitN(authHeader, " ", 2)
 			if len(parts) != 2 || parts[0] != "Bearer" {
 				http.Error(w, `{"error":"invalid authorization format"}`, http.StatusUnauthorized)
@@ -47,7 +47,7 @@ func RequireAuth(k keyfunc.Keyfunc) func(http.Handler) http.Handler {
 				return
 			}
 
-			// Lấy userID từ claim "sub"
+			// Get userID from claim "sub"
 			claims, ok := token.Claims.(jwt.MapClaims)
 			if !ok {
 				http.Error(w, `{"error":"invalid token claims"}`, http.StatusUnauthorized)
@@ -60,14 +60,14 @@ func RequireAuth(k keyfunc.Keyfunc) func(http.Handler) http.Handler {
 				return
 			}
 
-			// Nhét userID vào context — handler lấy ra dùng for guardrails, logging, etc
+			// Store userID in context — handler retrieves for guardrails, logging, etc
 			ctx := context.WithValue(r.Context(), UserIDKey, userID)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
 }
 
-// GetUserID — helper để lấy userID từ context trong handler
+// GetUserID — helper to retrieve userID from context in handler
 func GetUserID(ctx context.Context) (string, bool) {
 	userID, ok := ctx.Value(UserIDKey).(string)
 	return userID, ok

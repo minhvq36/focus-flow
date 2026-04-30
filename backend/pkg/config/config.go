@@ -30,7 +30,7 @@ func Load() *Config {
 	return cfg
 }
 
-// getEnv đọc env, nếu không có thì dùng giá trị mặc định
+// getEnv reads env, uses fallback value if not found
 func getEnv(key, fallback string) string {
 	if val := os.Getenv(key); val != "" {
 		return val
@@ -38,11 +38,11 @@ func getEnv(key, fallback string) string {
 	return fallback
 }
 
-// requireEnv đọc env, nếu không có thì crash ngay lúc start
+// requireEnv reads env, crashes at startup if not found
 func requireEnv(key string) string {
 	val := os.Getenv(key)
 	if val == "" {
-		log.Fatalf("Thiếu biến môi trường bắt buộc: %s", key)
+		log.Fatalf("Missing required environment variable: %s", key)
 	}
 	return val
 }
