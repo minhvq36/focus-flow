@@ -2,6 +2,7 @@ package task
 
 import (
 	"context"
+	"strings"
 
 	"github.com/minhvq36/focus-flow/backend/pkg/apperr"
 	"github.com/minhvq36/focus-flow/backend/pkg/logger"
@@ -35,6 +36,9 @@ func (s *Service) GetTaskByID(ctx context.Context, taskID, userID string) (*Task
 }
 
 func (s *Service) CreateTask(ctx context.Context, userID string, req CreateTaskRequest) (*Task, error) {
+	if strings.TrimSpace(req.Title) == "" {
+		return nil, &apperr.ValidationError{Message: "Title cannot be empty"}
+	}
 	// Validate todos before creating
 	if err := ValidateTodos(req.Todos); err != nil {
 		return nil, &apperr.ValidationError{Message: err.Error()}
