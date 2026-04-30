@@ -8,10 +8,12 @@ import (
 	"github.com/minhvq36/focus-flow/backend/internal/auth"
 	"github.com/minhvq36/focus-flow/backend/pkg/config"
 	"github.com/minhvq36/focus-flow/backend/pkg/db"
+	"github.com/minhvq36/focus-flow/backend/pkg/logger"
 )
 
 func main() {
 	cfg := config.Load()
+	appLog := logger.NewLogger("main")
 
 	ctx := context.Background()
 	pool := db.NewPool(ctx, cfg.DatabaseURL)
@@ -22,9 +24,9 @@ func main() {
 		log.Fatalf("Failed to create JWKS: %v", err)
 	}
 
-	r := setupRoutes(jwks, pool)
+	r := setupRoutes(jwks, pool, appLog)
 
-	log.Printf("Server running on :%s\n", cfg.Port)
+	appLog.Info("Server running", "port", cfg.Port)
 	if err := http.ListenAndServe(":"+cfg.Port, r); err != nil {
 		log.Fatalf("Server error: %v", err)
 	}

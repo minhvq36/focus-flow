@@ -10,20 +10,27 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/minhvq36/focus-flow/backend/pkg/apperr"
 	dbpkg "github.com/minhvq36/focus-flow/backend/pkg/db"
+	"github.com/minhvq36/focus-flow/backend/pkg/logger"
 )
 
 type Repository struct {
-	db *pgxpool.Pool
+	db  *pgxpool.Pool
+	log *logger.Logger
 }
 
-func NewRepository(db *pgxpool.Pool) *Repository {
-	return &Repository{db: db}
+func NewRepository(db *pgxpool.Pool, log *logger.Logger) *Repository {
+	return &Repository{
+		db:  db,
+		log: log,
+	}
 }
 
 // TODO: Add filter by date, status, pagination, etc.
 // GetAllByUser — list view, does not load full todos
 func (r *Repository) GetAllByUser(ctx context.Context, userID string) ([]TaskSummary, error) {
 	// TODO: Need to contract todos with FE
+	r.log.Info("GetAllByUser", "user_id", userID)
+
 	rows, err := r.db.Query(ctx, `
 		SELECT id, title, status,
 		       registered_duration_min, actual_duration_sec,
@@ -32,7 +39,7 @@ func (r *Repository) GetAllByUser(ctx context.Context, userID string) ([]TaskSum
 		       (
 		           SELECT COUNT(*)
 		           FROM jsonb_array_elements(todos) t
-		           WHERE (t->>'is_done')::boolean = true
+		           WHERE (t->>'done')::boolean = true
 		       ) as todo_done_count
 		FROM tasks
 		WHERE user_id = $1
@@ -40,6 +47,7 @@ func (r *Repository) GetAllByUser(ctx context.Context, userID string) ([]TaskSum
 		ORDER BY created_at DESC
 	`, userID)
 	if err != nil {
+		r.log.Error("GetAllByUser failed", "user_id", userID, "error", err.Error())
 		return nil, fmt.Errorf("GetAllByUser: %w", err)
 	}
 	defer rows.Close()
@@ -64,6 +72,8 @@ func (r *Repository) GetByID(ctx context.Context, taskID, userID string) (*Task,
 	var t Task
 	var todosJSON []byte
 
+	r.log.Info("GetByID", "user_id", userID, "task_id", taskID)
+
 	err := r.db.QueryRow(ctx, `
 		SELECT id, user_id, title, todos, penalty_mode, status,
 		       registered_duration_min, actual_duration_sec,
@@ -81,6 +91,7 @@ func (r *Repository) GetByID(ctx context.Context, taskID, userID string) (*Task,
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, &apperr.NotFoundError{Resource: "Task"}
 		}
+		r.log.Error("GetByID failed", "user_id", userID, "task_id", taskID, "error", err.Error())
 		return nil, fmt.Errorf("GetByID: %w", err)
 	}
 	if err := json.Unmarshal(todosJSON, &t.Todos); err != nil {
@@ -95,6 +106,8 @@ func (r *Repository) Create(ctx context.Context, userID string, req CreateTaskRe
 	if err != nil {
 		return nil, fmt.Errorf("Create marshal todos: %w", err)
 	}
+
+	r.log.Info("Create", "user_id", userID, "title", req.Title)
 
 	var t Task
 	var todosRaw []byte
@@ -115,6 +128,7 @@ func (r *Repository) Create(ctx context.Context, userID string, req CreateTaskRe
 		case dbpkg.ErrZ0001QuotaExceeded:
 			return nil, &apperr.QuotaExceededError{}
 		}
+		r.log.Error("Create failed", "user_id", userID, "error", err.Error())
 		return nil, fmt.Errorf("Create: %w", err)
 	}
 

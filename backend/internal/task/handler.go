@@ -9,6 +9,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/minhvq36/focus-flow/backend/internal/auth"
 	"github.com/minhvq36/focus-flow/backend/pkg/apperr"
+	"github.com/minhvq36/focus-flow/backend/pkg/logger"
 	"github.com/minhvq36/focus-flow/backend/pkg/response"
 )
 
@@ -20,10 +21,14 @@ type ServiceInterface interface {
 
 type Handler struct {
 	service ServiceInterface
+	log     *logger.Logger
 }
 
-func NewHandler(service ServiceInterface) *Handler {
-	return &Handler{service: service}
+func NewHandler(service ServiceInterface, log *logger.Logger) *Handler {
+	return &Handler{
+		service: service,
+		log:     log,
+	}
 }
 
 func (h *Handler) GetUserTasks(w http.ResponseWriter, r *http.Request) {
@@ -33,8 +38,10 @@ func (h *Handler) GetUserTasks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	h.log.Info("GetUserTasks", "user_id", userID)
 	tasks, err := h.service.GetUserTasks(r.Context(), userID)
 	if err != nil {
+		h.log.Error("GetUserTasks failed", "user_id", userID, "error", err.Error())
 		response.InternalError(w)
 		return
 	}
@@ -55,12 +62,14 @@ func (h *Handler) GetTaskByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	h.log.Info("GetTaskByID", "user_id", userID, "task_id", taskID)
 	task, err := h.service.GetTaskByID(r.Context(), taskID, userID)
 	if err != nil {
 		switch {
 		case errors.Is(err, apperr.ErrNotFound):
 			response.NotFound(w, "Task")
 		default:
+			h.log.Error("GetTaskByID failed", "user_id", userID, "task_id", taskID, "error", err.Error())
 			response.InternalError(w)
 		}
 		return
@@ -82,6 +91,7 @@ func (h *Handler) CreateTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	h.log.Info("CreateTask", "user_id", userID, "title", req.Title)
 	task, err := h.service.CreateTask(r.Context(), userID, req)
 	if err != nil {
 		switch {
@@ -90,6 +100,7 @@ func (h *Handler) CreateTask(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, apperr.ErrQuotaExceeded):
 			response.Conflict(w, "QUOTA_EXCEEDED", err.Error())
 		default:
+			h.log.Error("CreateTask failed", "user_id", userID, "error", err.Error())
 			response.InternalError(w)
 		}
 		return

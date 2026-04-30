@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/minhvq36/focus-flow/backend/pkg/apperr"
+	"github.com/minhvq36/focus-flow/backend/pkg/logger"
 )
 
 type RepositoryInterface interface {
@@ -14,10 +15,14 @@ type RepositoryInterface interface {
 
 type Service struct {
 	repo RepositoryInterface
+	log  *logger.Logger
 }
 
-func NewService(repo RepositoryInterface) *Service {
-	return &Service{repo: repo}
+func NewService(repo RepositoryInterface, log *logger.Logger) *Service {
+	return &Service{
+		repo: repo,
+		log:  log,
+	}
 }
 
 // TODO: Check naming of service and repo

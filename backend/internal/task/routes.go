@@ -3,12 +3,13 @@ package task
 import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/minhvq36/focus-flow/backend/pkg/logger"
 )
 
-func Routes(db *pgxpool.Pool) func(r chi.Router) {
-	repo := NewRepository(db)
-	service := NewService(repo)
-	handler := NewHandler(service)
+func Routes(db *pgxpool.Pool, log *logger.Logger) func(r chi.Router) {
+	repo := NewRepository(db, log)
+	service := NewService(repo, log)
+	handler := NewHandler(service, log)
 
 	return func(r chi.Router) {
 		// List all tasks for authenticated user

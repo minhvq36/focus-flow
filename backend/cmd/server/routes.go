@@ -9,9 +9,10 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/minhvq36/focus-flow/backend/internal/auth"
 	"github.com/minhvq36/focus-flow/backend/internal/task"
+	"github.com/minhvq36/focus-flow/backend/pkg/logger"
 )
 
-func setupRoutes(jwks keyfunc.Keyfunc, db *pgxpool.Pool) *chi.Mux {
+func setupRoutes(jwks keyfunc.Keyfunc, db *pgxpool.Pool, log *logger.Logger) *chi.Mux {
 	r := chi.NewRouter()
 
 	r.Use(chiMiddleware.Logger)
@@ -21,7 +22,7 @@ func setupRoutes(jwks keyfunc.Keyfunc, db *pgxpool.Pool) *chi.Mux {
 
 	r.Group(func(r chi.Router) {
 		r.Use(auth.RequireAuth(jwks))
-		r.Route("/api/tasks", task.Routes(db))
+		r.Route("/api/tasks", task.Routes(db, log))
 	})
 
 	return r
