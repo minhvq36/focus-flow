@@ -16,6 +16,7 @@ type RepositoryInterface interface {
 	PauseTask(ctx context.Context, taskID, userID string) (int, error)
 	Submit(ctx context.Context, taskID, userID string) error
 	GiveUp(ctx context.Context, taskID, userID string) error
+	ResumeTask(ctx context.Context, taskID, userID string) error
 }
 
 type Service struct {
@@ -111,4 +112,18 @@ func (s *Service) GiveUpTask(ctx context.Context, taskID, userID string) error {
 
 	return s.repo.GiveUp(ctx, taskID, userID)
 	// TODO: trigger penalty flow (phase 2)
+}
+
+func (s *Service) ResumeTask(ctx context.Context, taskID, userID string) error {
+	task, err := s.repo.GetByID(ctx, taskID, userID)
+	if err != nil {
+		return err
+	}
+
+	// TODO: Future allow resume given_up, submitted, not only paused
+	if task.Status != TaskStatusPaused {
+		return &apperr.InvalidStateError{Current: string(task.Status), Expected: string(TaskStatusPaused)}
+	}
+
+	return s.repo.ResumeTask(ctx, taskID, userID)
 }

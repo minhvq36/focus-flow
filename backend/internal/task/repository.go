@@ -191,8 +191,7 @@ func (r *Repository) PauseTask(ctx context.Context, taskID, userID string) (int,
                 actual_duration_sec + EXTRACT(EPOCH FROM (NOW() - started_at))::int,
                 registered_duration_min * 60
             ),
-            started_at = NULL,
-            updated_at = NOW()
+            started_at = NULL
         WHERE id = $1
           AND user_id = $2
           AND status = 'active'
@@ -243,8 +242,7 @@ func (r *Repository) GiveUp(ctx context.Context, taskID, userID string) error {
                 registered_duration_min * 60
             ),
             started_at = NULL,
-            completed_at = NOW(),
-            updated_at = NOW()
+            completed_at = NOW()
         WHERE id = $1
           AND user_id = $2
           AND status = 'active'
@@ -253,6 +251,26 @@ func (r *Repository) GiveUp(ctx context.Context, taskID, userID string) error {
     `, taskID, userID)
 	if err != nil {
 		return fmt.Errorf("GiveUp: %w", err)
+	}
+	if result.RowsAffected() == 0 {
+		return &apperr.NotFoundError{Resource: "Task"}
+	}
+	return nil
+}
+
+func (r *Repository) ResumeTask(ctx context.Context, taskID, userID string) error {
+	// TODO: Future allow resume given_up, submitted, not only paused
+	result, err := r.db.Exec(ctx, `
+        UPDATE tasks
+        SET status = 'active',
+            started_at = NOW()
+        WHERE id = $1
+          AND user_id = $2
+          AND status = 'paused'
+          AND deleted_at IS NULL
+    `, taskID, userID)
+	if err != nil {
+		return fmt.Errorf("ResumeTask: %w", err)
 	}
 	if result.RowsAffected() == 0 {
 		return &apperr.NotFoundError{Resource: "Task"}

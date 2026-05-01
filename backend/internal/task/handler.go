@@ -19,6 +19,9 @@ type ServiceInterface interface {
 	CreateTask(ctx context.Context, userID string, req CreateTaskRequest) (*Task, error)
 	UpdateTodos(ctx context.Context, taskID, userID string, req UpdateTodosRequest) error
 	PauseTask(ctx context.Context, taskID, userID string) error
+	SubmitTask(ctx context.Context, taskID, userID string, req SubmitTaskRequest) error
+	GiveUpTask(ctx context.Context, taskID, userID string) error
+	ResumeTask(ctx context.Context, taskID, userID string) error
 }
 
 type Handler struct {
@@ -177,4 +180,105 @@ func (h *Handler) PauseTask(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response.Success(w, map[string]string{"message": "Task paused successfully"})
+}
+
+func (h *Handler) SubmitTask(w http.ResponseWriter, r *http.Request) {
+	userID, ok := auth.GetUserID(r.Context())
+	if !ok {
+		response.Unauthorized(w)
+		return
+	}
+
+	taskID := chi.URLParam(r, "id")
+	if taskID == "" {
+		response.BadRequest(w, "INVALID_ID", "Task ID is required")
+		return
+	}
+
+	var req SubmitTaskRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.BadRequest(w, "INVALID_REQUEST", "Invalid request body")
+		return
+	}
+
+	h.log.Info("SubmitTask", "user_id", userID, "task_id", taskID)
+	err := h.service.SubmitTask(r.Context(), taskID, userID, req)
+	if err != nil {
+		switch {
+		case errors.Is(err, apperr.ErrValidation):
+			response.BadRequest(w, "VALIDATION_ERROR", err.Error())
+		case errors.Is(err, apperr.ErrNotFound):
+			response.NotFound(w, "Task")
+		case errors.Is(err, apperr.ErrInvalidState):
+			response.Conflict(w, "INVALID_STATE", err.Error())
+		default:
+			h.log.Error("SubmitTask failed", "user_id", userID, "task_id", taskID, "error", err.Error())
+			response.InternalError(w)
+		}
+		return
+	}
+
+	response.Success(w, map[string]string{"message": "Task submitted successfully"})
+}
+
+func (h *Handler) GiveUpTask(w http.ResponseWriter, r *http.Request) {
+	userID, ok := auth.GetUserID(r.Context())
+	if !ok {
+		response.Unauthorized(w)
+		return
+	}
+
+	taskID := chi.URLParam(r, "id")
+	if taskID == "" {
+		response.BadRequest(w, "INVALID_ID", "Task ID is required")
+		return
+	}
+
+	h.log.Info("GiveUpTask", "user_id", userID, "task_id", taskID)
+	err := h.service.GiveUpTask(r.Context(), taskID, userID)
+	if err != nil {
+		switch {
+		case errors.Is(err, apperr.ErrNotFound):
+			response.NotFound(w, "Task")
+		case errors.Is(err, apperr.ErrInvalidState):
+			response.Conflict(w, "INVALID_STATE", err.Error())
+		default:
+			h.log.Error("GiveUpTask failed", "user_id", userID, "task_id", taskID, "error", err.Error())
+			response.InternalError(w)
+		}
+		return
+	}
+
+	response.Success(w, map[string]string{"message": "Task given up successfully"})
+}
+
+func (h *Handler) ResumeTask(w http.ResponseWriter, r *http.Request) {
+	userID, ok := auth.GetUserID(r.Context())
+	if !ok {
+		response.Unauthorized(w)
+		return
+	}
+
+	taskID := chi.URLParam(r, "id")
+	if taskID == "" {
+		response.BadRequest(w, "INVALID_ID", "Task ID is required")
+		return
+	}
+
+	h.log.Info("ResumeTask", "user_id", userID, "task_id", taskID)
+	err := h.service.ResumeTask(r.Context(), taskID, userID)
+	if err != nil {
+		switch {
+		case errors.Is(err, apperr.ErrNotFound):
+			response.NotFound(w, "Task")
+		case errors.Is(err, apperr.ErrInvalidState):
+			response.Conflict(w, "INVALID_STATE", err.Error())
+		default:
+			h.log.Error("ResumeTask failed", "user_id", userID, "task_id", taskID, "error", err.Error())
+			response.InternalError(w)
+		}
+		return
+	}
+
+	response.Success(w, map[string]string{"message": "Task resumed successfully"})
 }
