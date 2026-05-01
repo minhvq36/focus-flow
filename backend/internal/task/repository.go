@@ -233,3 +233,29 @@ func (r *Repository) Submit(ctx context.Context, taskID, userID string) error {
 	}
 	return nil
 }
+
+func (r *Repository) GiveUp(ctx context.Context, taskID, userID string) error {
+	result, err := r.db.Exec(ctx, `
+        UPDATE tasks
+        SET status = 'given_up',
+            actual_duration_sec = LEAST(
+                actual_duration_sec + EXTRACT(EPOCH FROM (NOW() - started_at))::int,
+                registered_duration_min * 60
+            ),
+            started_at = NULL,
+            completed_at = NOW(),
+            updated_at = NOW()
+        WHERE id = $1
+          AND user_id = $2
+          AND status = 'active'
+		  AND started_at IS NOT NULL
+          AND deleted_at IS NULL
+    `, taskID, userID)
+	if err != nil {
+		return fmt.Errorf("GiveUp: %w", err)
+	}
+	if result.RowsAffected() == 0 {
+		return &apperr.NotFoundError{Resource: "Task"}
+	}
+	return nil
+}

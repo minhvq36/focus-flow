@@ -44,7 +44,7 @@ User fill form trước khi bắt đầu:
 | **Todo List** | Danh sách checkbox, hỗ trợ indent (checkbox con). Tối thiểu 1 item |
 | **Thời lượng** | Chọn trước: 15 / 25 / 45 / 60 / 90 / 120 phút (hoặc custom) |
 
-Sau khi fill xong → bấm **"Create Task"** → task được tạo và đồng hồ tự động bắt đầu → vào màn hình Focus. Ghi chú được thêm vào trong Focus screen (append-only audit trail).
+Sau khi fill xong → bấm **"Create Task"** → task được tạo và đồng hồ tự động bắt đầu → vào màn hình Focus. Ghi chú được thêm/sửa/xóa trong Focus screen (CRUD).
 
 ### 3.2 Màn Hình Focus (Minimalist)
 
@@ -63,35 +63,35 @@ Màn hình cực tối giản, không có gì gây distraction:
 │  [+ Add todo]  [🗑 xóa todo đang chọn]│  ← Thêm/xóa todo (min 1 item)
 │                                      │
 │  � Notes:                           │  ← Append-only audit trail (scrollable)
+│  📝 Notes:                           │
 │  ┌──────────────────────────────────┐│
-│  │ 14:32 Bắt đầu research logic...  ││
-│  │ 15:15 Phát hiện race condition   ││
+│  │ 14:32 Research logic...  [✏️] [🗑] ││
+│  │ 15:15 Race condition bug [✏️] [🗑] ││
 │  │ [+ Add note]                     ││
 │  └──────────────────────────────────┘│
 │                                      │
-│  [⏸ Pause]  [⏩ +15 min]            │
+│  [⏸ Pause/Resume]  [⏩ +15 min]     │
 │                                      │
-│  [✅ Submit]  [🏳 Give Up]  [⏺ Pause Task] │
+│  [✅ Submit]  [🏳 Give Up]           │
 └─────────────────────────────────────┘
 ```
 
 **Chi tiết các nút:**
 
-- **Pause / Resume:** Dừng đồng hồ, vẫn ở màn hình focus.
+- **Pause/Resume:** Dừng đồng hồ (task vẫn `active`), user có thể tiếp tục sau. Dữ liệu được lưu tự động.
 - **+15 min (Extend):** Thêm 15 phút vào thời lượng còn lại. Không giới hạn số lần extend.
-- **Pause Task:** Dừng task, lưu trạng thái (đồng hồ pausing, todo state, notes audit trail). User thoát về màn hình chính. Task xuất hiện trong list với badge "Paused — tiếp tục?". Có thể resume bất cứ lúc nào.
-- **Submit Task:** Kiểm tra tất cả todo đã check. Nếu còn todo chưa check → hiện modal cảnh báo danh sách chưa xong, không cho submit. Khi tất cả checked → submit thành công → trigger reward flow.
+- **Submit Task:** Gửi task để hoàn thành. Có thể submit từ trạng thái active hoặc paused (không cần tất cả todo checked). Submit thành công → trigger reward flow.
 - **Give Up:** Confirm dialog "Bạn chắc chắn muốn bỏ task này?" → Xác nhận → task về trạng thái `given_up` → trigger penalty flow (nếu penalty mode ON).
 
 ### 3.3 Task States
 
 ```
-active (created & waiting to start) → paused → active (resume)
-                                           └→ submitted (✅ completed)
-                                           └→ given_up  (🏳 penalty)
+active (created & running timer) ──┬─→ paused → active (resume)
+                                    ├→ submitted (✅ completed, can submit anytime)
+                                    └→ given_up  (🏳 penalty)
 ```
 
-**Note:** Task không có `draft` state. Khi tạo task form → task được lưu vào DB ngay với status `active` và `started_at = NOW()` (đồng hồ tự động bắt đầu). ⚠️ **Design Note:** Original spec intended started_at=NULL until user clicks "Start Task", nhưng current migration auto-initializes timer on creation.
+**Note:** Task không có `draft` state. Khi tạo task form → task được lưu vào DB ngay với status `active` và `started_at = NOW()` (đồng hồ tự động bắt đầu).
 
 ### 3.4 Daily Task Limits (by Plan)
 
@@ -105,13 +105,13 @@ active (created & waiting to start) → paused → active (resume)
 
 ### 3.5 Timer System
 
-**Schema Design:** Dùng `started_at` làm mốc "đang chạy" và `actual_duration_sec` là tổng thời gian đã lưu (append-only).
+**Schema Design:** Dùng `started_at` làm mốc "đang chạy" và `actual_duration_sec` là tổng thời gian đã lưu.
 
 | Field | Type | Mô tả |
 |---|---|---|
 | `registered_duration_min` | INT | Thời gian ban đầu (15/25/45/60/90/120 min hoặc custom). Có thể tăng qua Extend. |
-| `actual_duration_sec` | INT | Tổng thời gian đã lưu (không bao gồm delta đang chạy). Chỉ tăng khi pause task hoặc submit. |
-| `started_at` | TIMESTAMPTZ | Mốc khi bắt đầu hoặc resume. NULL = đang dừng. |
+| `actual_duration_sec` | INT | Tổng thời gian đã lưu (không bao gồm delta đang chạy). Chỉ tăng khi pause hoặc submit. |
+| `started_at` | TIMESTAMPTZ | Mốc khi bắt đầu hoặc resume. NULL = đang dừng (paused). |
 
 **Thời gian thực tế:** `actual_duration_sec + (NOW() - started_at)` khi `started_at` không NULL.
 
@@ -119,9 +119,9 @@ active (created & waiting to start) → paused → active (resume)
 
 | Sự kiện | started_at | actual_duration_sec | Ghi chú |
 |---|---|---|---|
-| **Start** | = NOW() | không đổi | Task chuyển active, bắt đầu đếm |
-| **Pause Timer** | = NULL | += delta (NOW() - started_at) | Tạm dừng đồng hồ, nhưng task vẫn active |
-| **Resume Timer** | = NOW() | không đổi | Tiếp tục từ lúc dừng |
+| **Create/Start** | = NOW() | = 0 | Task chuyển active, bắt đầu đếm |
+| **Pause** | = NULL | += delta (NOW() - started_at) | Tạm dừng đồng hồ, task vẫn active |
+| **Resume** | = NOW() | không đổi | Tiếp tục từ lúc dừng |
 | **Submit** | = NULL | += delta (nếu started_at còn) | Lưu lại thời gian cuối, task → submitted |
 | **Given Up** | = NULL | không đổi | Không tính thời gian cuối, task → given_up |
 | **Extend +N min** | không đổi | không đổi | Tăng `registered_duration_min += N` |
@@ -135,7 +135,7 @@ active (created & waiting to start) → paused → active (resume)
 - Không heartbeat, không constraint DB.
 
 **Validation:**
-- Backend kiểm tra khi nhận `pause-timer`, `submit`, `give-up`: thời gian gửi lên có hợp lý không (tolerance ~10 giây).
+- Backend kiểm tra khi nhận `submit`, `give-up`: thời gian gửi lên có hợp lý không (tolerance ~10 giây).
 - DB chỉ giữ `CHECK (actual_duration_sec >= 0)`.
 
 ---
@@ -532,7 +532,7 @@ tasks (
 -- Index: idx_tasks_user_active (user_id) WHERE deleted_at IS NULL AND status='active'
 -- Note: penalty_mode is a snapshot of user's penalty setting at task creation time
 
--- Task Notes (1-n audit trail) — Append-only
+-- Task Notes (CRUD)
 task_notes (
   id uuid PK,
   task_id uuid FK,
@@ -807,14 +807,13 @@ PATCH  /api/auth/me              { display_name, penalty_mode }
 GET    /api/tasks                ?status=&date=
 POST   /api/tasks                { title, todos[], estimated_minutes }
 GET    /api/tasks/:id
-GET    /api/tasks/:id/notes      ← Fetch all notes (ordered by created_at DESC)
-POST   /api/tasks/:id/notes      { content }  ← Add a note (append-only)
+GET    /api/tasks/:id/notes      ← Fetch all notes
+POST   /api/tasks/:id/notes      { content }  ← Create note
+PATCH  /api/tasks/:id/notes/:nid { content }  ← Update note
+DELETE /api/tasks/:id/notes/:nid             ← Delete note
 PATCH  /api/tasks/:id/todos      { todos[] }
-POST   /api/tasks/:id/start
-POST   /api/tasks/:id/pause-timer
-POST   /api/tasks/:id/resume-timer
+POST   /api/tasks/:id/pause                  ← Toggle pause/resume
 POST   /api/tasks/:id/extend     { add_minutes }
-POST   /api/tasks/:id/pause-task
 POST   /api/tasks/:id/submit
 POST   /api/tasks/:id/give-up
 GET    /api/tasks/quota/today    → { used, limit }

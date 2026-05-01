@@ -256,9 +256,9 @@ wire ./cmd/server
 
 **State Machine:**
 ```
-[Created] → Start → [Active] ──→ Pause → [Active] (resumed)
-                    ├→ Submit → [Submitted] (reward flow)
-                    └→ Give Up → [Given Up] (penalty flow)
+[Created] → [Active] ──┬─→ Paused → Resume → [Active]
+                       ├─→ [Submitted] (reward flow)
+                       └─→ [Given Up] (penalty flow, if penalty mode ON)
 ```
 
 **Key Operations:**
@@ -274,42 +274,32 @@ wire ./cmd/server
 - **Output:** task_id, redirect to Focus screen
 - **Note:** Migration 004 automatically sets started_at=NOW() on task creation (timer auto-starts)
 
-#### StartTask
+#### PauseTask (Toggle)
 - **Input:** task_id
 - **Logic:**
   1. Fetch task, validate status='active'
-  2. **TODO:** Migration 004 already sets started_at=NOW() on creation, so this endpoint may be redundant or needs redesign
-  3. For now: assume task timer is already running from creation time
-- **Output:** task object, 200 OK
-- **Design Note:** Current migration behavior differs from original spec (timer auto-starts on creation vs user-initiated start)
-
-#### PauseTimer
-- **Input:** task_id
-- **Logic:**
-  1. Get started_at from Redis
-  2. Calculate delta = NOW() - started_at
-  3. Accumulate: `actual_duration_sec += delta`
-  4. Set started_at = NULL in both Redis and DB
-  5. Clear Redis key for started_at
+  2. If started_at IS NOT NULL:
+     - Calculate delta = NOW() - started_at
+     - Accumulate: actual_duration_sec += delta
+     - Set started_at = NULL (timer paused)
+  3. Else (already paused):
+     - Set started_at = NOW() (resume)
+  4. Update DB
 - **Output:** updated task, 200 OK
-
-#### ResumeTimer
-- **Input:** task_id
-- **Logic:**
-  1. Fetch task, validate status='active' and started_at IS NULL
-  2. Set started_at = NOW() (in both Redis and DB)
-  3. Keep actual_duration_sec unchanged
-- **Output:** task object, 200 OK
+- **Note:** Single endpoint toggles pause/resume state
 
 #### SubmitTask
-- **Input:** task_id, todos_final_state[]
+- **Input:** task_id
 - **Logic:**
-  1. Fetch task, validate all todos checked
-  2. Finalize actual_duration_sec (add remaining delta if started_at set)
+  1. Fetch task, validate status='active' or 'paused' (can submit anytime)
+  2. Finalize actual_duration_sec:
+     - If started_at IS NOT NULL: actual_duration_sec += (NOW() - started_at)
+     - Set started_at = NULL
   3. Set completed_at = NOW(), status='submitted'
   4. Update DB, clear Redis timer state
   5. Trigger reward flow (→ RewardService.RollReward)
-- **Output:** reward modal data (item dropped, silver earned)
+- **Output:** reward modal data (item dropped, silver earned, 200 OK)
+- **Note:** Submit allowed from active or paused state. Todos are not validated at submit time (only checked during Focus session for UX feedback, not backend validation).
 
 #### GiveUpTask
 - **Input:** task_id, confirm=true
@@ -343,9 +333,24 @@ wire ./cmd/server
 #### AddTaskNote
 - **Input:** task_id, content
 - **Logic:**
-  1. Insert into task_notes (append-only)
+  1. Insert into task_notes with content
   2. Timestamp auto-set to NOW()
 - **Output:** note_id, 201 Created
+
+#### UpdateTaskNote
+- **Input:** note_id, content
+- **Logic:**
+  1. Fetch note, validate user_id ownership
+  2. Update task_notes.content, updated_at=NOW()
+  3. Update DB
+- **Output:** updated note, 200 OK
+
+#### DeleteTaskNote
+- **Input:** note_id
+- **Logic:**
+  1. Fetch note, validate user_id ownership
+  2. Delete from task_notes
+- **Output:** 204 No Content
 
 #### GetTaskHistory
 - **Input:** user_id, date_range, status_filter
@@ -790,19 +795,16 @@ market_price = latest legendary transaction price (default 5 gold = 50000 silver
 ### 4.1 Task Management
 
 ```
-POST   /api/tasks              Create task (title, todos, duration_min)
-GET    /api/tasks             List user tasks (paginated, filters)
-GET    /api/tasks/:id         Get task detail
-POST   /api/tasks/:id/start   Start task (⚠️ TODO: Redundant? Timer already starts on creation)
-POST   /api/tasks/:id/pause   Pause timer
-POST   /api/tasks/:id/resume  Resume timer
-PATCH  /api/tasks/:id/todos   Update todos (debounced autosave from Focus screen)
-POST   /api/tasks/:id/submit  Submit task (validate todos, trigger reward)
-POST   /api/tasks/:id/give-up Give up task (trigger penalty if enabled)
-POST   /api/tasks/:id/extend  Extend duration (+15 min)
-DELETE /api/tasks/:id         Soft-delete task
-POST   /api/tasks/:id/notes   Add note to task
-GET    /api/tasks/:id/notes   Get task notes
+POST   /api/tasks/:id/pause      Toggle pause/resume timer
+POST   /api/tasks/:id/extend     { add_minutes }
+PATCH  /api/tasks/:id/todos      { todos[] }
+POST   /api/tasks/:id/submit     Submit task (can submit from active or paused)
+POST   /api/tasks/:id/give-up    Give up task
+DELETE /api/tasks/:id             Soft-delete task
+POST   /api/tasks/:id/notes      { content }  Create note
+PATCH  /api/tasks/:id/notes/:nid { content }  Update note
+DELETE /api/tasks/:id/notes/:nid             Delete note
+GET    /api/tasks/:id/notes      Get all notes
 ```
 
 ### 4.2 Garden Management

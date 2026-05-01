@@ -15,6 +15,7 @@ type RepositoryInterface interface {
 	UpdateTodos(ctx context.Context, taskID, userID string, req UpdateTodosRequest) error
 	PauseTask(ctx context.Context, taskID, userID string) (int, error)
 	Submit(ctx context.Context, taskID, userID string) error
+	GiveUp(ctx context.Context, taskID, userID string) error
 }
 
 type Service struct {
@@ -95,4 +96,19 @@ func (s *Service) SubmitTask(ctx context.Context, taskID, userID string, req Sub
 	}
 
 	return s.repo.Submit(ctx, taskID, userID)
+	// TODO: trigger reward flow (phase 2)
+}
+
+func (s *Service) GiveUpTask(ctx context.Context, taskID, userID string) error {
+	task, err := s.repo.GetByID(ctx, taskID, userID)
+	if err != nil {
+		return err
+	}
+
+	if task.Status != TaskStatusActive {
+		return &apperr.InvalidStateError{Current: string(task.Status), Expected: string(TaskStatusActive)}
+	}
+
+	return s.repo.GiveUp(ctx, taskID, userID)
+	// TODO: trigger penalty flow (phase 2)
 }
