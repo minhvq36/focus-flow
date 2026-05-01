@@ -167,8 +167,7 @@ func (r *Repository) UpdateTodos(ctx context.Context, taskID, userID string, req
 func (r *Repository) Extend(ctx context.Context, taskID, userID string, req ExtendRequest) error {
 	result, err := r.db.Exec(ctx, `
 		UPDATE tasks
-		SET registered_duration_min = registered_duration_min + $1,
-		    updated_at = NOW()
+		SET registered_duration_min = registered_duration_min + $1
 		WHERE id = $2
 		  AND user_id = $3
 		  AND status = 'active'
@@ -181,4 +180,31 @@ func (r *Repository) Extend(ctx context.Context, taskID, userID string, req Exte
 		return &apperr.NotFoundError{Resource: "Task"}
 	}
 	return nil
+}
+
+func (r *Repository) PauseTask(ctx context.Context, taskID, userID string) (int, error) {
+	var newDuration int
+	err := r.db.QueryRow(ctx, `
+        UPDATE tasks
+        SET status = 'paused',
+            actual_duration_sec = LEAST(
+                actual_duration_sec + EXTRACT(EPOCH FROM (NOW() - started_at))::int,
+                registered_duration_min * 60
+            ),
+            started_at = NULL,
+            updated_at = NOW()
+        WHERE id = $1
+          AND user_id = $2
+          AND status = 'active'
+          AND started_at IS NOT NULL
+          AND deleted_at IS NULL
+        RETURNING actual_duration_sec
+    `, taskID, userID).Scan(&newDuration)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return 0, &apperr.NotFoundError{Resource: "Task"}
+		}
+		return 0, fmt.Errorf("PauseTask: %w", err)
+	}
+	return newDuration, nil
 }

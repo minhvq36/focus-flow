@@ -18,6 +18,7 @@ type ServiceInterface interface {
 	GetTaskByID(ctx context.Context, taskID, userID string) (*Task, error)
 	CreateTask(ctx context.Context, userID string, req CreateTaskRequest) (*Task, error)
 	UpdateTodos(ctx context.Context, taskID, userID string, req UpdateTodosRequest) error
+	PauseTask(ctx context.Context, taskID, userID string) error
 }
 
 type Handler struct {
@@ -145,4 +146,35 @@ func (h *Handler) UpdateTodos(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response.Success(w, map[string]string{"message": "Todos updated successfully"})
+}
+
+func (h *Handler) PauseTask(w http.ResponseWriter, r *http.Request) {
+	userID, ok := auth.GetUserID(r.Context())
+	if !ok {
+		response.Unauthorized(w)
+		return
+	}
+
+	taskID := chi.URLParam(r, "id")
+	if taskID == "" {
+		response.BadRequest(w, "INVALID_ID", "Task ID is required")
+		return
+	}
+
+	h.log.Info("PauseTask", "user_id", userID, "task_id", taskID)
+	err := h.service.PauseTask(r.Context(), taskID, userID)
+	if err != nil {
+		switch {
+		case errors.Is(err, apperr.ErrNotFound):
+			response.NotFound(w, "Task")
+		case errors.Is(err, apperr.ErrInvalidState):
+			response.Conflict(w, "INVALID_STATE", err.Error())
+		default:
+			h.log.Error("PauseTask failed", "user_id", userID, "task_id", taskID, "error", err.Error())
+			response.InternalError(w)
+		}
+		return
+	}
+
+	response.Success(w, map[string]string{"message": "Task paused successfully"})
 }

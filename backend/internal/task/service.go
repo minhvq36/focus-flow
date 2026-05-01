@@ -13,6 +13,7 @@ type RepositoryInterface interface {
 	GetByID(ctx context.Context, taskID, userID string) (*Task, error)
 	Create(ctx context.Context, userID string, req CreateTaskRequest) (*Task, error)
 	UpdateTodos(ctx context.Context, taskID, userID string, req UpdateTodosRequest) error
+	PauseTask(ctx context.Context, taskID, userID string) (int, error)
 }
 
 type Service struct {
@@ -48,14 +49,28 @@ func (s *Service) CreateTask(ctx context.Context, userID string, req CreateTaskR
 }
 
 func (s *Service) UpdateTodos(ctx context.Context, taskID, userID string, req UpdateTodosRequest) error {
-	// Validate taskID is not empty
-	if strings.TrimSpace(taskID) == "" {
-		return &apperr.ValidationError{Message: "Task ID is required"}
-	}
 	// Validate todos before updating
 	if err := ValidateTodos(req.Todos); err != nil {
 		return &apperr.ValidationError{Message: err.Error()}
 	}
 	s.log.Info("UpdateTodos", "user_id", userID, "task_id", taskID)
 	return s.repo.UpdateTodos(ctx, taskID, userID, req)
+}
+
+func (s *Service) PauseTask(ctx context.Context, taskID, userID string) error {
+	task, err := s.repo.GetByID(ctx, taskID, userID)
+	if err != nil {
+		return err
+	}
+
+	if task.Status != TaskStatusActive {
+		return &apperr.InvalidStateError{Current: string(task.Status), Expected: string(TaskStatusActive)}
+	}
+
+	if task.StartedAt == nil {
+		return &apperr.InvalidStateError{Current: "timer_stopped", Expected: "timer_running"}
+	}
+
+	_, err = s.repo.PauseTask(ctx, taskID, userID)
+	return err
 }
