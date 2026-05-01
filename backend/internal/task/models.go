@@ -149,6 +149,10 @@ type UpdateTodosRequest struct {
 	Todos []TodoItem `json:"todos" validate:"required,min=1,max=50"`
 }
 
+type SubmitTaskRequest struct {
+	Todos []TodoItem `json:"todos" validate:"required,min=1,max=50"`
+}
+
 // ExtendRequest — Sent from FE when extending time
 type ExtendRequest struct {
 	AddMinutes int `json:"add_minutes" validate:"required,min=1"`

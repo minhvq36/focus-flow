@@ -208,3 +208,28 @@ func (r *Repository) PauseTask(ctx context.Context, taskID, userID string) (int,
 	}
 	return newDuration, nil
 }
+
+func (r *Repository) Submit(ctx context.Context, taskID, userID string) error {
+	// Allow paused submission
+	result, err := r.db.Exec(ctx, `
+        UPDATE tasks
+        SET status = 'submitted',
+            actual_duration_sec = LEAST(
+                actual_duration_sec + COALESCE(EXTRACT(EPOCH FROM (NOW() - started_at))::int, 0),
+                registered_duration_min * 60
+            ),
+            started_at = NULL,
+            completed_at = NOW()
+        WHERE id = $1
+          AND user_id = $2
+          AND status in ('active', 'paused')
+          AND deleted_at IS NULL
+    `, taskID, userID)
+	if err != nil {
+		return fmt.Errorf("Submit: %w", err)
+	}
+	if result.RowsAffected() == 0 {
+		return &apperr.NotFoundError{Resource: "Task"}
+	}
+	return nil
+}

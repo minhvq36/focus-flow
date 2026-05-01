@@ -14,6 +14,7 @@ type RepositoryInterface interface {
 	Create(ctx context.Context, userID string, req CreateTaskRequest) (*Task, error)
 	UpdateTodos(ctx context.Context, taskID, userID string, req UpdateTodosRequest) error
 	PauseTask(ctx context.Context, taskID, userID string) (int, error)
+	Submit(ctx context.Context, taskID, userID string) error
 }
 
 type Service struct {
@@ -73,4 +74,25 @@ func (s *Service) PauseTask(ctx context.Context, taskID, userID string) error {
 
 	_, err = s.repo.PauseTask(ctx, taskID, userID)
 	return err
+}
+
+func (s *Service) SubmitTask(ctx context.Context, taskID, userID string, req SubmitTaskRequest) error {
+	task, err := s.repo.GetByID(ctx, taskID, userID)
+	if err != nil {
+		return err
+	}
+
+	if task.Status != TaskStatusActive && task.Status != TaskStatusPaused {
+		return &apperr.InvalidStateError{Current: string(task.Status), Expected: "active|paused"}
+	}
+
+	if err := ValidateTodos(req.Todos); err != nil {
+		return &apperr.ValidationError{Message: err.Error()}
+	}
+
+	if err := ValidateTodosAllDone(req.Todos); err != nil {
+		return &apperr.ValidationError{Message: err.Error()}
+	}
+
+	return s.repo.Submit(ctx, taskID, userID)
 }
