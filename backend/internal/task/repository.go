@@ -137,3 +137,48 @@ func (r *Repository) Create(ctx context.Context, userID string, req CreateTaskRe
 	}
 	return &t, nil
 }
+
+// UpdateTodos — autosave todos from focus screen
+func (r *Repository) UpdateTodos(ctx context.Context, taskID, userID string, req UpdateTodosRequest) error {
+	todosJSON, err := json.Marshal(req.Todos)
+	if err != nil {
+		return fmt.Errorf("UpdateTodos marshal: %w", err)
+	}
+
+	result, err := r.db.Exec(ctx, `
+		UPDATE tasks
+		SET todos = $1
+		WHERE id = $2
+		  AND user_id = $3
+		  AND status = 'active'
+		  AND deleted_at IS NULL
+	`, todosJSON, taskID, userID)
+	if err != nil {
+		return fmt.Errorf("UpdateTodos: %w", err)
+	}
+
+	if result.RowsAffected() == 0 {
+		return &apperr.NotFoundError{Resource: "Task"}
+	}
+	return nil
+}
+
+// Extend time
+func (r *Repository) Extend(ctx context.Context, taskID, userID string, req ExtendRequest) error {
+	result, err := r.db.Exec(ctx, `
+		UPDATE tasks
+		SET registered_duration_min = registered_duration_min + $1,
+		    updated_at = NOW()
+		WHERE id = $2
+		  AND user_id = $3
+		  AND status = 'active'
+		  AND deleted_at IS NULL
+	`, req.AddMinutes, taskID, userID)
+	if err != nil {
+		return fmt.Errorf("Extend: %w", err)
+	}
+	if result.RowsAffected() == 0 {
+		return &apperr.NotFoundError{Resource: "Task"}
+	}
+	return nil
+}

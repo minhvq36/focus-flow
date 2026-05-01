@@ -17,6 +17,7 @@ type ServiceInterface interface {
 	GetUserTasks(ctx context.Context, userID string) ([]TaskSummary, error)
 	GetTaskByID(ctx context.Context, taskID, userID string) (*Task, error)
 	CreateTask(ctx context.Context, userID string, req CreateTaskRequest) (*Task, error)
+	UpdateTodos(ctx context.Context, taskID, userID string, req UpdateTodosRequest) error
 }
 
 type Handler struct {
@@ -107,4 +108,41 @@ func (h *Handler) CreateTask(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response.Created(w, task)
+}
+
+func (h *Handler) UpdateTodos(w http.ResponseWriter, r *http.Request) {
+	userID, ok := auth.GetUserID(r.Context())
+	if !ok {
+		response.Unauthorized(w)
+		return
+	}
+
+	taskID := chi.URLParam(r, "id")
+	if taskID == "" {
+		response.BadRequest(w, "INVALID_ID", "Task ID is required")
+		return
+	}
+
+	var req UpdateTodosRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.BadRequest(w, "INVALID_REQUEST", "Invalid request body")
+		return
+	}
+
+	h.log.Info("UpdateTodos", "user_id", userID, "task_id", taskID)
+	err := h.service.UpdateTodos(r.Context(), taskID, userID, req)
+	if err != nil {
+		switch {
+		case errors.Is(err, apperr.ErrValidation):
+			response.BadRequest(w, "VALIDATION_ERROR", err.Error())
+		case errors.Is(err, apperr.ErrNotFound):
+			response.NotFound(w, "Task")
+		default:
+			h.log.Error("UpdateTodos failed", "user_id", userID, "task_id", taskID, "error", err.Error())
+			response.InternalError(w)
+		}
+		return
+	}
+
+	response.Success(w, map[string]string{"message": "Todos updated successfully"})
 }
