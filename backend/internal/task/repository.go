@@ -125,7 +125,7 @@ func (r *Repository) Create(ctx context.Context, userID string, req CreateTaskRe
 	)
 	if err != nil {
 		switch dbpkg.AppErrCode(err) {
-		case dbpkg.ErrZ0001QuotaExceeded:
+		case dbpkg.ErrZ0004QuotaExceeded:
 			return nil, &apperr.QuotaExceededError{}
 		}
 		r.log.Error("Create failed", "user_id", userID, "error", err.Error())

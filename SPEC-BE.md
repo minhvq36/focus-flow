@@ -910,14 +910,14 @@ GET    /api/metrics                     Prometheus metrics
 **Database Error Codes (PostgreSQL `errcode`):**
 | Code | Trigger | Detail |
 |---|---|---|
-| **Z0001** | `handle_new_auth_user()` | Starter garden not found on registration |
-| **Z0002** | `fn_tasks_protect_system_fields()` | Immutable `created_at` field modification attempt |
-| **Z0003** | `fn_tasks_protect_system_fields()` | System-managed fields cannot be modified (penalty_mode, status, timing fields) |
-| **Z0004** | `fn_enforce_task_quota()` | Daily task quota exceeded (exceeded available slots for plan) |
-| **Z0005** | `fn_enforce_task_note_limit()` | Task note ownership validation failed (user doesn't own task) |
-| **Z0006** | `fn_enforce_task_note_limit()` | Task note limit exceeded (max 5 notes per task) |
-| **Z0007** | `fn_submit_task_reward()` | User wallet not found (wallet record missing) |
-| **Z0008** | `fn_submit_task_reward()` | Task already submitted or not found (state validation failed) |
+| **Z0001** | `handle_new_auth_user()` | System initialization error: Starter garden not found on registration |
+| **Z0002** | `fn_tasks_protect_system_fields()` | Immutable field error: `created_at` cannot be modified after creation |
+| **Z0003** | `fn_tasks_protect_system_fields()` | System-managed fields cannot be modified directly (penalty_mode, status, started_at, actual_duration_sec, completed_at, deleted_at) |
+| **Z0004** | `fn_enforce_task_quota()` | Quota exceeded: Daily task limit exceeded (task limit depends on plan: free=3, pro=10, premium=16) |
+| **Z0005** | `fn_enforce_task_note_limit()` | Ownership error: Task not owned by user (user does not own this task) |
+| **Z0006** | `fn_enforce_task_note_limit()` | Resource limit exceeded: Task note limit exceeded (max 5 notes per task) |
+| **Z0007** | `fn_submit_task_reward()` | Resource not found: User wallet not found (wallet record missing in user_wallets) |
+| **Z0008** | `fn_submit_task_reward()` | Invalid state: Task already submitted or not found |
 
 **API-Level Error Contract (minimal):**
 ```json

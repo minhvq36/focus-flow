@@ -52,7 +52,7 @@ begin
     if not found then
         raise exception 'Task already submitted or not found'
         using
-            errcode = 'DB008',
+            errcode = 'Z0008',
             detail = format('Task %s has already been submitted or does not exist', p_task_id);
     end if;
 end;
