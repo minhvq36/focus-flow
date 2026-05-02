@@ -22,6 +22,10 @@ type ServiceInterface interface {
 	SubmitTask(ctx context.Context, taskID, userID string, req SubmitTaskRequest) error
 	GiveUpTask(ctx context.Context, taskID, userID string) error
 	ResumeTask(ctx context.Context, taskID, userID string) error
+	CreateNote(ctx context.Context, taskID, userID string, req CreateTaskNoteRequest) (*TaskNote, error)
+	GetNotes(ctx context.Context, taskID, userID string) ([]*TaskNote, error)
+	UpdateNote(ctx context.Context, noteID, userID, taskID string, req UpdateTaskNoteRequest) (*TaskNote, error)
+	DeleteNote(ctx context.Context, noteID, userID, taskID string) error
 }
 
 type Handler struct {
@@ -281,4 +285,148 @@ func (h *Handler) ResumeTask(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response.Success(w, map[string]string{"message": "Task resumed successfully"})
+}
+
+func (h *Handler) GetNotes(w http.ResponseWriter, r *http.Request) {
+	userID, ok := auth.GetUserID(r.Context())
+	if !ok {
+		response.Unauthorized(w)
+		return
+	}
+
+	taskID := chi.URLParam(r, "id")
+	if taskID == "" {
+		response.BadRequest(w, "INVALID_ID", "Task ID is required")
+		return
+	}
+
+	h.log.Info("GetNotes", "user_id", userID, "task_id", taskID)
+	notes, err := h.service.GetNotes(r.Context(), taskID, userID)
+	if err != nil {
+		switch {
+		case errors.Is(err, apperr.ErrNotFound):
+			response.NotFound(w, "Task")
+		default:
+			h.log.Error("GetNotes failed", "user_id", userID, "task_id", taskID, "error", err.Error())
+			response.InternalError(w)
+		}
+		return
+	}
+
+	response.Success(w, notes)
+}
+
+func (h *Handler) CreateNote(w http.ResponseWriter, r *http.Request) {
+	userID, ok := auth.GetUserID(r.Context())
+	if !ok {
+		response.Unauthorized(w)
+		return
+	}
+
+	taskID := chi.URLParam(r, "id")
+	if taskID == "" {
+		response.BadRequest(w, "INVALID_ID", "Task ID is required")
+		return
+	}
+
+	var req CreateTaskNoteRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.BadRequest(w, "INVALID_REQUEST", "Invalid request body")
+		return
+	}
+
+	h.log.Info("CreateNote", "user_id", userID, "task_id", taskID)
+	note, err := h.service.CreateNote(r.Context(), taskID, userID, req)
+	if err != nil {
+		switch {
+		case errors.Is(err, apperr.ErrValidation):
+			response.BadRequest(w, "VALIDATION_ERROR", err.Error())
+		case errors.Is(err, apperr.ErrNotFound):
+			response.NotFound(w, "Task")
+		default:
+			h.log.Error("CreateNote failed", "user_id", userID, "task_id", taskID, "error", err.Error())
+			response.InternalError(w)
+		}
+		return
+	}
+
+	response.Created(w, note)
+}
+
+func (h *Handler) UpdateNote(w http.ResponseWriter, r *http.Request) {
+	userID, ok := auth.GetUserID(r.Context())
+	if !ok {
+		response.Unauthorized(w)
+		return
+	}
+
+	taskID := chi.URLParam(r, "id")
+	if taskID == "" {
+		response.BadRequest(w, "INVALID_ID", "Task ID is required")
+		return
+	}
+
+	noteID := chi.URLParam(r, "nid")
+	if noteID == "" {
+		response.BadRequest(w, "INVALID_ID", "Note ID is required")
+		return
+	}
+
+	var req UpdateTaskNoteRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.BadRequest(w, "INVALID_REQUEST", "Invalid request body")
+		return
+	}
+
+	h.log.Info("UpdateNote", "user_id", userID, "task_id", taskID, "note_id", noteID)
+	note, err := h.service.UpdateNote(r.Context(), noteID, userID, taskID, req)
+	if err != nil {
+		switch {
+		case errors.Is(err, apperr.ErrValidation):
+			response.BadRequest(w, "VALIDATION_ERROR", err.Error())
+		case errors.Is(err, apperr.ErrNotFound):
+			response.NotFound(w, "Note")
+		default:
+			h.log.Error("UpdateNote failed", "user_id", userID, "task_id", taskID, "note_id", noteID, "error", err.Error())
+			response.InternalError(w)
+		}
+		return
+	}
+
+	response.Success(w, note)
+}
+
+func (h *Handler) DeleteNote(w http.ResponseWriter, r *http.Request) {
+	userID, ok := auth.GetUserID(r.Context())
+	if !ok {
+		response.Unauthorized(w)
+		return
+	}
+
+	taskID := chi.URLParam(r, "id")
+	if taskID == "" {
+		response.BadRequest(w, "INVALID_ID", "Task ID is required")
+		return
+	}
+
+	noteID := chi.URLParam(r, "nid")
+	if noteID == "" {
+		response.BadRequest(w, "INVALID_ID", "Note ID is required")
+		return
+	}
+
+	h.log.Info("DeleteNote", "user_id", userID, "task_id", taskID, "note_id", noteID)
+	err := h.service.DeleteNote(r.Context(), noteID, userID, taskID)
+	if err != nil {
+		switch {
+		case errors.Is(err, apperr.ErrNotFound):
+			response.NotFound(w, "Note")
+		default:
+			h.log.Error("DeleteNote failed", "user_id", userID, "task_id", taskID, "note_id", noteID, "error", err.Error())
+			response.InternalError(w)
+		}
+		return
+	}
+
+	response.Success(w, map[string]string{"message": "Note deleted successfully"})
 }

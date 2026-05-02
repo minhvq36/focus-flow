@@ -323,14 +323,14 @@ func (r *Repository) GetNotes(ctx context.Context, taskID, userID string) ([]*Ta
 	return notes, nil
 }
 
-func (r *Repository) UpdateNote(ctx context.Context, noteID, userID string, req UpdateTaskNoteRequest) (*TaskNote, error) {
+func (r *Repository) UpdateNote(ctx context.Context, noteID, userID, taskID string, req UpdateTaskNoteRequest) (*TaskNote, error) {
 	var n TaskNote
 	err := r.db.QueryRow(ctx, `
         UPDATE task_notes
         SET content = $1
-        WHERE id = $2 AND user_id = $3
+        WHERE id = $2 AND user_id = $3 AND task_id = $4
         RETURNING id, task_id, user_id, content, created_at, updated_at
-    `, req.Content, noteID, userID).Scan(
+    `, req.Content, noteID, userID, taskID).Scan(
 		&n.ID, &n.TaskID, &n.UserID, &n.Content, &n.CreatedAt, &n.UpdatedAt,
 	)
 	if err != nil {
@@ -342,11 +342,11 @@ func (r *Repository) UpdateNote(ctx context.Context, noteID, userID string, req 
 	return &n, nil
 }
 
-func (r *Repository) DeleteNote(ctx context.Context, noteID, userID string) error {
+func (r *Repository) DeleteNote(ctx context.Context, noteID, userID, taskID string) error {
 	tag, err := r.db.Exec(ctx, `
         DELETE FROM task_notes
-        WHERE id = $1 AND user_id = $2
-    `, noteID, userID)
+        WHERE id = $1 AND user_id = $2 AND task_id = $3
+    `, noteID, userID, taskID)
 	if err != nil {
 		return fmt.Errorf("DeleteNote: %w", err)
 	}
