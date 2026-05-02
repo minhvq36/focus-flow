@@ -386,6 +386,8 @@ func (h *Handler) UpdateNote(w http.ResponseWriter, r *http.Request) {
 			response.BadRequest(w, "VALIDATION_ERROR", err.Error())
 		case errors.Is(err, apperr.ErrNotFound):
 			response.NotFound(w, "Note")
+		case errors.Is(err, apperr.ErrForbidden):
+			response.Forbidden(w)
 		default:
 			h.log.Error("UpdateNote failed", "user_id", userID, "task_id", taskID, "note_id", noteID, "error", err.Error())
 			response.InternalError(w)
@@ -421,6 +423,8 @@ func (h *Handler) DeleteNote(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case errors.Is(err, apperr.ErrNotFound):
 			response.NotFound(w, "Note")
+		case errors.Is(err, apperr.ErrForbidden):
+			response.Forbidden(w)
 		default:
 			h.log.Error("DeleteNote failed", "user_id", userID, "task_id", taskID, "note_id", noteID, "error", err.Error())
 			response.InternalError(w)

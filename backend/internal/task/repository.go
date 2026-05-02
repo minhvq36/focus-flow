@@ -335,7 +335,7 @@ func (r *Repository) UpdateNote(ctx context.Context, noteID, userID, taskID stri
 	)
 	if err != nil {
 		if dbpkg.IsNoRows(err) {
-			return nil, &apperr.ForbiddenError{}
+			return nil, &apperr.NotFoundError{Resource: "Note"}
 		}
 		return nil, fmt.Errorf("UpdateNote: %w", err)
 	}
@@ -351,7 +351,7 @@ func (r *Repository) DeleteNote(ctx context.Context, noteID, userID, taskID stri
 		return fmt.Errorf("DeleteNote: %w", err)
 	}
 	if tag.RowsAffected() == 0 {
-		return &apperr.ForbiddenError{}
+		return &apperr.NotFoundError{Resource: "Note"}
 	}
 	return nil
 }
