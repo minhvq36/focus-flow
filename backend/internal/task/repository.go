@@ -341,3 +341,17 @@ func (r *Repository) UpdateNote(ctx context.Context, noteID, userID string, req 
 	}
 	return &n, nil
 }
+
+func (r *Repository) DeleteNote(ctx context.Context, noteID, userID string) error {
+	tag, err := r.db.Exec(ctx, `
+        DELETE FROM task_notes
+        WHERE id = $1 AND user_id = $2
+    `, noteID, userID)
+	if err != nil {
+		return fmt.Errorf("DeleteNote: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return &apperr.ForbiddenError{}
+	}
+	return nil
+}
