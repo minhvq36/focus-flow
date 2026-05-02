@@ -129,6 +129,11 @@ type TaskNote struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
+type QuotaToday struct {
+	Used  int `json:"used"`
+	Limit int `json:"limit"`
+}
+
 // --- DTOs (request/response) ---
 
 // CreateTaskRequest — Sent from FE when creating a task

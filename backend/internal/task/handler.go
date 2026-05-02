@@ -26,6 +26,7 @@ type ServiceInterface interface {
 	GetNotes(ctx context.Context, taskID, userID string) ([]*TaskNote, error)
 	UpdateNote(ctx context.Context, noteID, userID, taskID string, req UpdateTaskNoteRequest) (*TaskNote, error)
 	DeleteNote(ctx context.Context, noteID, userID, taskID string) error
+	GetQuotaToday(ctx context.Context, userID string) (*QuotaToday, error)
 }
 
 type Handler struct {
@@ -433,4 +434,27 @@ func (h *Handler) DeleteNote(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response.Success(w, map[string]string{"message": "Note deleted successfully"})
+}
+
+func (h *Handler) GetQuotaToday(w http.ResponseWriter, r *http.Request) {
+	userID, ok := auth.GetUserID(r.Context())
+	if !ok {
+		response.Unauthorized(w)
+		return
+	}
+
+	h.log.Info("GetQuotaToday", "user_id", userID)
+	quota, err := h.service.GetQuotaToday(r.Context(), userID)
+	if err != nil {
+		switch {
+		case errors.Is(err, apperr.ErrUserNotFound):
+			response.NotFound(w, "User")
+		default:
+			h.log.Error("GetQuotaToday failed", "user_id", userID, "error", err.Error())
+			response.InternalError(w)
+		}
+		return
+	}
+
+	response.Success(w, quota)
 }

@@ -21,6 +21,7 @@ type RepositoryInterface interface {
 	GetNotes(ctx context.Context, taskID, userID string) ([]*TaskNote, error)
 	UpdateNote(ctx context.Context, noteID, userID, taskID string, req UpdateTaskNoteRequest) (*TaskNote, error)
 	DeleteNote(ctx context.Context, noteID, userID, taskID string) error
+	GetQuotaToday(ctx context.Context, userID string) (used, limit int, err error)
 }
 
 type Service struct {
@@ -158,4 +159,12 @@ func (s *Service) UpdateNote(ctx context.Context, noteID, userID, taskID string,
 		return nil, &apperr.ValidationError{Message: "Content exceeds 22000 characters"}
 	}
 	return s.repo.UpdateNote(ctx, noteID, userID, taskID, req)
+}
+
+func (s *Service) GetQuotaToday(ctx context.Context, userID string) (*QuotaToday, error) {
+	used, limit, err := s.repo.GetQuotaToday(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	return &QuotaToday{Used: used, Limit: limit}, nil
 }

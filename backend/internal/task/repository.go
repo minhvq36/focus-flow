@@ -355,3 +355,25 @@ func (r *Repository) DeleteNote(ctx context.Context, noteID, userID, taskID stri
 	}
 	return nil
 }
+
+func (r *Repository) GetQuotaToday(ctx context.Context, userID string) (used, limit int, err error) {
+	// Keep the system use UTC
+	err = r.db.QueryRow(ctx, `
+        SELECT 
+            COALESCE(q.usage_count, 0),
+            p.daily_task_limit
+        FROM user_private up
+        JOIN plan_quotas p ON p.plan_type = up.plan_type
+        LEFT JOIN task_daily_quotas q 
+            ON q.user_id = up.user_id AND q.target_date = CURRENT_DATE
+        WHERE up.user_id = $1
+    `, userID).Scan(&used, &limit)
+
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return 0, 0, &apperr.UserNotFoundError{}
+		}
+		return 0, 0, err
+	}
+	return used, limit, nil
+}

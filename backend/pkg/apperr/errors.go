@@ -12,6 +12,7 @@ var (
 	ErrForbidden           = errors.New("forbidden")
 	ErrDuplicate           = errors.New("duplicate")
 	ErrNoteLimitExceeded   = errors.New("task note limit exceeded")
+	ErrUserNotFound        = errors.New("user not found")
 )
 
 type NotFoundError struct{ Resource string }
@@ -45,3 +46,8 @@ type NoteLimitExceededError struct{}
 
 func (e *NoteLimitExceededError) Error() string { return "task note limit exceeded" }
 func (e *NoteLimitExceededError) Unwrap() error { return ErrNoteLimitExceeded }
+
+type UserNotFoundError struct{}
+
+func (e *UserNotFoundError) Error() string { return "user not found" }
+func (e *UserNotFoundError) Unwrap() error { return ErrUserNotFound }
