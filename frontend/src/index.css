@@ -56,6 +56,10 @@
   --sidebar-ring: oklch(0.42 0.075 145);
 
   --background-focus: #f9f9f3;
+  
+  --ff-header-bg: #f3fbe6;
+  --ff-tab-active-bg: #ddebc7;
+  --ff-tab-active-fg: oklch(0.32 0.05 145);
 }
 
 .dark {
@@ -142,6 +146,10 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+
+  --color-ff-header-bg: var(--ff-header-bg);
+  --color-ff-tab-active-bg: var(--ff-tab-active-bg);
+  --color-ff-tab-active-fg: var(--ff-tab-active-fg);
 }
 
 @layer base {
