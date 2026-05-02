@@ -1,14 +1,19 @@
-import { Button } from "@/components/ui/button"
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 
+// TODO: Temporary placeholders — will be replaced with actual components later
+const Garden = () => <div className="p-8"><h1 className="text-2xl font-bold">Garden</h1></div>
+const Tasks = () => <div className="p-8"><h1 className="text-2xl font-bold">Tasks</h1></div>
+const Focus = () => <div className="p-8"><h1 className="text-2xl font-bold">Focus</h1></div>
 function App() {
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen gap-4">
-      <h1 className="text-3xl font-bold font-sans">FocusFlow</h1>
-      <p className="text-slate-500">Hệ thống quản lý task tối ưu</p>
-      <Button onClick={() => alert("Chào Master!")}>
-        Bắt đầu ngay
-      </Button>
-    </div>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Navigate to="/garden" replace />} />
+        <Route path="/garden" element={<Garden />} />
+        <Route path="/tasks" element={<Tasks />} />
+        <Route path="/focus/:taskId" element={<Focus />} />
+      </Routes>
+    </BrowserRouter>
   )
 }
 
