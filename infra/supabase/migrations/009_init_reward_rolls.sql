@@ -30,7 +30,10 @@ begin
     where user_id = p_user_id;
 
     if not found then
-        raise exception 'wallet not found for user %', p_user_id;
+        raise exception 'User wallet not found'
+        using
+            errcode = 'Z0007',
+            detail = format('Wallet record does not exist for user %s', p_user_id);
     end if;
 
     if p_item_id is not null then
@@ -47,7 +50,10 @@ begin
     where t.id = p_task_id and status != 'submitted';
 
     if not found then
-        raise exception 'task % already submitted or not found', p_task_id;
+        raise exception 'Task already submitted or not found'
+        using
+            errcode = 'Z0008',
+            detail = format('Task %s has already been submitted or does not exist', p_task_id);
     end if;
 end;
 $$ language plpgsql;

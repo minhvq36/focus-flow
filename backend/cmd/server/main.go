@@ -1,31 +1,33 @@
 package main
 
 import (
-	"fmt"
+	"context"
 	"log"
 	"net/http"
-	"os"
 
-	"github.com/gorilla/mux"
+	"github.com/minhvq36/focus-flow/backend/internal/auth"
+	"github.com/minhvq36/focus-flow/backend/pkg/config"
+	"github.com/minhvq36/focus-flow/backend/pkg/db"
+	"github.com/minhvq36/focus-flow/backend/pkg/logger"
 )
 
-// Main HTTP server entrypoint
 func main() {
-	router := mux.NewRouter()
+	cfg := config.Load()
+	appLog := logger.NewLogger("main")
 
-	// Health check endpoint
-	router.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		fmt.Fprintf(w, "OK")
-	}).Methods("GET")
+	ctx := context.Background()
+	pool := db.NewPool(ctx, cfg.DatabaseURL)
+	defer pool.Close()
 
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
+	jwks, err := auth.NewJWKS(cfg.SupabaseURL)
+	if err != nil {
+		log.Fatalf("Failed to create JWKS: %v", err)
 	}
 
-	log.Printf("Starting server on port %s", port)
-	if err := http.ListenAndServe(":"+port, router); err != nil {
+	r := setupRoutes(jwks, pool, appLog)
+
+	appLog.Info("Server running", "port", cfg.Port)
+	if err := http.ListenAndServe(":"+cfg.Port, r); err != nil {
 		log.Fatalf("Server error: %v", err)
 	}
 }

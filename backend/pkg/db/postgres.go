@@ -1,23 +1,30 @@
 package db
 
-// PostgresClient wraps Supabase/Postgres database operations
-type PostgresClient struct {
-	// Postgres client fields
-}
+import (
+	"context"
+	"fmt"
+	"log"
 
-// NewPostgresClient creates a new Postgres client
-func NewPostgresClient() *PostgresClient {
-	return &PostgresClient{}
-}
+	"github.com/jackc/pgx/v5/pgxpool"
+)
 
-// Query executes a query
-func (pc *PostgresClient) Query(query string, args ...interface{}) error {
-	// Query logic
-	return nil
-}
+func NewPool(ctx context.Context, databaseURL string) *pgxpool.Pool {
+	config, err := pgxpool.ParseConfig(databaseURL)
+	if err != nil {
+		log.Fatalf("Invalid DB configuration: %v", err) // TODO: Convert all comments and logs to English, add [] tag for debugging
+	}
 
-// Exec executes a statement
-func (pc *PostgresClient) Exec(query string, args ...interface{}) error {
-	// Exec logic
-	return nil
+	config.MaxConns = 10 // TODO: Tune or optimize code to handle large load, read from .env or .yml
+
+	pool, err := pgxpool.NewWithConfig(ctx, config)
+	if err != nil {
+		log.Fatalf("Failed to create pool: %v", err)
+	}
+
+	if err := pool.Ping(ctx); err != nil {
+		log.Fatalf("Failed to ping DB: %v", err)
+	}
+
+	fmt.Println("Database connection successful!")
+	return pool
 }

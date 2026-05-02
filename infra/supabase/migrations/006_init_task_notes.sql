@@ -26,8 +26,10 @@ begin
     for update;
 
     if not found then
-        raise exception 'task_not_owned'
-            using detail = 'User does not own this task.';
+        raise exception 'Task not owned by user'
+        using
+            errcode = 'Z0005',
+            detail = format('User %s does not own task %s', new.user_id, new.task_id);
     end if;
 
     select count(*) into v_note_count
@@ -35,8 +37,10 @@ begin
     where task_id = new.task_id;
 
     if v_note_count >= 5 then
-        raise exception 'note_limit_exceeded'
-            using detail = 'Each task can only have a maximum of 5 notes.';
+        raise exception 'Task note limit exceeded'
+        using
+            errcode = 'Z0006',
+            detail = format('Task %s has reached maximum note limit. Current: %s notes, Max allowed: 5', new.task_id, v_note_count);
     end if;
 
     return new;

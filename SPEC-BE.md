@@ -120,15 +120,145 @@
 
 ---
 
-## 3. Core Services
+## 3. Configuration Setup & Dependency Injection
 
-### 3.1 Task Service
+### 3.1 Environment Variables
+
+**Required in `.env` or production environment:**
+
+```env
+# Server
+ENV=development|production
+PORT=8080
+
+# Database (Supabase PostgreSQL)
+DATABASE_URL=postgresql://user:pass@host:5432/focus_flow
+
+# Auth (Supabase)
+SUPABASE_URL=https://xxxxx.supabase.co
+
+# Cache (Redis)
+REDIS_URL=redis://localhost:6379
+
+# Search (Elasticsearch)
+ELASTICSEARCH_URL=http://localhost:9200
+
+# AI (Anthropic)
+ANTHROPIC_API_KEY=sk-ant-...
+
+# Payments (Stripe)
+STRIPE_SECRET_KEY=sk_live_...
+STRIPE_PUBLIC_KEY=pk_live_...
+
+# Monitoring (Prometheus)
+PROMETHEUS_ENABLED=true
+
+# Realtime (Supabase)
+SUPABASE_ANON_KEY=...
+```
+
+### 3.2 Config Struct (pkg/config/config.go)
+
+**Current Implementation:**
+```go
+type Config struct {
+    Env         string  // development | production
+    Port        string  // default: 8080
+    DatabaseURL string  // PostgreSQL connection string (required)
+    SupabaseURL string  // Supabase JWKS endpoint (required)
+}
+```
+
+**Extended Config (To Be Implemented):**
+```go
+type Config struct {
+    // Server
+    Env         string
+    Port        string
+    
+    // Database
+    DatabaseURL string
+    MaxPoolConns int     // configurable from env (default: 10)
+    
+    // Cache
+    RedisURL    string
+    
+    // Search
+    ElasticsearchURL string
+    
+    // Auth
+    SupabaseURL string
+    SupabaseKey string // anon key for direct access
+    
+    // AI
+    AnthropicKey string
+    
+    // Payments
+    StripeSecretKey string
+    StripePublicKey string
+    
+    // Realtime
+    SupabaseRealtimeURL string
+    
+    // Monitoring
+    PrometheusEnabled bool
+}
+```
+
+### 3.3 Wire Setup (cmd/server/wire.go)
+
+Wire is used for dependency injection. Build as:
+```bash
+go install github.com/google/wire/cmd/wire@latest
+wire ./cmd/server
+```
+
+**Dependencies to wire:**
+- `*pgxpool.Pool` (from db.NewPool)
+- `*redis.Client` (from cache.NewRedis)
+- `*elasticsearch.Client` (from search.NewElasticsearch)
+- Service layer: TaskService, RewardService, GardenService, etc.
+- HTTP handlers: TaskHandler, RewardHandler, etc.
+
+### 3.4 Implementation Status
+
+**✅ Completed:**
+- [x] `cmd/server/main.go` - Basic HTTP server setup with Chi router
+- [x] `cmd/server/routes.go` - Router initialization with health endpoint
+- [x] `pkg/config/config.go` - Environment variable loading (Env, Port, DatabaseURL, SupabaseURL)
+- [x] `pkg/db/postgres.go` - PostgreSQL connection pool with pgxpool
+- [x] `internal/auth/` - JWT middleware integration with Supabase JWKS
+
+**⏳ In Progress / Needs Extension:**
+- [ ] `pkg/config/config.go` - Add Redis, Elasticsearch, Anthropic, Stripe, Prometheus config fields
+- [ ] `cmd/server/wire.go` - Implement Wire DI setup
+- [ ] `pkg/config/loader.go` - Implement extended config loader
+- [ ] `pkg/db/postgres.go` - Make MaxConns configurable from env (currently hardcoded to 10)
+
+**⚠️ Known TODOs (in code):**
+1. postgres.go: "Chuyển tất cả comment, log sang tiếng Anh, thêm tag [] để debug"
+2. postgres.go: "Tune or tối ưu hóa code để xử lý tải lớn, đọc từ .env or .yml"
+3. config.go: "Determine for Backend Port" - PORT should be configurable
+4. config.go: "Consider to upgrade to Asymmetric Key JWKS" - May need key rotation mechanism
+5. routes.go: "Task routes — thêm vào đây sau" - Need to add task endpoints
+
+**Not Yet Started:**
+- [ ] `pkg/cache/redis.go` - Redis client wrapper
+- [ ] `pkg/realtime/supabase.go` - Supabase Realtime client
+- [ ] Service layer implementations (Task, Reward, Garden, etc.)
+- [ ] Handler layer implementations
+
+---
+
+## 4. Core Services
+
+### 4.1 Task Service
 
 **State Machine:**
 ```
-[Created] → Start → [Active] ──→ Pause → [Active] (resumed)
-                    ├→ Submit → [Submitted] (reward flow)
-                    └→ Give Up → [Given Up] (penalty flow)
+[Created] → [Active] ──┬─→ Paused → Resume → [Active]
+                       ├─→ [Submitted] (reward flow)
+                       └─→ [Given Up] (penalty flow, if penalty mode ON)
 ```
 
 **Key Operations:**
@@ -144,42 +274,32 @@
 - **Output:** task_id, redirect to Focus screen
 - **Note:** Migration 004 automatically sets started_at=NOW() on task creation (timer auto-starts)
 
-#### StartTask
+#### PauseTask (Toggle)
 - **Input:** task_id
 - **Logic:**
   1. Fetch task, validate status='active'
-  2. **TODO:** Migration 004 already sets started_at=NOW() on creation, so this endpoint may be redundant or needs redesign
-  3. For now: assume task timer is already running from creation time
-- **Output:** task object, 200 OK
-- **Design Note:** Current migration behavior differs from original spec (timer auto-starts on creation vs user-initiated start)
-
-#### PauseTimer
-- **Input:** task_id
-- **Logic:**
-  1. Get started_at from Redis
-  2. Calculate delta = NOW() - started_at
-  3. Accumulate: `actual_duration_sec += delta`
-  4. Set started_at = NULL in both Redis and DB
-  5. Clear Redis key for started_at
+  2. If started_at IS NOT NULL:
+     - Calculate delta = NOW() - started_at
+     - Accumulate: actual_duration_sec += delta
+     - Set started_at = NULL (timer paused)
+  3. Else (already paused):
+     - Set started_at = NOW() (resume)
+  4. Update DB
 - **Output:** updated task, 200 OK
-
-#### ResumeTimer
-- **Input:** task_id
-- **Logic:**
-  1. Fetch task, validate status='active' and started_at IS NULL
-  2. Set started_at = NOW() (in both Redis and DB)
-  3. Keep actual_duration_sec unchanged
-- **Output:** task object, 200 OK
+- **Note:** Single endpoint toggles pause/resume state
 
 #### SubmitTask
-- **Input:** task_id, todos_final_state[]
+- **Input:** task_id
 - **Logic:**
-  1. Fetch task, validate all todos checked
-  2. Finalize actual_duration_sec (add remaining delta if started_at set)
+  1. Fetch task, validate status='active' or 'paused' (can submit anytime)
+  2. Finalize actual_duration_sec:
+     - If started_at IS NOT NULL: actual_duration_sec += (NOW() - started_at)
+     - Set started_at = NULL
   3. Set completed_at = NOW(), status='submitted'
   4. Update DB, clear Redis timer state
   5. Trigger reward flow (→ RewardService.RollReward)
-- **Output:** reward modal data (item dropped, silver earned)
+- **Output:** reward modal data (item dropped, silver earned, 200 OK)
+- **Note:** Submit allowed from active or paused state. Todos are not validated at submit time (only checked during Focus session for UX feedback, not backend validation).
 
 #### GiveUpTask
 - **Input:** task_id, confirm=true
@@ -213,9 +333,24 @@
 #### AddTaskNote
 - **Input:** task_id, content
 - **Logic:**
-  1. Insert into task_notes (append-only)
+  1. Insert into task_notes with content
   2. Timestamp auto-set to NOW()
 - **Output:** note_id, 201 Created
+
+#### UpdateTaskNote
+- **Input:** note_id, content
+- **Logic:**
+  1. Fetch note, validate user_id ownership
+  2. Update task_notes.content, updated_at=NOW()
+  3. Update DB
+- **Output:** updated note, 200 OK
+
+#### DeleteTaskNote
+- **Input:** note_id
+- **Logic:**
+  1. Fetch note, validate user_id ownership
+  2. Delete from task_notes
+- **Output:** 204 No Content
 
 #### GetTaskHistory
 - **Input:** user_id, date_range, status_filter
@@ -228,7 +363,7 @@
 
 ---
 
-### 3.2 Reward Service
+### 4.2 Reward Service
 
 **Drop Table:**
 ```
@@ -275,7 +410,7 @@ Final Silver = base(10-50) × difficulty × rarity_multiplier
 
 ---
 
-### 3.3 Penalty Service
+### 4.3 Penalty Service
 
 **Apply Penalty Logic:**
 - **Input:** task_id, user_id
@@ -303,7 +438,7 @@ Final Silver = base(10-50) × difficulty × rarity_multiplier
 
 ---
 
-### 3.4 Garden Service
+### 4.4 Garden Service
 
 **Key Operations:**
 
@@ -396,7 +531,7 @@ Final Silver = base(10-50) × difficulty × rarity_multiplier
 
 ---
 
-### 3.5 Shop Service
+### 4.5 Shop Service
 
 **Key Operations:**
 
@@ -451,7 +586,7 @@ Final Silver = base(10-50) × difficulty × rarity_multiplier
 
 ---
 
-### 3.6 Marketplace Service
+### 4.6 Marketplace Service
 
 **Key Operations:**
 
@@ -493,7 +628,7 @@ Final Silver = base(10-50) × difficulty × rarity_multiplier
 
 ---
 
-### 3.7 Leaderboard Service
+### 4.7 Leaderboard Service
 
 **Garden Value Calculation:**
 ```
@@ -537,7 +672,7 @@ market_price = latest legendary transaction price (default 5 gold = 50000 silver
 
 ---
 
-### 3.8 Social Service
+### 4.8 Social Service
 
 **Key Operations:**
 
@@ -595,7 +730,7 @@ market_price = latest legendary transaction price (default 5 gold = 50000 silver
 
 ---
 
-### 3.9 Search Service
+### 4.9 Search Service
 
 **Key Operations:**
 
@@ -617,7 +752,7 @@ market_price = latest legendary transaction price (default 5 gold = 50000 silver
 
 ---
 
-### 3.10 AI Service
+### 4.10 AI Service
 
 **Key Operations:**
 
@@ -655,24 +790,21 @@ market_price = latest legendary transaction price (default 5 gold = 50000 silver
 
 ---
 
-## 4. API Endpoints
+## 5. API Endpoints
 
 ### 4.1 Task Management
 
 ```
-POST   /api/tasks              Create task (title, todos, duration_min)
-GET    /api/tasks             List user tasks (paginated, filters)
-GET    /api/tasks/:id         Get task detail
-POST   /api/tasks/:id/start   Start task (⚠️ TODO: Redundant? Timer already starts on creation)
-POST   /api/tasks/:id/pause   Pause timer
-POST   /api/tasks/:id/resume  Resume timer
-PATCH  /api/tasks/:id/todos   Update todos (debounced autosave from Focus screen)
-POST   /api/tasks/:id/submit  Submit task (validate todos, trigger reward)
-POST   /api/tasks/:id/give-up Give up task (trigger penalty if enabled)
-POST   /api/tasks/:id/extend  Extend duration (+15 min)
-DELETE /api/tasks/:id         Soft-delete task
-POST   /api/tasks/:id/notes   Add note to task
-GET    /api/tasks/:id/notes   Get task notes
+POST   /api/tasks/:id/pause      Toggle pause/resume timer
+POST   /api/tasks/:id/extend     { add_minutes }
+PATCH  /api/tasks/:id/todos      { todos[] }
+POST   /api/tasks/:id/submit     Submit task (can submit from active or paused)
+POST   /api/tasks/:id/give-up    Give up task
+DELETE /api/tasks/:id             Soft-delete task
+POST   /api/tasks/:id/notes      { content }  Create note
+PATCH  /api/tasks/:id/notes/:nid { content }  Update note
+DELETE /api/tasks/:id/notes/:nid             Delete note
+GET    /api/tasks/:id/notes      Get all notes
 ```
 
 ### 4.2 Garden Management
@@ -743,7 +875,7 @@ GET    /api/metrics                     Prometheus metrics
 
 ---
 
-## 5. Rate Limiting & Quotas
+## 6. Rate Limiting & Quotas
 
 | Endpoint | Limit | Window |
 |---|---|---|
@@ -756,7 +888,7 @@ GET    /api/metrics                     Prometheus metrics
 
 ---
 
-## 6. Error Handling
+## 7. Error Handling
 
 ```json
 {
@@ -766,7 +898,7 @@ GET    /api/metrics                     Prometheus metrics
 }
 ```
 
-**Common Error Codes:**
+**HTTP Status Codes:**
 - `400 Bad Request` — invalid input
 - `401 Unauthorized` — missing/expired JWT
 - `403 Forbidden` — user doesn't own resource
@@ -775,9 +907,31 @@ GET    /api/metrics                     Prometheus metrics
 - `429 Too Many Requests` — rate limited
 - `500 Internal Server Error` — server error
 
+**Database Error Codes (PostgreSQL `errcode`):**
+| Code | Trigger | Detail |
+|---|---|---|
+| **Z0001** | `handle_new_auth_user()` | System initialization error: Starter garden not found on registration |
+| **Z0002** | `fn_tasks_protect_system_fields()` | Immutable field error: `created_at` cannot be modified after creation |
+| **Z0003** | `fn_tasks_protect_system_fields()` | System-managed fields cannot be modified directly (penalty_mode, status, started_at, actual_duration_sec, completed_at, deleted_at) |
+| **Z0004** | `fn_enforce_task_quota()` | Quota exceeded: Daily task limit exceeded (task limit depends on plan: free=3, pro=10, premium=16) |
+| **Z0005** | `fn_enforce_task_note_limit()` | Ownership error: Task not owned by user (user does not own this task) |
+| **Z0006** | `fn_enforce_task_note_limit()` | Resource limit exceeded: Task note limit exceeded (max 5 notes per task) |
+| **Z0007** | `fn_submit_task_reward()` | Resource not found: User wallet not found (wallet record missing in user_wallets) |
+| **Z0008** | `fn_submit_task_reward()` | Invalid state: Task already submitted or not found |
+
+**API-Level Error Contract (minimal):**
+```json
+{
+  "error": "Z0004",
+  "message": "Daily task quota exceeded",
+  "detail": "User has exceeded the daily task limit (3 tasks/day). Used: 3, Limit: 3"
+}
+```
+Backend translates DB errors to user-friendly messages with original `errcode` in response for debugging.
+
 ---
 
-## 7. Background Jobs (Cronjob Service)
+## 8. Background Jobs (Cronjob Service)
 
 **Run every 24 hours (midnight UTC):**
 1. **Inactive Penalty**
@@ -796,7 +950,7 @@ GET    /api/metrics                     Prometheus metrics
 
 ---
 
-## 8. Monitoring & Observability
+## 9. Monitoring & Observability
 
 ### Prometheus Metrics
 - `task_submissions_total` — counter, by status (submitted/given_up)
@@ -815,7 +969,7 @@ GET    /api/metrics                     Prometheus metrics
 
 ---
 
-## 9. Security Checklist
+## 10. Security Checklist
 
 - [ ] All write endpoints require JWT auth (Supabase)
 - [ ] RLS policies on sensitive tables (user_private, user_wallets)

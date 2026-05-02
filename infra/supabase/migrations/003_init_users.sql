@@ -50,8 +50,10 @@ begin
     where g.id = '00000000-0000-0000-0000-000000000001';
 
     if v_starter_garden_id is null then
-        raise exception
-        'SYSTEM NOT READY: starter garden is missing. User registration blocked.';
+        raise exception 'SYSTEM NOT READY: starter garden is missing'
+        using
+            errcode = 'Z0001',
+            detail = 'Starter garden with id 00000000-0000-0000-0000-000000000001 is not found. User registration blocked.';
     end if;
 
     insert into public.users (id, display_name)
