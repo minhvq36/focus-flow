@@ -161,3 +161,7 @@ type ExtendRequest struct {
 type CreateTaskNoteRequest struct {
 	Content string `json:"content" validate:"required,min=1,max=22000"`
 }
+
+type UpdateTaskNoteRequest struct {
+	Content string `json:"content" validate:"required,min=1,max=22000"`
+}

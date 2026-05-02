@@ -298,3 +298,46 @@ func (r *Repository) CreateNote(ctx context.Context, taskID, userID string, req 
 	}
 	return &n, nil
 }
+
+func (r *Repository) GetNotes(ctx context.Context, taskID, userID string) ([]*TaskNote, error) {
+	// TODO: Check if in the future need to check if task soft deleted
+	rows, err := r.db.Query(ctx, `
+        SELECT id, task_id, user_id, content, created_at, updated_at
+        FROM task_notes
+        WHERE task_id = $1 AND user_id = $2
+        ORDER BY created_at ASC
+    `, taskID, userID)
+	if err != nil {
+		return nil, fmt.Errorf("GetNotes: %w", err)
+	}
+	defer rows.Close()
+
+	var notes []*TaskNote
+	for rows.Next() {
+		var n TaskNote
+		if err := rows.Scan(&n.ID, &n.TaskID, &n.UserID, &n.Content, &n.CreatedAt, &n.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("GetNotes scan: %w", err)
+		}
+		notes = append(notes, &n)
+	}
+	return notes, nil
+}
+
+func (r *Repository) UpdateNote(ctx context.Context, noteID, userID string, req UpdateTaskNoteRequest) (*TaskNote, error) {
+	var n TaskNote
+	err := r.db.QueryRow(ctx, `
+        UPDATE task_notes
+        SET content = $1
+        WHERE id = $2 AND user_id = $3
+        RETURNING id, task_id, user_id, content, created_at, updated_at
+    `, req.Content, noteID, userID).Scan(
+		&n.ID, &n.TaskID, &n.UserID, &n.Content, &n.CreatedAt, &n.UpdatedAt,
+	)
+	if err != nil {
+		if dbpkg.IsNoRows(err) {
+			return nil, &apperr.ForbiddenError{}
+		}
+		return nil, fmt.Errorf("UpdateNote: %w", err)
+	}
+	return &n, nil
+}

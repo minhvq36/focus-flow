@@ -18,6 +18,7 @@ type RepositoryInterface interface {
 	GiveUp(ctx context.Context, taskID, userID string) error
 	ResumeTask(ctx context.Context, taskID, userID string) error
 	CreateNote(ctx context.Context, taskID, userID string, req CreateTaskNoteRequest) (*TaskNote, error)
+	GetNotes(ctx context.Context, taskID, userID string) ([]*TaskNote, error)
 }
 
 type Service struct {
@@ -137,4 +138,8 @@ func (s *Service) CreateNote(ctx context.Context, taskID, userID string, req Cre
 		return nil, &apperr.ValidationError{Message: "Content exceeds 22000 characters"}
 	}
 	return s.repo.CreateNote(ctx, taskID, userID, req)
+}
+
+func (s *Service) GetNotes(ctx context.Context, taskID, userID string) ([]*TaskNote, error) {
+	return s.repo.GetNotes(ctx, taskID, userID)
 }
