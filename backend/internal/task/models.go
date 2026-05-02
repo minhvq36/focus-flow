@@ -157,3 +157,7 @@ type SubmitTaskRequest struct {
 type ExtendRequest struct {
 	AddMinutes int `json:"add_minutes" validate:"required,min=1"`
 }
+
+type CreateTaskNoteRequest struct {
+	Content string `json:"content" validate:"required,min=1,max=22000"`
+}

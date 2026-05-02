@@ -17,6 +17,7 @@ type RepositoryInterface interface {
 	Submit(ctx context.Context, taskID, userID string) error
 	GiveUp(ctx context.Context, taskID, userID string) error
 	ResumeTask(ctx context.Context, taskID, userID string) error
+	CreateNote(ctx context.Context, taskID, userID string, req CreateTaskNoteRequest) (*TaskNote, error)
 }
 
 type Service struct {
@@ -126,4 +127,14 @@ func (s *Service) ResumeTask(ctx context.Context, taskID, userID string) error {
 	}
 
 	return s.repo.ResumeTask(ctx, taskID, userID)
+}
+
+func (s *Service) CreateNote(ctx context.Context, taskID, userID string, req CreateTaskNoteRequest) (*TaskNote, error) {
+	if strings.TrimSpace(req.Content) == "" {
+		return nil, &apperr.ValidationError{Message: "Content cannot be empty"}
+	}
+	if len(req.Content) > 22000 {
+		return nil, &apperr.ValidationError{Message: "Content exceeds 22000 characters"}
+	}
+	return s.repo.CreateNote(ctx, taskID, userID, req)
 }

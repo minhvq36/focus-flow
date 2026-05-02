@@ -11,6 +11,7 @@ var (
 	ErrInsufficientBalance = errors.New("insufficient balance")
 	ErrForbidden           = errors.New("forbidden")
 	ErrDuplicate           = errors.New("duplicate")
+	ErrNoteLimitExceeded   = errors.New("task note limit exceeded")
 )
 
 type NotFoundError struct{ Resource string }
@@ -39,3 +40,8 @@ type ForbiddenError struct{}
 
 func (e *ForbiddenError) Error() string { return "forbidden" }
 func (e *ForbiddenError) Unwrap() error { return ErrForbidden }
+
+type NoteLimitExceededError struct{}
+
+func (e *NoteLimitExceededError) Error() string { return "task note limit exceeded" }
+func (e *NoteLimitExceededError) Unwrap() error { return ErrNoteLimitExceeded }

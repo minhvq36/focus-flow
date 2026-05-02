@@ -277,3 +277,24 @@ func (r *Repository) ResumeTask(ctx context.Context, taskID, userID string) erro
 	}
 	return nil
 }
+
+func (r *Repository) CreateNote(ctx context.Context, taskID, userID string, req CreateTaskNoteRequest) (*TaskNote, error) {
+	var n TaskNote
+	err := r.db.QueryRow(ctx, `
+        INSERT INTO task_notes (task_id, user_id, content)
+        VALUES ($1, $2, $3)
+        RETURNING id, task_id, user_id, content, created_at, updated_at
+    `, taskID, userID, req.Content).Scan(
+		&n.ID, &n.TaskID, &n.UserID, &n.Content, &n.CreatedAt, &n.UpdatedAt,
+	)
+	if err != nil {
+		switch dbpkg.AppErrCode(err) {
+		case dbpkg.ErrZ0005OwnershipError:
+			return nil, &apperr.ForbiddenError{}
+		case dbpkg.ErrZ0006ResourceLimitExceeded:
+			return nil, &apperr.NoteLimitExceededError{}
+		}
+		return nil, fmt.Errorf("CreateNote: %w", err)
+	}
+	return &n, nil
+}
