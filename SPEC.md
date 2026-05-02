@@ -42,7 +42,7 @@ User fill form trước khi bắt đầu:
 |---|---|
 | **Tiêu đề** | Tên task |
 | **Todo List** | Danh sách checkbox, hỗ trợ indent (checkbox con). Tối thiểu 1 item |
-| **Thời lượng** | Chọn trước: 15 / 25 / 45 / 60 / 90 / 120 phút (hoặc custom) |
+| **Thời lượng** | Chọn trước: 25 / 45 / 60 / 90 / 120 phút (hoặc custom, minimum 25 phút) |
 
 Sau khi fill xong → bấm **"Create Task"** → task được tạo và đồng hồ tự động bắt đầu → vào màn hình Focus. Ghi chú được thêm/sửa/xóa trong Focus screen (CRUD).
 
