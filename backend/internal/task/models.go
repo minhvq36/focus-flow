@@ -110,6 +110,7 @@ type TaskSummary struct {
 	ID                    string     `json:"id"`
 	Title                 string     `json:"title"`
 	Status                TaskStatus `json:"status"`
+	PenaltyMode           bool       `json:"penalty_mode"`
 	RegisteredDurationMin int        `json:"registered_duration_min"`
 	ActualDurationSec     int        `json:"actual_duration_sec"`
 	StartedAt             *time.Time `json:"started_at"`

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Loader2, AlertTriangle } from 'lucide-react'
-import { useTasks } from './hooks/useTasks'
+import { useTasks } from './hooks/use-tasks'
 import { TaskList } from './components/task-list'
 import { CreateTaskModal } from './components/create-task-modal'
 

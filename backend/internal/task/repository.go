@@ -25,14 +25,14 @@ func NewRepository(db *pgxpool.Pool, log *logger.Logger) *Repository {
 	}
 }
 
-// TODO: Add filter by date, status, pagination, etc.
-// GetAllByUser — list view, does not load full todos
+// TODO: Add filter by date, status, pagination, etc. for endpoints
+// GetAllByUser — list view, does not load full todos, TODAY
 func (r *Repository) GetAllByUser(ctx context.Context, userID string) ([]TaskSummary, error) {
 	// TODO: Need to contract todos with FE
 	r.log.Info("GetAllByUser", "user_id", userID)
 
 	rows, err := r.db.Query(ctx, `
-		SELECT id, title, status,
+		SELECT id, title, status, penalty_mode,
 		       registered_duration_min, actual_duration_sec,
 		       started_at, created_at, completed_at,
 		       jsonb_array_length(todos) as todo_count,
@@ -44,6 +44,7 @@ func (r *Repository) GetAllByUser(ctx context.Context, userID string) ([]TaskSum
 		FROM tasks
 		WHERE user_id = $1
 		  AND deleted_at IS NULL
+		  AND created_at::date = CURRENT_DATE
 		ORDER BY created_at DESC
 	`, userID)
 	if err != nil {
@@ -55,7 +56,7 @@ func (r *Repository) GetAllByUser(ctx context.Context, userID string) ([]TaskSum
 	for rows.Next() {
 		var t TaskSummary
 		err := rows.Scan(
-			&t.ID, &t.Title, &t.Status,
+			&t.ID, &t.Title, &t.Status, &t.PenaltyMode,
 			&t.RegisteredDurationMin, &t.ActualDurationSec,
 			&t.StartedAt, &t.CreatedAt, &t.CompletedAt,
 			&t.TodoCount, &t.TodoDoneCount,
