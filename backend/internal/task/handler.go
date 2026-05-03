@@ -18,9 +18,9 @@ type ServiceInterface interface {
 	GetTaskByID(ctx context.Context, taskID, userID string) (*Task, error)
 	CreateTask(ctx context.Context, userID string, req CreateTaskRequest) (*Task, error)
 	UpdateTodos(ctx context.Context, taskID, userID string, req UpdateTodosRequest) error
-	PauseTask(ctx context.Context, taskID, userID string) error
+	PauseTask(ctx context.Context, taskID, userID string, req PauseTaskRequest) error
 	SubmitTask(ctx context.Context, taskID, userID string, req SubmitTaskRequest) error
-	GiveUpTask(ctx context.Context, taskID, userID string) error
+	GiveUpTask(ctx context.Context, taskID, userID string, req GiveUpTaskRequest) error
 	ResumeTask(ctx context.Context, taskID, userID string) error
 	CreateNote(ctx context.Context, taskID, userID string, req CreateTaskNoteRequest) (*TaskNote, error)
 	GetNotes(ctx context.Context, taskID, userID string) ([]*TaskNote, error)
@@ -156,6 +156,7 @@ func (h *Handler) UpdateTodos(w http.ResponseWriter, r *http.Request) {
 	response.Success(w, map[string]string{"message": "Todos updated successfully"})
 }
 
+// TODO: Check SSE to redirect all active task open when task stopped
 func (h *Handler) PauseTask(w http.ResponseWriter, r *http.Request) {
 	userID, ok := auth.GetUserID(r.Context())
 	if !ok {
@@ -169,8 +170,14 @@ func (h *Handler) PauseTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var req PauseTaskRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.BadRequest(w, "INVALID_REQUEST", "Invalid request body")
+		return
+	}
+
 	h.log.Info("PauseTask", "user_id", userID, "task_id", taskID)
-	err := h.service.PauseTask(r.Context(), taskID, userID)
+	err := h.service.PauseTask(r.Context(), taskID, userID, req)
 	if err != nil {
 		switch {
 		case errors.Is(err, apperr.ErrNotFound):
@@ -239,8 +246,14 @@ func (h *Handler) GiveUpTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var req GiveUpTaskRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.BadRequest(w, "INVALID_REQUEST", "Invalid request body")
+		return
+	}
+
 	h.log.Info("GiveUpTask", "user_id", userID, "task_id", taskID)
-	err := h.service.GiveUpTask(r.Context(), taskID, userID)
+	err := h.service.GiveUpTask(r.Context(), taskID, userID, req)
 	if err != nil {
 		switch {
 		case errors.Is(err, apperr.ErrNotFound):
