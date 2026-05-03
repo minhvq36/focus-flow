@@ -47,7 +47,15 @@ export interface CreateTaskRequest {
   penalty_mode: boolean
 }
 
+export interface PauseTaskRequest {
+  todos: TodoItem[]
+}
+
 export interface SubmitTaskRequest {
+  todos: TodoItem[]
+}
+
+export interface GiveUpTaskRequest {
   todos: TodoItem[]
 }
 
