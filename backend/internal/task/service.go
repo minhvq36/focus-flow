@@ -13,9 +13,9 @@ type RepositoryInterface interface {
 	GetByID(ctx context.Context, taskID, userID string) (*Task, error)
 	Create(ctx context.Context, userID string, req CreateTaskRequest) (*Task, error)
 	UpdateTodos(ctx context.Context, taskID, userID string, req UpdateTodosRequest) error
-	PauseTask(ctx context.Context, taskID, userID string) (int, error)
-	Submit(ctx context.Context, taskID, userID string) error
-	GiveUp(ctx context.Context, taskID, userID string) error
+	PauseTask(ctx context.Context, taskID, userID string, req PauseTaskRequest) (int, error)
+	Submit(ctx context.Context, taskID, userID string, req SubmitTaskRequest) error
+	GiveUp(ctx context.Context, taskID, userID string, req GiveUpTaskRequest) error
 	ResumeTask(ctx context.Context, taskID, userID string) error
 	CreateNote(ctx context.Context, taskID, userID string, req CreateTaskNoteRequest) (*TaskNote, error)
 	GetNotes(ctx context.Context, taskID, userID string) ([]*TaskNote, error)
@@ -65,7 +65,7 @@ func (s *Service) UpdateTodos(ctx context.Context, taskID, userID string, req Up
 	return s.repo.UpdateTodos(ctx, taskID, userID, req)
 }
 
-func (s *Service) PauseTask(ctx context.Context, taskID, userID string) error {
+func (s *Service) PauseTask(ctx context.Context, taskID, userID string, req PauseTaskRequest) error {
 	task, err := s.repo.GetByID(ctx, taskID, userID)
 	if err != nil {
 		return err
@@ -79,7 +79,11 @@ func (s *Service) PauseTask(ctx context.Context, taskID, userID string) error {
 		return &apperr.InvalidStateError{Current: "timer_stopped", Expected: "timer_running"}
 	}
 
-	_, err = s.repo.PauseTask(ctx, taskID, userID)
+	if err := ValidateTodos(req.Todos); err != nil {
+		return &apperr.ValidationError{Message: err.Error()}
+	}
+
+	_, err = s.repo.PauseTask(ctx, taskID, userID, req)
 	return err
 }
 
@@ -101,11 +105,11 @@ func (s *Service) SubmitTask(ctx context.Context, taskID, userID string, req Sub
 		return &apperr.ValidationError{Message: err.Error()}
 	}
 
-	return s.repo.Submit(ctx, taskID, userID)
+	return s.repo.Submit(ctx, taskID, userID, req)
 	// TODO: trigger reward flow (phase 2)
 }
 
-func (s *Service) GiveUpTask(ctx context.Context, taskID, userID string) error {
+func (s *Service) GiveUpTask(ctx context.Context, taskID, userID string, req GiveUpTaskRequest) error {
 	task, err := s.repo.GetByID(ctx, taskID, userID)
 	if err != nil {
 		return err
@@ -115,7 +119,11 @@ func (s *Service) GiveUpTask(ctx context.Context, taskID, userID string) error {
 		return &apperr.InvalidStateError{Current: string(task.Status), Expected: string(TaskStatusActive)}
 	}
 
-	return s.repo.GiveUp(ctx, taskID, userID)
+	if err := ValidateTodos(req.Todos); err != nil {
+		return &apperr.ValidationError{Message: err.Error()}
+	}
+
+	return s.repo.GiveUp(ctx, taskID, userID, req)
 	// TODO: trigger penalty flow (phase 2)
 }
 

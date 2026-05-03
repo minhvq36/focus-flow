@@ -182,7 +182,7 @@ func (r *Repository) Extend(ctx context.Context, taskID, userID string, req Exte
 	return nil
 }
 
-func (r *Repository) PauseTask(ctx context.Context, taskID, userID string) (int, error) {
+func (r *Repository) PauseTask(ctx context.Context, taskID, userID string, req PauseTaskRequest) (int, error) {
 	var newDuration int
 	err := r.db.QueryRow(ctx, `
         UPDATE tasks
@@ -191,6 +191,7 @@ func (r *Repository) PauseTask(ctx context.Context, taskID, userID string) (int,
                 actual_duration_sec + EXTRACT(EPOCH FROM (NOW() - started_at))::int,
                 registered_duration_min * 60
             ),
+			todos = $3,
             started_at = NULL
         WHERE id = $1
           AND user_id = $2
@@ -198,7 +199,7 @@ func (r *Repository) PauseTask(ctx context.Context, taskID, userID string) (int,
           AND started_at IS NOT NULL
           AND deleted_at IS NULL
         RETURNING actual_duration_sec
-    `, taskID, userID).Scan(&newDuration)
+    `, taskID, userID, req.Todos).Scan(&newDuration)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return 0, &apperr.NotFoundError{Resource: "Task"}
@@ -208,7 +209,7 @@ func (r *Repository) PauseTask(ctx context.Context, taskID, userID string) (int,
 	return newDuration, nil
 }
 
-func (r *Repository) Submit(ctx context.Context, taskID, userID string) error {
+func (r *Repository) Submit(ctx context.Context, taskID, userID string, req SubmitTaskRequest) error {
 	// Allow paused submission
 	result, err := r.db.Exec(ctx, `
         UPDATE tasks
@@ -217,13 +218,14 @@ func (r *Repository) Submit(ctx context.Context, taskID, userID string) error {
                 actual_duration_sec + COALESCE(EXTRACT(EPOCH FROM (NOW() - started_at))::int, 0),
                 registered_duration_min * 60
             ),
+			todos = $3,
             started_at = NULL,
             completed_at = NOW()
         WHERE id = $1
           AND user_id = $2
           AND status in ('active', 'paused')
           AND deleted_at IS NULL
-    `, taskID, userID)
+    `, taskID, userID, req.Todos)
 	if err != nil {
 		return fmt.Errorf("Submit: %w", err)
 	}
@@ -233,7 +235,7 @@ func (r *Repository) Submit(ctx context.Context, taskID, userID string) error {
 	return nil
 }
 
-func (r *Repository) GiveUp(ctx context.Context, taskID, userID string) error {
+func (r *Repository) GiveUp(ctx context.Context, taskID, userID string, req GiveUpTaskRequest) error {
 	result, err := r.db.Exec(ctx, `
         UPDATE tasks
         SET status = 'given_up',
@@ -241,6 +243,7 @@ func (r *Repository) GiveUp(ctx context.Context, taskID, userID string) error {
                 actual_duration_sec + EXTRACT(EPOCH FROM (NOW() - started_at))::int,
                 registered_duration_min * 60
             ),
+			todos = $3,
             started_at = NULL,
             completed_at = NOW()
         WHERE id = $1
@@ -248,7 +251,7 @@ func (r *Repository) GiveUp(ctx context.Context, taskID, userID string) error {
           AND status = 'active'
 		  AND started_at IS NOT NULL
           AND deleted_at IS NULL
-    `, taskID, userID)
+    `, taskID, userID, req.Todos)
 	if err != nil {
 		return fmt.Errorf("GiveUp: %w", err)
 	}

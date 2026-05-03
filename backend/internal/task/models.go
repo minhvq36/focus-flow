@@ -23,7 +23,6 @@ type TodoItem struct {
 	Children []TodoItem `json:"children,omitempty"` // indent (checkbox con)
 }
 
-// Task — mapping với bảng tasks trong DB
 type Task struct {
 	ID                    string     `json:"id"`
 	UserID                string     `json:"user_id"`
@@ -33,7 +32,7 @@ type Task struct {
 	Status                TaskStatus `json:"status"`
 	RegisteredDurationMin int        `json:"registered_duration_min"`
 	ActualDurationSec     int        `json:"actual_duration_sec"`
-	StartedAt             *time.Time `json:"started_at"` // NULL = paused
+	StartedAt             *time.Time `json:"started_at"` // NULL = paused, submitted, or given up
 	CreatedAt             time.Time  `json:"created_at"`
 	UpdatedAt             time.Time  `json:"updated_at"`
 	CompletedAt           *time.Time `json:"completed_at"` // NULL = not completed
@@ -144,17 +143,20 @@ type CreateTaskRequest struct {
 	PenaltyMode           bool       `json:"penalty_mode"`
 }
 
-// AddNoteRequest — Sent from FE when adding a note
-type AddNoteRequest struct {
-	Content string `json:"content" validate:"required,min=1,max=22000"`
-}
-
 // UpdateTodosRequest — Sent from FE when autosaving todos
 type UpdateTodosRequest struct {
 	Todos []TodoItem `json:"todos" validate:"required,min=1,max=50"`
 }
 
 type SubmitTaskRequest struct {
+	Todos []TodoItem `json:"todos" validate:"required,min=1,max=50"`
+}
+
+type PauseTaskRequest struct {
+	Todos []TodoItem `json:"todos" validate:"required,min=1,max=50"`
+}
+
+type GiveUpTaskRequest struct {
 	Todos []TodoItem `json:"todos" validate:"required,min=1,max=50"`
 }
 
