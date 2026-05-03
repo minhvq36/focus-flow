@@ -11,14 +11,14 @@
 - **Build Tool:** Vite
 - **Styling:** Tailwind CSS
 - **State Management:** Zustand (global stores)
-- **HTTP Client:** React Query (data fetching, caching)
-- **Forms:** React Hook Form + Zod validation
-- **Animation:** Framer Motion (confetti, transitions)
+- **HTTP Client:** Fetch API with custom wrapper (api.ts) - **Note:** React Query planned for future optimization
+- **Forms:** Plain HTML forms (future: React Hook Form + Zod)
+- **Animation:** Tailwind CSS animations + tw-animate-css (future: Framer Motion)
 - **Charts/Visuals:** Canvas (garden grid), D3 or Chart.js (stats)
 - **Auth:** Supabase Auth (JWT via localStorage)
 - **Realtime:** Supabase Realtime (WebSocket for feed, leaderboard)
-- **Icons:** Lucide React or similar
-- **UI Components:** Radix UI primitives + Tailwind
+- **Icons:** Lucide React
+- **UI Components:** shadcn components + Tailwind CSS
 
 ---
 
@@ -502,11 +502,16 @@ type GardenStore = {
 ```typescript
 type UserStore = {
   user: User | null;
-  penaltyMode: boolean;
-  plan: 'free' | 'pro' | 'premium';
+  loading: boolean;
   
-  setUser: (user: User) => void;
-  togglePenaltyMode: () => Promise<void>;
+  setUser: (user: User | null) => void;
+  restoreSession: () => Promise<void>;
+  logout: () => Promise<void>;
+  
+  // Future fields (planned for later phases):
+  // penaltyMode: boolean;
+  // plan: 'free' | 'pro' | 'premium';
+  // togglePenaltyMode: () => Promise<void>;
 };
 ```
 
@@ -538,38 +543,34 @@ type EconomyStore = {
 const useTaskSession = (taskId: string) => {
   const [state, setState] = useState<'active' | 'paused' | 'submitted'>('active');
   const [elapsedSec, setElapsedSec] = useState(0);
-  const [todos, setTodos] = useTaskStore(state => [state.todos, state.setTodos]);
+  const [todos, setTodos] = useState<TodoItem[]>([]);
   const [todosSyncPending, setTodosSyncPending] = useState(false);
   
   // Debounced todos sync to DB (1 sec idle)
-  const debouncedSaveTodos = useMemo(
-    () => debounce(async (updatedTodos) => {
+  const debouncedSaveTodos = useCallback((updatedTodos: TodoItem[]) => {
+    const timer = setTimeout(async () => {
       try {
         setTodosSyncPending(true);
-        await fetch(`/api/tasks/${taskId}/todos`, {
-          method: 'PATCH',
-          body: JSON.stringify({ todos: updatedTodos })
-        });
+        await api.patch(`/tasks/${taskId}/todos`, { todos: updatedTodos });
         setTodosSyncPending(false);
       } catch (err) {
-        // Retry on next idle, or show toast
+        console.error('Failed to sync todos:', err);
         setTodosSyncPending(false);
+        // Show warning: Changes may be lost
       }
-    }, 1000),
-    [taskId]
-  );
+    }, 1000);
+    
+    return () => clearTimeout(timer);
+  }, [taskId]);
   
-  const updateTodos = (newTodos) => {
+  const updateTodos = (newTodos: TodoItem[]) => {
     setTodos(newTodos);  // Instant local update
     debouncedSaveTodos(newTodos);  // Debounced DB sync
   };
   
   // Force sync: used when leaving Focus screen
   const forceSyncTodos = async () => {
-    await fetch(`/api/tasks/${taskId}/todos`, {
-      method: 'PATCH',
-      body: JSON.stringify({ todos })
-    });
+    await api.patch(`/tasks/${taskId}/todos`, { todos });
   };
   
   const start = () => { /* set started_at, query DB for todos */ };
@@ -580,10 +581,15 @@ const useTaskSession = (taskId: string) => {
   
   // Recovery on mount: fetch latest state from server
   useEffect(() => {
-    fetchTaskState(taskId).then(task => {
-      setTodos(task.todos);  // Restore todos from DB
-      setElapsedSec(calculateElapsedSec(task));
-    });
+    (async () => {
+      try {
+        const task = await api.get(`/tasks/${taskId}`);
+        setTodos(task.todos);
+        setElapsedSec(calculateElapsedSec(task));
+      } catch (err) {
+        console.error('Failed to restore task state:', err);
+      }
+    })();
   }, [taskId]);
   
   return { 
@@ -607,8 +613,8 @@ const useTaskSession = (taskId: string) => {
 interface TodoItem {
   id: string;        // UUID for unique tracking
   text: string;
-  checked: boolean;
-  indent: number;    // 0 = root, 1 = sub-item, 2 = sub-sub, etc.
+  done: boolean;     // Changed from 'checked' to 'done'
+  children?: TodoItem[];  // Nested structure (recursive) instead of indent level
 }
 ```
 
