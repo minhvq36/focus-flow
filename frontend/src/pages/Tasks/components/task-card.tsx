@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { Play, Pause, CheckSquare, Flag, Clock, Sprout } from 'lucide-react'
-import type { Task, TaskStatus } from '@/types/task'
+import type { TaskSummary, TaskStatus } from '@/types/task'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -9,20 +9,6 @@ function formatDuration(min: number) {
   const h = Math.floor(min / 60)
   const m = min % 60
   return m ? `${h}h ${m}m` : `${h}h`
-}
-
-function countTodos(todos: Task['todos']): { total: number; done: number } {
-  let total = 0
-  let done = 0
-  function walk(items: Task['todos']) {
-    for (const t of items) {
-      total++
-      if (t.done) done++
-      if (t.children?.length) walk(t.children)
-    }
-  }
-  walk(todos)
-  return { total, done }
 }
 
 // ─── Status config ────────────────────────────────────────────────────────────
@@ -69,7 +55,7 @@ const STATUS_CFG: Record<TaskStatus, StatusCfg> = {
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 interface TaskCardProps {
-  task: Task
+  task: TaskSummary
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -77,7 +63,6 @@ interface TaskCardProps {
 export function TaskCard({ task }: TaskCardProps) {
   const navigate = useNavigate()
   const cfg = STATUS_CFG[task.status]
-  const { total, done } = countTodos(task.todos)
   const isTerminal = task.status === 'submitted' || task.status === 'given_up'
   const isActionable = task.status === 'active' || task.status === 'paused'
 
@@ -130,10 +115,10 @@ export function TaskCard({ task }: TaskCardProps) {
                 {formatDuration(task.registered_duration_min)}
               </span>
             )}
-            {total > 0 && (
+            {task.todo_count > 0 && (
               <span className="flex items-center gap-1">
                 <Sprout className="h-3 w-3" aria-hidden />
-                {done}/{total} todos
+                {task.todo_done_count}/{task.todo_count} todos
               </span>
             )}
           </div>

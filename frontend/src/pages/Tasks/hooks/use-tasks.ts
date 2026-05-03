@@ -23,9 +23,8 @@ export function useTasks(): UseTasksReturn {
     setLoading(true)
     setError(null)
     try {
-      const today = new Date().toISOString().slice(0, 10)
       const [tasksData, quotaData] = await Promise.all([
-        api.get<Task[]>(`/api/tasks?date=${today}`),
+        api.get<Task[]>(`/api/tasks`),
         api.get<QuotaToday>('/api/tasks/quota/today'),
       ])
       setTasks(tasksData)

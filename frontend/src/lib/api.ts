@@ -2,6 +2,15 @@ import { supabase } from './supabase'
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8080'
 
+interface ApiResponse<T> {
+  success: boolean
+  data?: T
+  error?: {
+    code: string
+    message: string
+  }
+}
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const { data: { session } } = await supabase.auth.getSession()
   const token = session?.access_token
@@ -14,14 +23,17 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     ...options,
   })
 
+  const json = await res.json() as ApiResponse<T>
+ 
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    const error = new Error(err.message ?? `HTTP ${res.status}`) as Error & { status: number }
+    const message = json.error?.message ?? `HTTP ${res.status}`
+    const error = new Error(message) as Error & { status: number; code: string }
     error.status = res.status
+    error.code = json.error?.code ?? 'UNKNOWN'
     throw error
   }
-
-  return res.json() as Promise<T>
+ 
+  return json.data as T
 }
 
 export const api = {

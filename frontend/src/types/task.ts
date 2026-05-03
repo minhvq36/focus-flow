@@ -26,6 +26,7 @@ export interface TaskSummary {
   id: string
   title: string
   status: TaskStatus
+  penalty_mode: boolean
   registered_duration_min: number
   actual_duration_sec: number
   started_at: string | null
