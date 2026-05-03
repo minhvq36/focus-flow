@@ -56,15 +56,9 @@ export function LoginForm() {
   return (
     <div className="rounded-2xl border border-border bg-card shadow-sm p-8 flex flex-col gap-5">
 
-      <Button type="button" variant="outline" size="lg" className="w-full gap-3 font-medium"
-        onClick={handleGoogleSignIn} disabled={loadingGoogle || loadingEmail}>
-        {loadingGoogle ? <Loader2 className="h-4 w-4 animate-spin" /> : <GoogleIcon />}
-        Continue with Google
-      </Button>
-
       <div className="flex items-center gap-3">
         <Separator className="flex-1" />
-        <span className="text-xs text-muted-foreground shrink-0">or sign in with email</span>
+        <span className="text-xs text-muted-foreground shrink-0">Sign in with email</span>
         <Separator className="flex-1" />
       </div>
 
@@ -108,6 +102,12 @@ export function LoginForm() {
           Sign in
         </Button>
       </form>
+
+      <Button type="button" variant="outline" size="lg" className="w-full gap-3 font-medium"
+        onClick={handleGoogleSignIn} disabled={loadingGoogle || loadingEmail}>
+        {loadingGoogle ? <Loader2 className="h-4 w-4 animate-spin" /> : <GoogleIcon />}
+        Continue with Google
+      </Button>
 
       <p className="text-center text-sm text-muted-foreground">
         Don't have an account?{' '}

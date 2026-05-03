@@ -1,8 +1,9 @@
 import { Link, useLocation } from 'react-router-dom'
+import { Sprout } from 'lucide-react'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { cn } from '@/lib/utils'
 
 const tabs = [
-    // TODO: Check if we need Icons for these tabs
   { path: '/garden', label: 'My Garden' },
   { path: '/tasks',  label: 'My Tasks'  },
 ]
@@ -11,41 +12,48 @@ export default function Header() {
   const { pathname } = useLocation()
 
   return (
-    <header className="h-16 border-b border-border/60 bg-ff-header-bg flex items-center justify-between px-6 shrink-0">
-      
-      {/* Logo */}
-      <span className="text-sm font-bold text-primary">FocusFlow</span>
+    <header className="sticky top-0 z-30 border-b border-border/60 bg-background/60 backdrop-blur-lg backdrop-saturate-150">
+      <div className="flex items-center justify-between gap-4 px-6 h-16">
 
-      {/* Tab navigation */}
-      <nav className="flex items-center gap-1">
-        {tabs.map(({ path, label }) => (
-          <Link
-            key={path}
-            to={path}
-            className={cn(
-                'px-4 py-1.5 text-sm rounded-md transition-colors border border-transparent',
-                pathname === path
-                ? 'bg-ff-tab-active-bg text-ff-tab-active-fg font-medium'
-                : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-            )}
-          >
-            {label}
-          </Link>
-        ))}
-      </nav>
-
-      {/* Right: economy + user */}
-      <div className="flex items-center gap-4">
-        {/* TODO: Check we need to replace this with a proper icon */}
-        <span className="text-sm">🪙 <strong>0</strong></span>
-        {/* TODO: Check we need to replace this with a proper icon */}
-        <span className="text-sm">💛 <strong>0</strong></span>
-        {/* TODO: Check if need a specific CSS, currently reusing tab active styles */}
-        <div className="w-8 h-8 rounded-full bg-ff-tab-active-bg flex items-center justify-center text-sm cursor-pointer shadow-sm hover:shadow transition-shadow">
-          U
+        {/* Logo */}
+        <div className="flex items-center gap-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
+            <Sprout className="h-4 w-4" aria-hidden="true" />
+          </div>
+          <span className="text-sm font-semibold tracking-tight text-foreground">FocusFlow</span>
         </div>
-      </div>
 
+        {/* Tab navigation */}
+        <nav className="flex items-center gap-1">
+          {tabs.map(({ path, label }) => (
+            <Link
+              key={path}
+              to={path}
+              className={cn(
+                'px-3 py-1.5 text-sm rounded-md transition-colors',
+                pathname === path
+                  ? 'bg-secondary text-secondary-foreground font-medium'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-secondary/60'
+              )}
+            >
+              {label}
+            </Link>
+          ))}
+        </nav>
+
+        {/* Right */}
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-foreground/80">🪙 <strong>0</strong></span>
+          <span className="text-sm text-foreground/80">💛 <strong>0</strong></span>
+
+          <Avatar className="h-8 w-8 cursor-pointer">
+            <AvatarFallback className="bg-secondary text-secondary-foreground text-xs font-medium">
+              U
+            </AvatarFallback>
+          </Avatar>
+        </div>
+
+      </div>
     </header>
   )
 }

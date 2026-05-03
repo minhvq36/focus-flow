@@ -152,11 +152,63 @@
   --color-ff-tab-active-fg: var(--ff-tab-active-fg);
 }
 
+@keyframes blob-1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33%       { transform: translate(6%, 4%) scale(1.08); }
+  66%       { transform: translate(-4%, 7%) scale(0.95); }
+}
+@keyframes blob-2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33%       { transform: translate(-8%, -5%) scale(1.1); }
+  66%       { transform: translate(5%, -3%) scale(0.92); }
+}
+@keyframes blob-3 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  40%       { transform: translate(4%, -8%) scale(1.06); }
+  70%       { transform: translate(-6%, 3%) scale(1.04); }
+}
+@keyframes blob-4 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50%       { transform: translate(-5%, 6%) scale(0.94); }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
+
+  html {
+    background-color: #f3fbe6;
+  }
+
   body {
-    @apply bg-background text-foreground;
+    @apply text-foreground;
+    min-height: 100dvh;
+    overflow-x: hidden;
+    position: relative;
+    isolation: isolate;
+    /* Không set background ở đây — để ::before lo */
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: -20%;
+    z-index: -1;
+    width: 140%;
+    height: 140%;
+    background:
+      radial-gradient(ellipse 70% 55% at 15% 10%,  #f0fde4 0%, transparent 70%),
+      radial-gradient(ellipse 60% 50% at 88% 8%,   #fafff5 0%, transparent 65%),
+      radial-gradient(ellipse 65% 60% at 50% 48%,  #e2f8cc 0%, transparent 70%),
+      radial-gradient(ellipse 55% 50% at 8%  85%,  #d8f5b8 0%, transparent 65%),
+      radial-gradient(ellipse 70% 55% at 92% 90%,  #edfce0 0%, transparent 70%),
+      #f3fbe6;
+    animation:
+      blob-1 18s ease-in-out infinite,
+      blob-2 22s ease-in-out infinite 3s,
+      blob-3 27s ease-in-out infinite 7s,
+      blob-4 20s ease-in-out infinite 11s;
+    filter: blur(48px);
   }
 }
