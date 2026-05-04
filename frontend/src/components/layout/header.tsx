@@ -12,7 +12,7 @@ export default function Header() {
   const { pathname } = useLocation()
 
   return (
-    <header className="sticky top-0 z-30 border-b border-border/60 bg-background/60 backdrop-blur-lg backdrop-saturate-150">
+    <header className="sticky top-0 z-30 border-b border-border/60 bg-[var(--header-bg)] backdrop-blur-lg backdrop-saturate-150">
       <div className="flex items-center justify-between gap-4 px-6 h-16">
 
         {/* Logo */}

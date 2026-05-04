@@ -27,7 +27,7 @@ export function useTasks(): UseTasksReturn {
         api.get<Task[]>(`/api/tasks`),
         api.get<QuotaToday>('/api/tasks/quota/today'),
       ])
-      setTasks(tasksData)
+      setTasks(tasksData ?? [])
       setQuota(quotaData)
     } catch (err: unknown) {
       const e = err as Error

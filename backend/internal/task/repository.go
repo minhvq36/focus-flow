@@ -52,7 +52,7 @@ func (r *Repository) GetAllByUser(ctx context.Context, userID string) ([]TaskSum
 		return nil, fmt.Errorf("GetAllByUser: %w", err)
 	}
 	defer rows.Close()
-	var tasks []TaskSummary
+	tasks := make([]TaskSummary, 0)
 	for rows.Next() {
 		var t TaskSummary
 		err := rows.Scan(

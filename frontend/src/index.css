@@ -56,6 +56,7 @@
   --sidebar-ring: oklch(0.42 0.075 145);
 
   --background-focus: #f9f9f3;
+  --header-bg: rgba(243, 251, 230, 0.55);
   
   --ff-header-bg: #f3fbe6;
   --ff-tab-active-bg: #ddebc7;
