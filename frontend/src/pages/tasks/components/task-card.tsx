@@ -83,9 +83,10 @@ export function TaskCard({ task, onSubmit }: TaskCardProps) {
         <div className="flex min-w-0 flex-1 flex-col gap-2">
 
           {/* Title + status badge */}
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-2 min-w-0">
             <span className={`
               text-[15px] font-semibold leading-snug
+              truncate max-w-full
               ${isSubmitted ? 'line-through decoration-muted-foreground text-foreground' : ''}
               ${isGivenUp   ? 'text-muted-foreground' : 'text-foreground'}
             `}>
