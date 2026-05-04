@@ -1,6 +1,6 @@
 import { AlertTriangle, Plus, Sprout } from 'lucide-react'
 import { TaskCard } from './task-card'
-import type { Task, QuotaToday } from '@/types/task'
+import type { TaskSummary, QuotaToday } from '@/types/task'
 
 // ─── Empty state ──────────────────────────────────────────────────────────────
 
@@ -31,7 +31,7 @@ function EmptyState({ onNewTask }: { onNewTask: () => void }) {
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 interface TaskListProps {
-  tasks: Task[]
+  tasks: TaskSummary[]
   quota: QuotaToday
   onNewTask: () => void
 }
@@ -57,7 +57,7 @@ export function TaskList({ tasks, quota, onNewTask }: TaskListProps) {
           </p>
         </div>
 
-        {!quotaExceeded && (
+        {!quotaExceeded && tasks.length > 0 && (
           <button
             type="button"
             onClick={onNewTask}

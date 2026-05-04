@@ -20,7 +20,7 @@ export default function Header() {
           <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
             <Sprout className="h-4 w-4" aria-hidden="true" />
           </div>
-          <span className="text-sm font-semibold tracking-tight text-foreground">FocusFlow</span>
+          <span className="text-lg font-semibold tracking-tight text-foreground">FocusFlow</span>
         </div>
 
         {/* Tab navigation */}
