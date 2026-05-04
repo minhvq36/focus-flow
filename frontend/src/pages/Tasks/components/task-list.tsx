@@ -50,9 +50,9 @@ export function TaskList({ tasks, quota, onNewTask }: TaskListProps) {
           <h1 className="text-lg font-semibold text-foreground">Today's Tasks</h1>
           <p className="mt-0.5 text-sm text-muted-foreground">
             <span className="font-medium text-foreground">{quota.used}</span>
-            /{quota.limit} used
+            /{quota.limit} tasks today
             {remaining > 0 && (
-              <span className="ml-1.5 text-primary">· {remaining} remaining</span>
+              <span className="ml-1.5 text-primary">· {remaining} remainings</span>
             )}
           </p>
         </div>

@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { Play, Pause, CheckSquare, Flag, Clock, Sprout } from 'lucide-react'
+import { Play, Pause, CheckSquare, Clock, Sprout } from 'lucide-react'
 import type { TaskSummary, TaskStatus } from '@/types/task'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -37,7 +37,7 @@ const STATUS_CFG: Record<TaskStatus, StatusCfg> = {
     icon: <Pause className="h-2.5 w-2.5" aria-hidden />,
   },
   submitted: {
-    label: 'Done',
+    label: 'Submitted',
     border: 'border-l-muted',
     badge: 'bg-muted text-muted-foreground border-border',
     dot: 'bg-muted-foreground',
@@ -48,7 +48,7 @@ const STATUS_CFG: Record<TaskStatus, StatusCfg> = {
     border: 'border-l-destructive/50',
     badge: 'bg-muted text-muted-foreground border-border',
     dot: 'bg-destructive/60',
-    icon: <Flag className="h-2.5 w-2.5" aria-hidden />,
+    icon: null,
   },
 }
 

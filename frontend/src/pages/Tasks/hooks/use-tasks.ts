@@ -1,10 +1,10 @@
 import { useState, useCallback, useEffect } from 'react'
 import { api } from '@/lib/api'
 import { useUserStore } from '@/store/user-store'
-import type { Task, QuotaToday } from '@/types/task'
+import type { Task, TaskSummary, QuotaToday } from '@/types/task'
 
 interface UseTasksReturn {
-  tasks: Task[]
+  tasks: TaskSummary[]
   quota: QuotaToday
   loading: boolean
   error: string | null
@@ -13,7 +13,7 @@ interface UseTasksReturn {
 
 export function useTasks(): UseTasksReturn {
   const { user } = useUserStore()
-  const [tasks, setTasks] = useState<Task[]>([])
+  const [tasks, setTasks] = useState<TaskSummary[]>([])
   const [quota, setQuota] = useState<QuotaToday>({ used: 0, limit: 3 })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -24,7 +24,7 @@ export function useTasks(): UseTasksReturn {
     setError(null)
     try {
       const [tasksData, quotaData] = await Promise.all([
-        api.get<Task[]>(`/api/tasks`),
+        api.get<TaskSummary[]>(`/api/tasks`),
         api.get<QuotaToday>('/api/tasks/quota/today'),
       ])
       setTasks(tasksData ?? [])
