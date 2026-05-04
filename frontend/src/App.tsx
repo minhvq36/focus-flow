@@ -1,10 +1,10 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import Login from './pages/Login'
+import Login from './pages/login'
 import ProtectedRoute from './components/auth/protected-route'
 import AppLayout from './components/layout/app-layout'
-import Garden from './pages/Garden'
-import Tasks from './pages/Tasks'
-import Focus from './pages/Focus'
+import Garden from './pages/garden'
+import Tasks from './pages/tasks'
+import Focus from './pages/focus'
 
 function App() {
   return (
