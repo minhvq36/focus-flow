@@ -147,6 +147,9 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  --color-amber-50:  oklch(0.987 0.022 95.277);
+  --color-amber-200: oklch(0.924 0.12  95.746);
+  --color-amber-700: oklch(0.555 0.163 48.998);
 
   --color-ff-header-bg: var(--ff-header-bg);
   --color-ff-tab-active-bg: var(--ff-tab-active-bg);

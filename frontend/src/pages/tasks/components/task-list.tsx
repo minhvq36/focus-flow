@@ -1,6 +1,7 @@
 import { AlertTriangle, Plus, Sprout } from 'lucide-react'
 import { TaskCard } from './task-card'
 import type { TaskSummary, QuotaToday } from '@/types/task'
+import { Alert } from '@/components/ui/alert'
 
 // ─── Empty state ──────────────────────────────────────────────────────────────
 
@@ -71,10 +72,10 @@ export function TaskList({ tasks, quota, onNewTask }: TaskListProps) {
 
       {/* Quota exceeded banner */}
       {quotaExceeded && (
-        <div className="flex items-center gap-2 rounded-lg border border-border bg-accent px-4 py-3 text-sm text-accent-foreground">
-          <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
-          Daily limit reached ({quota.used}/{quota.limit}). Resets tomorrow.
-        </div>
+        <Alert variant="warning">
+          <AlertTriangle />
+            Daily limit reached ({quota.used}/{quota.limit}). Resets tomorrow.
+        </Alert>
       )}
 
       {/* Empty state */}

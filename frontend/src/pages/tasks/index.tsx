@@ -3,6 +3,7 @@ import { Loader2, AlertTriangle } from 'lucide-react'
 import { useTasks } from './hooks/use-tasks'
 import { TaskList } from './components/task-list'
 import { CreateTaskModal } from './components/create-task-modal'
+import { Alert } from '@/components/ui/alert'
 
 // ─── Focus summary sidebar (placeholder until Garden API ready) ───────────────
 
@@ -43,8 +44,8 @@ export default function TasksPage() {
               <Loader2 className="h-6 w-6 animate-spin" />
             </div>
           ) : error ? (
-            <div className="flex items-center gap-2 rounded-lg border border-border bg-accent px-4 py-3 text-sm text-accent-foreground">
-              <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
+            <Alert variant="error" className="flex items-center">
+              <AlertTriangle aria-hidden />
               {error}
               <button
                 type="button"
@@ -53,7 +54,7 @@ export default function TasksPage() {
               >
                 Retry
               </button>
-            </div>
+            </Alert>
           ) : (
             <TaskList
               tasks={tasks}

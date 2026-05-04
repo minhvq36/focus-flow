@@ -5,6 +5,7 @@ import AppLayout from './components/layout/app-layout'
 import Garden from './pages/garden'
 import Tasks from './pages/tasks'
 import Focus from './pages/focus'
+import { Toaster } from '@/components/ui/sonner'
 
 function App() {
   return (
@@ -21,6 +22,8 @@ function App() {
           <Route path="/focus/:taskId" element={<Focus />} />
         </Route>
       </Routes>
+
+      <Toaster />
     </BrowserRouter>
   )
 }
