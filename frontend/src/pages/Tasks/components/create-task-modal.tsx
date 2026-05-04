@@ -19,7 +19,7 @@ import type { Task, CreateTaskRequest } from '@/types/task'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const DURATIONS = [25, 45, 60, 90, 120] as const
+const DURATIONS = [25, 30, 45, 60, 90, 120] as const
 
 function makeDefaultTodo(): FlatItem {
   return { id: crypto.randomUUID(), text: '', depth: 0, done: false }

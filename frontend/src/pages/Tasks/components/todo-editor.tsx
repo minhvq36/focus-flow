@@ -6,7 +6,7 @@ import type { TodoItem } from '@/types/task'
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const MAX_TODOS = 50
-const MAX_DEPTH = 5 // mirrors backend validateTodosRecursive depth limit
+const MAX_DEPTH = 4 // mirrors backend validateTodosRecursive depth limit
 
 // ─── Flat representation (internal only) ─────────────────────────────────────
 // Editor works with a flat list + depth number.

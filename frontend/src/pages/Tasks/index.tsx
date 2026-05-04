@@ -37,7 +37,6 @@ export default function TasksPage() {
     <div className="mx-auto w-full max-w-6xl px-4 py-8 md:px-8">
       <div className="flex gap-6">
 
-        {/* Left — task list (60%) */}
         <section className="w-full md:w-[63%]">
           {loading ? (
             <div className="flex items-center justify-center py-24 text-muted-foreground">
@@ -64,7 +63,6 @@ export default function TasksPage() {
           )}
         </section>
 
-        {/* Right — sidebar (40%) */}
         <aside className="hidden md:block md:w-[40%]">
           <FocusSidebar />
         </aside>
