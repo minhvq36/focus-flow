@@ -6,24 +6,27 @@ import Garden from './pages/garden'
 import Tasks from './pages/tasks'
 import Focus from './pages/focus'
 import { Toaster } from '@/components/ui/sonner'
+import { TooltipProvider } from '@/components/ui/tooltip'
 
 function App() {
   return (
     <BrowserRouter>
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route element={<ProtectedRoute />}>
-          <Route element={<AppLayout />}>
-            <Route path="/" element={<Navigate to="/garden" replace />} />
-            <Route path="/garden" element={<Garden />} />
-            <Route path="/tasks" element={<Tasks />} />
+      <TooltipProvider>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route element={<ProtectedRoute />}>
+            <Route element={<AppLayout />}>
+              <Route path="/" element={<Navigate to="/garden" replace />} />
+              <Route path="/garden" element={<Garden />} />
+              <Route path="/tasks" element={<Tasks />} />
+            </Route>
+            {/* Focus DONOT have sidebar/header — full screen */}
+            <Route path="/focus/:taskId" element={<Focus />} />
           </Route>
-          {/* Focus DONOT have sidebar/header — full screen */}
-          <Route path="/focus/:taskId" element={<Focus />} />
-        </Route>
-      </Routes>
+        </Routes>
 
-      <Toaster />
+        <Toaster richColors/>
+      </TooltipProvider>
     </BrowserRouter>
   )
 }

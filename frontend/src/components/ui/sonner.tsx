@@ -1,34 +1,47 @@
-import { Toaster as Sonner } from 'sonner'
+import { useTheme } from "next-themes"
+import { Toaster as Sonner, type ToasterProps } from "sonner"
+import { CircleCheckIcon, InfoIcon, TriangleAlertIcon, OctagonXIcon, Loader2Icon } from "lucide-react"
 
-type ToasterProps = React.ComponentProps<typeof Sonner>
+const Toaster = ({ ...props }: ToasterProps) => {
+  const { theme = "system" } = useTheme()
 
-export const Toaster = ({ ...props }: ToasterProps) => {
   return (
     <Sonner
+      theme={theme as ToasterProps["theme"]}
       className="toaster group"
+      icons={{
+        success: (
+          <CircleCheckIcon className="size-4" />
+        ),
+        info: (
+          <InfoIcon className="size-4" />
+        ),
+        warning: (
+          <TriangleAlertIcon className="size-4" />
+        ),
+        error: (
+          <OctagonXIcon className="size-4" />
+        ),
+        loading: (
+          <Loader2Icon className="size-4 animate-spin" />
+        ),
+      }}
       style={
         {
-          '--normal-bg':    'var(--popover)',
-          '--normal-text':  'var(--popover-foreground)',
-          '--normal-border':'var(--border)',
-
-          // success → emerald
-          '--success-bg':    'var(--color-emerald-50)',
-          '--success-text':  'var(--color-emerald-700)',
-          '--success-border':'var(--color-emerald-200)',
-
-          // warning → amber (V0 style)
-          '--warning-bg':    'var(--color-amber-50)',
-          '--warning-text':  'var(--color-amber-700)',
-          '--warning-border':'var(--color-amber-200)',
-
-          // error → red
-          '--error-bg':    'var(--color-red-50)',
-          '--error-text':  'var(--color-red-600)',
-          '--error-border':'var(--color-red-200)',
+          "--normal-bg": "var(--popover)",
+          "--normal-text": "var(--popover-foreground)",
+          "--normal-border": "var(--border)",
+          "--border-radius": "var(--radius)",
         } as React.CSSProperties
       }
+      toastOptions={{
+        classNames: {
+          toast: "cn-toast",
+        },
+      }}
       {...props}
     />
   )
 }
+
+export { Toaster }

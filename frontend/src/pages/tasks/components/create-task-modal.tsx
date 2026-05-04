@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronRight, Loader2 } from 'lucide-react'
+import { ChevronRight, Loader2, HelpCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { api } from '@/lib/api'
@@ -11,6 +11,12 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { TodoEditor, sanitizeFlat, flatToNested } from './todo-editor'
@@ -20,6 +26,8 @@ import type { Task, CreateTaskRequest } from '@/types/task'
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const DURATIONS = [25, 30, 45, 60, 90, 120] as const
+const CUSTOM_MIN = 25
+const CUSTOM_MAX = 480
 
 function makeDefaultTodo(): FlatItem {
   return { id: crypto.randomUUID(), text: '', depth: 0, done: false }
@@ -37,12 +45,13 @@ interface CreateTaskModalProps {
 export function CreateTaskModal({ open, onOpenChange }: CreateTaskModalProps) {
   const navigate = useNavigate()
 
-  const [title, setTitle] = useState('')
-  const [todos, setTodos] = useState<FlatItem[]>([makeDefaultTodo()])
+  const [title, setTitle]           = useState('')
+  const [todos, setTodos]           = useState<FlatItem[]>([makeDefaultTodo()])
   const [todosValid, setTodosValid] = useState(false)
-  const [durationMin, setDurationMin] = useState<number>(45)
-  const [isCustom, setIsCustom] = useState(false)
-  const [customMin, setCustomMin] = useState(45)
+  const [durationMin, setDurationMin] = useState<number>(25)
+  const [isCustom, setIsCustom]     = useState(false)
+  // raw string while user is typing — avoids the "25 → 2530" problem
+  const [customRaw, setCustomRaw]   = useState('25')
   const [penaltyMode, setPenaltyMode] = useState(false)
   const [titleError, setTitleError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -53,9 +62,9 @@ export function CreateTaskModal({ open, onOpenChange }: CreateTaskModalProps) {
     setTitle('')
     setTodos([makeDefaultTodo()])
     setTodosValid(false)
-    setDurationMin(45)
+    setDurationMin(25)
     setIsCustom(false)
-    setCustomMin(45)
+    setCustomRaw('25')
     setPenaltyMode(false)
     setTitleError(null)
     setSubmitting(false)
@@ -66,23 +75,44 @@ export function CreateTaskModal({ open, onOpenChange }: CreateTaskModalProps) {
     onOpenChange(v)
   }
 
-  // ── Derived ────────────────────────────────────────────────────────────────
+  // ── Custom duration helpers ────────────────────────────────────────────────
 
-  const finalDuration = isCustom ? customMin : durationMin
+  // Clamp + commit on blur — user sees the corrected value only when leaving field
+  function commitCustom() {
+    const parsed = parseInt(customRaw, 10)
+    if (isNaN(parsed) || parsed < CUSTOM_MIN) {
+      setCustomRaw(String(CUSTOM_MIN))
+    } else if (parsed > CUSTOM_MAX) {
+      setCustomRaw(String(CUSTOM_MAX))
+      toast.warning(`Maximum session duration is ${CUSTOM_MAX} minutes (8 hours).`)
+    }
+  }
+
+  // Parsed value used for submission — clamp silently
+  const customMinParsed = Math.min(
+    CUSTOM_MAX,
+    Math.max(CUSTOM_MIN, parseInt(customRaw, 10) || CUSTOM_MIN),
+  )
+
+  const finalDuration = isCustom ? customMinParsed : durationMin
+
+  // Range warning shown inline while typing (not a toast — less noisy)
+  const customOutOfRange =
+    isCustom &&
+    customRaw !== '' &&
+    (parseInt(customRaw, 10) < CUSTOM_MIN || parseInt(customRaw, 10) > CUSTOM_MAX)
 
   // ── Submit ─────────────────────────────────────────────────────────────────
 
   async function handleSubmit() {
-    // Validate title
     if (!title.trim()) {
       setTitleError('Title is required.')
       return
     }
     setTitleError(null)
 
-    // Sanitize + validate todos
     const sanitized = sanitizeFlat(todos)
-    const nested = flatToNested(sanitized)
+    const nested    = flatToNested(sanitized)
     if (nested.length === 0 || !sanitized.some(t => t.text.trim())) {
       toast.error('Add at least one todo item.')
       return
@@ -91,10 +121,10 @@ export function CreateTaskModal({ open, onOpenChange }: CreateTaskModalProps) {
     setSubmitting(true)
 
     const body: CreateTaskRequest = {
-      title: title.trim(),
-      todos: nested,
+      title:                  title.trim(),
+      todos:                  nested,
       registered_duration_min: finalDuration,
-      penalty_mode: penaltyMode,
+      penalty_mode:           penaltyMode,
     }
 
     try {
@@ -116,12 +146,15 @@ export function CreateTaskModal({ open, onOpenChange }: CreateTaskModalProps) {
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-2xl gap-0 overflow-hidden p-0 bg-background">
-        <DialogHeader className="border-b border-border px-6 py-5">
+      <DialogContent className="w-[92vw] sm:max-w-[560px] xl:max-w-[600px] gap-0 overflow-hidden p-0 bg-[#fcfef8]">
+        <DialogHeader className="border-b border-border px-6 py-5 bg-[#fcfef8]">
           <DialogTitle className="text-base font-semibold">New Focus Session</DialogTitle>
         </DialogHeader>
 
-        <div className="flex flex-col gap-5 overflow-y-auto px-6 py-5" style={{ maxHeight: '70vh' }}>
+        <div
+          className="flex flex-col gap-5 overflow-y-auto px-6 py-5"
+          style={{ maxHeight: '70vh' }}
+        >
           {/* Title */}
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
@@ -133,7 +166,7 @@ export function CreateTaskModal({ open, onOpenChange }: CreateTaskModalProps) {
               value={title}
               onChange={e => { setTitle(e.target.value); setTitleError(null) }}
               onKeyDown={e => e.key === 'Enter' && handleSubmit()}
-              className={cn('text-sm', titleError && 'border-destructive focus-visible:ring-destructive')}
+              className={cn('text-sm bg-white', titleError && 'border-destructive focus-visible:ring-destructive')}
             />
             {titleError && (
               <p className="text-xs text-destructive">{titleError}</p>
@@ -171,66 +204,115 @@ export function CreateTaskModal({ open, onOpenChange }: CreateTaskModalProps) {
                     'rounded-lg border px-3 py-1.5 text-sm transition-colors',
                     !isCustom && durationMin === d
                       ? 'border-primary bg-primary text-primary-foreground'
-                      : 'border-border bg-background text-foreground hover:bg-secondary'
+                      : 'border-border bg-white text-foreground hover:bg-secondary',
                   )}
                 >
                   {d} min
                 </button>
               ))}
+
+              {/* Custom button */}
               <button
                 type="button"
-                onClick={() => setIsCustom(true)}
+                onClick={() => {
+                  setIsCustom(true)
+                  // Clear raw so user can type fresh — avoids "25 → 2530"
+                  setCustomRaw('')
+                }}
                 className={cn(
                   'rounded-lg border px-3 py-1.5 text-sm transition-colors',
                   isCustom
                     ? 'border-primary bg-primary text-primary-foreground'
-                    : 'border-border bg-background text-foreground hover:bg-secondary'
+                    : 'border-border bg-white text-foreground hover:bg-secondary',
                 )}
               >
                 Custom
               </button>
             </div>
+
+            {/* Custom input — shown when Custom selected */}
             {isCustom && (
-              <div className="flex items-center gap-2 mt-1">
-                <Input
-                  type="number"
-                  min={25}
-                  value={customMin}
-                  onChange={e => setCustomMin(Math.max(25, Number(e.target.value)))}
-                  className="w-28 text-sm"
-                />
-                <span className="text-sm text-muted-foreground">minutes (min 25)</span>
+              <div className="flex flex-col gap-1 mt-1">
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    min={CUSTOM_MIN}
+                    max={CUSTOM_MAX}
+                    value={customRaw}
+                    onChange={e => setCustomRaw(e.target.value)}
+                    onBlur={commitCustom}
+                    placeholder={String(CUSTOM_MIN)}
+                    className={cn(
+                      'w-28 text-sm bg-white',
+                      customOutOfRange && 'border-amber-400 focus-visible:ring-amber-400',
+                    )}
+                    autoFocus
+                  />
+                  <span className="text-sm text-muted-foreground">
+                    minutes
+                  </span>
+                  {/* Live preview */}
+                  {!customOutOfRange && customRaw !== '' && (
+                    <span className="text-xs text-muted-foreground/70">
+                      = {Math.floor(customMinParsed / 60) > 0
+                          ? `${Math.floor(customMinParsed / 60)}h `
+                          : ''}
+                        {customMinParsed % 60 > 0
+                          ? `${customMinParsed % 60}m`
+                          : ''}
+                    </span>
+                  )}
+                </div>
+                {customOutOfRange && (
+                  <p className="text-xs text-amber-600">
+                    Must be between {CUSTOM_MIN} and {CUSTOM_MAX} minutes. Will be clamped on start.
+                  </p>
+                )}
               </div>
             )}
           </div>
         </div>
 
-        <DialogFooter className="border-t border-border px-6 py-4 flex-col gap-3 sm:flex-col">
-          {/* Penalty mode — advanced opt-in, default off */}
-          <label className="flex items-start gap-2.5 cursor-pointer select-none w-full">
-            <input
-              type="checkbox"
-              checked={penaltyMode}
-              onChange={e => setPenaltyMode(e.target.checked)}
-              disabled={submitting}
-              className="mt-0.5 h-3.5 w-3.5 shrink-0 accent-destructive cursor-pointer"
-            />
-            <span className="flex flex-col gap-0.5">
-              <span className="text-xs font-medium text-muted-foreground">
-                Enable penalty mode ⚔️
-              </span>
-              <span className="text-[11px] text-muted-foreground/60">
-                If you give up, items in your garden may wilt or disappear.
-              </span>
-            </span>
-          </label>
+        {/* Footer */}
+        <DialogFooter className="border-t border-border px-6 pb-5 flex-col gap-4 sm:flex-col bg-[#fcfef8] mx-0 mb-0">
 
-          {/* Actions */}
+          {/* Penalty mode toggle row */}
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
+              <span className="text-sm font-medium text-foreground">Penalty mode</span>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button type="button" className="text-muted-foreground hover:text-foreground transition-colors">
+                    <HelpCircle className="h-3.5 w-3.5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-56 text-xs">
+                  If you give up this task, 1–3 items in your garden may wilt or disappear permanently.
+                </TooltipContent>
+              </Tooltip>
+            </div>
+            <Switch
+              checked={penaltyMode}
+              onCheckedChange={setPenaltyMode}
+              disabled={submitting}
+            />
+          </div>
+
+          {/* Action buttons */}
           <div className="flex items-center justify-end gap-2 w-full">
-            <Button variant="outline" onClick={() => handleOpenChange(false)} disabled={submitting}>
+            <Button
+              variant="outline"
+              onClick={() => handleOpenChange(false)}
+              disabled={submitting}
+              className="bg-white"
+            >
               Cancel
             </Button>
-            <Button onClick={handleSubmit} disabled={submitting} className="gap-2">
+            <Button
+              onClick={handleSubmit}
+              disabled={submitting}
+              className="gap-2"
+            >
               {submitting ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
@@ -239,6 +321,7 @@ export function CreateTaskModal({ open, onOpenChange }: CreateTaskModalProps) {
               {submitting ? 'Creating…' : 'Create & Start'}
             </Button>
           </div>
+
         </DialogFooter>
       </DialogContent>
     </Dialog>
