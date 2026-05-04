@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { Play, Pause, CheckSquare, Clock, Sprout } from 'lucide-react'
+import { Play, Eye, Send, Clock, Sprout, Pause, CheckSquare } from 'lucide-react'
 import type { TaskSummary, TaskStatus } from '@/types/task'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -11,44 +11,44 @@ function formatDuration(min: number) {
   return m ? `${h}h ${m}m` : `${h}h`
 }
 
-// ─── Status config ────────────────────────────────────────────────────────────
+// ─── Status config — mirror V0 exactly ───────────────────────────────────────
 
 type StatusCfg = {
+  border: string   // border-l color
+  badge: string    // badge pill classes
+  dot: string      // dot color
   label: string
-  border: string
-  badge: string
-  dot: string
   icon: React.ReactNode
 }
 
 const STATUS_CFG: Record<TaskStatus, StatusCfg> = {
   active: {
-    label: 'Active',
-    border: 'border-l-primary',
-    badge: 'bg-secondary text-secondary-foreground border-border',
-    dot: 'bg-primary',
-    icon: null,
+    border: 'border-l-emerald-400',
+    badge:  'border-emerald-200 bg-emerald-50 text-emerald-700',
+    dot:    'bg-emerald-500',
+    label:  'Active',
+    icon:   null,
   },
   paused: {
-    label: 'Paused',
-    border: 'border-l-[var(--chart-4)]',
-    badge: 'bg-accent text-accent-foreground border-border',
-    dot: 'bg-[var(--chart-4)]',
-    icon: <Pause className="h-2.5 w-2.5" aria-hidden />,
+    border: 'border-l-amber-400',
+    badge:  'border-amber-200 bg-amber-50 text-amber-700',
+    dot:    'bg-amber-500',
+    label:  'Paused',
+    icon:   <Pause className="h-3 w-3" aria-hidden />,
   },
   submitted: {
-    label: 'Submitted',
-    border: 'border-l-muted',
-    badge: 'bg-muted text-muted-foreground border-border',
-    dot: 'bg-muted-foreground',
-    icon: <CheckSquare className="h-2.5 w-2.5" aria-hidden />,
+    border: 'border-l-primary',
+    badge:  'border-primary/20 bg-primary/10 text-primary',
+    dot:    'bg-primary',
+    label:  'Submitted',
+    icon:   <CheckSquare className="h-3 w-3" aria-hidden />,
   },
   given_up: {
-    label: 'Given up',
-    border: 'border-l-destructive/50',
-    badge: 'bg-muted text-muted-foreground border-border',
-    dot: 'bg-destructive/60',
-    icon: null,
+    border: 'border-l-red-300',
+    badge:  'border-red-200 bg-red-50 text-red-600',
+    dot:    'bg-red-500',
+    label:  'Given up',
+    icon:   null,
   },
 }
 
@@ -56,36 +56,43 @@ const STATUS_CFG: Record<TaskStatus, StatusCfg> = {
 
 interface TaskCardProps {
   task: TaskSummary
+  onSubmit?: (taskId: string) => void
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function TaskCard({ task }: TaskCardProps) {
+export function TaskCard({ task, onSubmit }: TaskCardProps) {
   const navigate = useNavigate()
   const cfg = STATUS_CFG[task.status]
-  const isTerminal = task.status === 'submitted' || task.status === 'given_up'
-  const isActionable = task.status === 'active' || task.status === 'paused'
+
+  const isActive    = task.status === 'active'
+  const isPaused    = task.status === 'paused'
+  const isSubmitted = task.status === 'submitted'
+  const isGivenUp   = task.status === 'given_up'
+  const isTerminal  = isSubmitted || isGivenUp
 
   return (
     <li className={`
       rounded-xl border border-border border-l-4 ${cfg.border}
-      bg-card px-4 py-3.5 shadow-sm transition-shadow hover:shadow-md
+      bg-card/80 p-4 shadow-sm backdrop-blur-sm
+      transition-shadow hover:shadow-md
     `}>
-      <div className="flex items-start gap-3">
-        {/* Content */}
-        <div className="flex flex-1 min-w-0 flex-col gap-2">
+      <div className="flex items-start justify-between gap-3">
 
-          {/* Title row */}
+        {/* ── Content ── */}
+        <div className="flex min-w-0 flex-1 flex-col gap-2">
+
+          {/* Title + status badge */}
           <div className="flex flex-wrap items-center gap-2">
             <span className={`
               text-[15px] font-semibold leading-snug
-              ${task.status === 'submitted' ? 'line-through text-muted-foreground' : ''}
-              ${task.status === 'given_up' ? 'text-muted-foreground' : 'text-foreground'}
+              ${isSubmitted ? 'line-through decoration-muted-foreground text-foreground' : ''}
+              ${isGivenUp   ? 'text-muted-foreground' : 'text-foreground'}
             `}>
               {task.title}
             </span>
 
-            {/* Status badge */}
+            {/* Status badge — V0 style */}
             <span className={`
               inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5
               text-[11px] font-medium ${cfg.badge}
@@ -94,20 +101,9 @@ export function TaskCard({ task }: TaskCardProps) {
               {cfg.label}
               {cfg.icon}
             </span>
-
-            {/* Penalty mode indicator */}
-            {task.penalty_mode && (
-              <span
-                title="Penalty mode — give up affects your garden"
-                className="text-[13px] leading-none cursor-default select-none"
-                aria-label="Penalty mode enabled"
-              >
-                ⚔️
-              </span>
-            )}
           </div>
 
-          {/* Meta row */}
+          {/* Meta row — Clock + Sprout + ⚔️ cùng hàng */}
           <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
             {!isTerminal && (
               <span className="flex items-center gap-1">
@@ -117,30 +113,72 @@ export function TaskCard({ task }: TaskCardProps) {
             )}
             {task.todo_count > 0 && (
               <span className="flex items-center gap-1">
-                <Sprout className="h-3 w-3" aria-hidden />
+                <Sprout className="h-3 w-3 text-primary" aria-hidden />
                 {task.todo_done_count}/{task.todo_count} todos
+              </span>
+            )}
+            {task.penalty_mode && (
+              <span
+                title="Penalty mode — give up affects your garden"
+                className="cursor-default select-none text-[0.65rem]"
+                aria-label="Penalty mode enabled"
+              >
+                ⚔️
               </span>
             )}
           </div>
         </div>
 
-        {/* Action button */}
-        {isActionable && (
-          <button
-            type="button"
-            onClick={() => navigate(`/focus/${task.id}`)}
-            className="
-              shrink-0 flex items-center gap-1.5
-              rounded-lg border border-border bg-secondary
-              px-3 py-1.5 text-xs font-medium text-secondary-foreground
-              hover:bg-primary hover:text-primary-foreground hover:border-primary
-              transition-colors
-            "
-          >
-            <Play className="h-3 w-3" />
-            {task.status === 'paused' ? 'Resume' : 'Focus'}
-          </button>
-        )}
+        {/* ── Actions ── */}
+        <div className="flex shrink-0 items-center gap-2">
+
+          {/* Active → Resume green */}
+          {isActive && (
+            <button
+              type="button"
+              onClick={() => navigate(`/focus/${task.id}`)}
+              className="inline-flex items-center gap-1.5 rounded-md px-3 h-8 text-xs font-medium bg-emerald-100 text-emerald-800 hover:bg-emerald-200 border-0 shadow-none transition-colors"
+            >
+              <Play className="h-3 w-3" />
+              Resume
+            </button>
+          )}
+
+          {/* Paused → Resume (muted) + Submit */}
+          {isPaused && (
+            <>
+              <button
+                type="button"
+                onClick={() => navigate(`/focus/${task.id}`)}
+                className="inline-flex items-center gap-1.5 rounded-md px-3 h-8 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+              >
+                <Play className="h-3 w-3" />
+                Resume
+              </button>
+              <button
+                type="button"
+                onClick={() => onSubmit?.(task.id)}
+                className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 h-8 text-xs font-medium text-muted-foreground hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200 transition-colors"
+              >
+                <Send className="h-3 w-3" />
+                Submit
+              </button>
+            </>
+          )}
+
+          {/* Terminal → Eye only */}
+          {isTerminal && (
+            <button
+              type="button"
+              onClick={() => navigate(`/focus/${task.id}`)}
+              aria-label="View details"
+              className="inline-flex items-center justify-center rounded-md h-8 w-8 text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+            >
+              <Eye className="h-3.5 w-3.5" />
+            </button>
+          )}
+
+        </div>
       </div>
     </li>
   )
