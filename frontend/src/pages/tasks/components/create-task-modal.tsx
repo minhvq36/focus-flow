@@ -23,6 +23,8 @@ import { TodoEditor, sanitizeFlat, flatToNested } from './todo-editor'
 import type { FlatItem } from './todo-editor'
 import type { Task, CreateTaskRequest } from '@/types/task'
 
+import { useQueryClient } from '@tanstack/react-query'
+
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const DURATIONS = [25, 30, 45, 60, 90, 120] as const
@@ -44,6 +46,7 @@ interface CreateTaskModalProps {
 
 export function CreateTaskModal({ open, onOpenChange }: CreateTaskModalProps) {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
 
   const [title, setTitle]           = useState('')
   const [todos, setTodos]           = useState<FlatItem[]>([makeDefaultTodo()])
@@ -129,6 +132,7 @@ export function CreateTaskModal({ open, onOpenChange }: CreateTaskModalProps) {
 
     try {
       const task = await api.post<Task>('/api/tasks', body)
+      queryClient.invalidateQueries({ queryKey: ['tasks'] })
       handleOpenChange(false)
       navigate(`/focus/${task.id}`)
     } catch (err: unknown) {

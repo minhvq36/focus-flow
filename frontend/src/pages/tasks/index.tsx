@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { Loader2, AlertTriangle } from 'lucide-react'
+import { useNavigate } from 'react-router-dom' // 1. Thêm cái này để redirect
 import { useTasks } from './hooks/use-tasks'
 import { TaskList } from './components/task-list'
 import { CreateTaskModal } from './components/create-task-modal'
 import { Alert } from '@/components/ui/alert'
+import type { CreateTaskRequest } from '@/types/task'
 
-// ─── Focus summary sidebar (placeholder until Garden API ready) ───────────────
-
+// ─── Focus summary sidebar (Giữ nguyên 100%) ───────────────────────────────
 function FocusSidebar() {
   return (
     <div className="rounded-xl border border-border bg-card/60 p-6 backdrop-blur-sm">
@@ -31,7 +32,9 @@ function FocusSidebar() {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function TasksPage() {
-  const { tasks, quota, loading, error, reload } = useTasks()
+  const navigate = useNavigate() // 2. Khởi tạo navigate
+  // 3. Lấy thêm createTask từ hook
+  const { tasks, quota, loading, error, reload, createTask } = useTasks() 
   const [modalOpen, setModalOpen] = useState(false)
 
   return (
