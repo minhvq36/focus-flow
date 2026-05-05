@@ -68,13 +68,18 @@ export function LoginForm() {
           <Input id="email" type="email" placeholder="you@example.com"
             autoComplete="email" required value={email}
             onChange={e => setEmail(e.target.value)}
-            disabled={loadingEmail || loadingGoogle} />
+            disabled={loadingEmail || loadingGoogle} 
+            tabIndex={1} /* 1. Email */
+          />
         </div>
 
         <div className="flex flex-col gap-1.5">
           <div className="flex items-center justify-between">
             <label htmlFor="password" className="text-sm font-medium">Password</label>
-            <a href="#" className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors">
+            <a href="#" 
+              className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors"
+              tabIndex={6} /* 6. Forgot Password */
+            >
               Forgot password?
             </a>
           </div>
@@ -82,10 +87,13 @@ export function LoginForm() {
             <Input id="password" type={showPassword ? 'text' : 'password'}
               placeholder="••••••••" autoComplete="current-password" required
               value={password} onChange={e => setPassword(e.target.value)}
-              disabled={loadingEmail || loadingGoogle} className="pr-10" />
+              disabled={loadingEmail || loadingGoogle} className="pr-10" 
+              tabIndex={2} /* 2. Password */
+            />
             <button type="button"
               aria-label={showPassword ? 'Hide password' : 'Show password'}
               onClick={() => setShowPassword(v => !v)}
+              tabIndex={5} /* 5. Mắt */
               className={cn(
                 'absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground',
                 'hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm'
@@ -97,21 +105,29 @@ export function LoginForm() {
 
         {error && <p className="text-sm text-destructive">{error}</p>}
 
-        <Button type="submit" size="lg" className="w-full mt-1" disabled={loadingEmail || loadingGoogle}>
+        <Button type="submit" size="lg" className="w-full mt-1" 
+          disabled={loadingEmail || loadingGoogle}
+          tabIndex={3} /* 3. Sign In */
+        >
           {loadingEmail && <Loader2 className="h-4 w-4 animate-spin" />}
           Sign in
         </Button>
       </form>
 
       <Button type="button" variant="outline" size="lg" className="w-full gap-3 font-medium"
-        onClick={handleGoogleSignIn} disabled={loadingGoogle || loadingEmail}>
+        onClick={handleGoogleSignIn} disabled={loadingGoogle || loadingEmail}
+        tabIndex={4} /* 4. Google */
+      >
         {loadingGoogle ? <Loader2 className="h-4 w-4 animate-spin" /> : <GoogleIcon />}
         Continue with Google
       </Button>
 
       <p className="text-center text-sm text-muted-foreground">
         Don't have an account?{' '}
-        <a href="#" className="font-medium text-primary underline-offset-2 hover:underline transition-colors">
+        <a href="#" 
+          className="font-medium text-primary underline-offset-2 hover:underline transition-colors"
+          tabIndex={7} /* 7. Create account */
+        >
           Create one free
         </a>
       </p>

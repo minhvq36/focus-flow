@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import Login from './pages/login'
 import ProtectedRoute from './components/auth/protected-route'
 import AppLayout from './components/layout/app-layout'
+import AuthLayout from './components/layout/auth-layout'
 import Garden from './pages/garden'
 import Tasks from './pages/tasks'
 import Focus from './pages/focus'
@@ -13,7 +14,9 @@ function App() {
     <BrowserRouter>
       <TooltipProvider>
         <Routes>
-          <Route path="/login" element={<Login />} />
+          <Route element={<AuthLayout />}>
+            <Route path="/login" element={<Login />} />
+          </Route>
           <Route element={<ProtectedRoute />}>
             <Route element={<AppLayout />}>
               {/* TODO: Set Routes */}
