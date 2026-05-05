@@ -17,7 +17,7 @@ export function useTasks() {
     queryKey: ['tasks', 'today', user?.id],
     queryFn: () => api.get<TaskSummary[]>('/api/tasks'),
     enabled: !!user,
-    staleTime: 1000 * 60 * 5,
+    staleTime: 1000 * 60 * 2,
   })
 
   // 2. Lấy hạn mức quota (Thêm refetch: reloadQuota ở đây)
@@ -29,7 +29,9 @@ export function useTasks() {
     queryKey: ['quota', 'today', user?.id],
     queryFn: () => api.get<QuotaToday>('/api/tasks/quota/today'),
     enabled: !!user,
-    staleTime: 1000 * 60 * 5,
+    staleTime: 0,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
   })
 
   // 3. Mutation tạo task với Optimistic Quota
