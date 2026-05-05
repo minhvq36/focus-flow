@@ -4,12 +4,15 @@ import Header from './header'
 
 export default function AppLayout() {
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="relative flex min-h-screen flex-col">
+      {/* Background in the bottom */}
       <BackgroundCurves />
-      <Header />
-      <main>
-        <Outlet />
-      </main>
+      <div className="relative z-10 flex flex-1 flex-col">
+        <Header />
+        <main className="flex-1">
+          <Outlet />
+        </main>
+      </div>
     </div>
   )
 }

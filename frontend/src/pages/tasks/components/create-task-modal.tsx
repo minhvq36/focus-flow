@@ -148,7 +148,7 @@ export function CreateTaskModal({ open, onOpenChange }: CreateTaskModalProps) {
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="w-[92vw] sm:max-w-[560px] xl:max-w-[600px] gap-0 overflow-hidden p-0 bg-[#fcfef8]">
         <DialogHeader className="border-b border-border px-6 py-5 bg-[#fcfef8]">
-          <DialogTitle className="text-base font-semibold">New Focus Session</DialogTitle>
+          <DialogTitle className="text-base font-semibold">New Focus Task</DialogTitle>
         </DialogHeader>
 
         <div
@@ -235,11 +235,15 @@ export function CreateTaskModal({ open, onOpenChange }: CreateTaskModalProps) {
               <div className="flex flex-col gap-1 mt-1">
                 <div className="flex items-center gap-2">
                   <Input
-                    type="number"
-                    min={CUSTOM_MIN}
-                    max={CUSTOM_MAX}
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     value={customRaw}
-                    onChange={e => setCustomRaw(e.target.value)}
+                    onChange={e => {
+                      // Filter to only allow digits (0-9)
+                      const onlyNumbers = e.target.value.replace(/[^0-9]/g, '');
+                      setCustomRaw(onlyNumbers);
+                    }}
                     onBlur={commitCustom}
                     placeholder={String(CUSTOM_MIN)}
                     className={cn(
@@ -287,7 +291,7 @@ export function CreateTaskModal({ open, onOpenChange }: CreateTaskModalProps) {
                   </button>
                 </TooltipTrigger>
                 <TooltipContent side="top" className="max-w-56 text-xs">
-                  If you give up this task, 1–3 items in your garden may wilt or disappear permanently.
+                  If you give up this task, 1 item in your inventory or garden may disappear permanently, except legendary or above.
                 </TooltipContent>
               </Tooltip>
             </div>
@@ -313,12 +317,12 @@ export function CreateTaskModal({ open, onOpenChange }: CreateTaskModalProps) {
               disabled={submitting}
               className="gap-2"
             >
+              {submitting ? 'Creating…' : 'Create & Start'}
               {submitting ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <ChevronRight className="h-4 w-4" />
               )}
-              {submitting ? 'Creating…' : 'Create & Start'}
             </Button>
           </div>
 

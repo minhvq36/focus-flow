@@ -16,6 +16,7 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route element={<ProtectedRoute />}>
             <Route element={<AppLayout />}>
+              {/* TODO: Set Routes */}
               <Route path="/" element={<Navigate to="/garden" replace />} />
               <Route path="/garden" element={<Garden />} />
               <Route path="/tasks" element={<Tasks />} />

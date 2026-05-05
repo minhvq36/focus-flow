@@ -4,20 +4,43 @@ import { useEffect, useRef } from "react";
 
 export function BackgroundCurves() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  
+  const timeRef = useRef(0);
+  const animationFrameIdRef = useRef<number | null>(null);
+  
+  // Ref theo dõi trạng thái thanh cuộn
+  const isScrollableRef = useRef(false);
+  // Biến t (từ 0 đến 1) để tạo hiệu ứng chuyển đổi mượt mà giữa 2 trạng thái
+  const modeTransitionRef = useRef(0); 
 
+  // ─── 1. BỘ THEO DÕI THANH CUỘN ───────────────────────────────────────────
+  useEffect(() => {
+    const checkScrollbar = () => {
+      // Check xem nội dung có dài hơn màn hình không
+      const hasScrollbar = document.documentElement.scrollHeight > window.innerHeight + 5;
+      isScrollableRef.current = hasScrollbar;
+    };
+
+    checkScrollbar();
+    const resizeObserver = new ResizeObserver(checkScrollbar);
+    resizeObserver.observe(document.body);
+    window.addEventListener("resize", checkScrollbar);
+
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener("resize", checkScrollbar);
+    };
+  }, []);
+
+  // ─── 2. VÒNG LẶP RENDER VÀ CANVAS ─────────────────────────────────────────
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const ctx = canvas.getContext("2d", { alpha: true }); // Tối ưu hóa render transparent
+    const ctx = canvas.getContext("2d", { alpha: true });
     if (!ctx) return;
 
-    let animationFrameId: number;
-    let time = 0;
-
-    // Xử lý Resize và Device Pixel Ratio (Chống mờ trên màn Retina, tối ưu GPU)
     const handleResize = () => {
-      // Giới hạn pixel ratio ở mức 2 để màn 4K/3K không bị lag
       const dpr = Math.min(window.devicePixelRatio || 1, 2); 
       canvas.width = window.innerWidth * dpr;
       canvas.height = window.innerHeight * dpr;
@@ -27,7 +50,7 @@ export function BackgroundCurves() {
     window.addEventListener("resize", handleResize);
     handleResize();
 
-    // Hàm vẽ 1 đường sóng - Đã tối ưu Math
+    // Hàm vẽ sóng (Đã nhận tham số stepSize để điều chỉnh độ chi tiết)
     const drawWave = (
       amplitude: number,
       frequency: number,
@@ -35,6 +58,7 @@ export function BackgroundCurves() {
       speed: number,
       opacity: number,
       isDotted: boolean,
+      stepSize: number, // Param điều chỉnh Perf
       color: string = "255, 255, 255",
       yOffset = 0
     ) => {
@@ -42,72 +66,74 @@ export function BackgroundCurves() {
       ctx.lineWidth = isDotted ? 1 : 1.5;
       ctx.strokeStyle = `rgba(${color}, ${opacity})`;
 
-      // BỎ shadowBlur Ở ĐÂY để tiết kiệm 80% sức mạnh GPU.
-      // Sự xếp chồng của các dải lụa đã tự tạo ra hiệu ứng nổi/phát sáng.
+      if (isDotted) ctx.setLineDash([2, 6]);
+      else ctx.setLineDash([]);
 
-      if (isDotted) {
-        ctx.setLineDash([2, 6]);
-      } else {
-        ctx.setLineDash([]);
-      }
-
-      // Tối ưu: Đưa các phép tính cố định ra ngoài vòng lặp
       const halfHeight = window.innerHeight / 2;
-      const timeSpeed = time * speed;
+      const timeSpeed = timeRef.current * speed;
       
-      // Tối ưu: Tăng step nhảy từ 5 lên 8. Mắt thường không nhận ra sự khác biệt
-      // nhưng giảm được 40% vòng lặp, cứu sống CPU đáng kể.
-      for (let x = 0; x <= window.innerWidth; x += 8) {
-        const y =
-          Math.sin(x * frequency + timeSpeed + phaseOffset) * amplitude +
-          halfHeight +
-          yOffset;
-
+      // Vòng lặp quyết định độ nặng của frame. stepSize càng lớn chạy càng nhẹ
+      for (let x = 0; x <= window.innerWidth + stepSize; x += stepSize) {
+        const y = Math.sin(x * frequency + timeSpeed + phaseOffset) * amplitude + halfHeight + yOffset;
         if (x === 0) ctx.moveTo(x, y);
         else ctx.lineTo(x, y);
       }
       ctx.stroke();
     };
 
-    // Vòng lặp Animation
-    const render = () => {
-      // Xóa khung hình cũ (trong suốt)
+    const renderLoop = () => {
+      // Tính toán Lerp (Linear Interpolation) để chuyển đổi cực mượt
+      // Nếu có cuộn -> target = 1. Không cuộn -> target = 0
+      const targetMode = isScrollableRef.current ? 1 : 0;
+      modeTransitionRef.current += (targetMode - modeTransitionRef.current) * 0.05;
+      const t = modeTransitionRef.current; // t chạy mượt mà giữa 0 và 1
+
+      // 1. TỐI ƯU TỐC ĐỘ: t=0 -> 0.01 (Nhanh), t=1 -> 0.004 (Chậm lại 60%)
+      const timeIncrement = 0.01 - (0.006 * t); 
+      timeRef.current += timeIncrement;
+
+      // 2. TỐI ƯU DENSITY: t=0 -> 8px (Nét căng), t=1 -> 20px (Giảm 60% vòng lặp CPU)
+      const stepSize = Math.max(8, Math.floor(8 + (12 * t)));
+
       ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+
+      // --- VẼ TOÀN BỘ SÓNG NHƯ CŨ (KHÔNG BỎ ĐƯỜNG NÀO) ---
       
-      time += 0.01;
+      // Đường nét liền chính giữa (rõ nhất)
+      drawWave(120, 0.002, 0, 1.5, 0.9, false, stepSize, "255, 255, 255");
 
-      // 1. Đường nét liền chính giữa (rõ nhất) - TRẮNG
-      drawWave(120, 0.002, 0, 1.5, 0.9, false, "255, 255, 255");
-
-      // 2. Cụm các đường nét liền mờ hơn tạo hiệu ứng "Dải lụa"
+      // Cụm 8 đường nét liền mờ hơn (Dải lụa)
       for (let i = 1; i <= 4; i++) {
-        drawWave(120 - i * 5, 0.002, 0, 1.5, 0.5 - i * 0.1, false, "255, 255, 255", i * 6);
-        drawWave(120 + i * 5, 0.002, 0, 1.5, 0.5 - i * 0.1, false, "255, 255, 255", -i * 6);
+        drawWave(120 - i * 5, 0.002, 0, 1.5, 0.5 - i * 0.1, false, stepSize, "255, 255, 255", i * 6);
+        drawWave(120 + i * 5, 0.002, 0, 1.5, 0.5 - i * 0.1, false, stepSize, "255, 255, 255", -i * 6);
       }
 
-      // 3. Các đường nét đứt (Dotted streams) - MÀU KHÁC NHAU
-      drawWave(180, 0.0015, Math.PI, 1.2, 0.7, true, "168, 85, 247"); // TÍM
-      drawWave(150, 0.0025, Math.PI / 2, 2.0, 0.5, true, "59, 130, 246", 30); // XANH
-      drawWave(220, 0.001, Math.PI / 1.5, 1.0, 0.4, true, "236, 72, 153", -40); // HỒNG
+      // 3 đường nét đứt (Streams bay lượn)
+      drawWave(180, 0.0015, Math.PI, 1.2, 0.7, true, stepSize, "168, 85, 247"); // Tím
+      drawWave(150, 0.0025, Math.PI / 2, 2.0, 0.5, true, stepSize, "59, 130, 246", 30); // Xanh
+      drawWave(220, 0.001, Math.PI / 1.5, 1.0, 0.4, true, stepSize, "236, 72, 153", -40); // Hồng
 
-      animationFrameId = requestAnimationFrame(render);
+      animationFrameIdRef.current = requestAnimationFrame(renderLoop);
     };
 
-    render();
+    renderLoop();
 
-    // Cleanup khi component unmount
     return () => {
       window.removeEventListener("resize", handleResize);
-      cancelAnimationFrame(animationFrameId);
+      if (animationFrameIdRef.current) cancelAnimationFrame(animationFrameIdRef.current);
     };
   }, []);
 
   return (
     <canvas
       ref={canvasRef}
-      // Đã bỏ thuộc tính style backgroundColor ở đây.
-      // Giờ canvas sẽ hoàn toàn trong suốt, làm nổi bật CSS gradient blob của bạn.
       className="pointer-events-none fixed inset-0 z-[-1] h-full w-full"
+      style={{
+        // 2 Thuộc tính thần thánh cứu sống Scroll Performance
+        willChange: "transform",
+        contain: "layout paint size",
+        transform: "translateZ(0)"
+      }}
     />
   );
 }
