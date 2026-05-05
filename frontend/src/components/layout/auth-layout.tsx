@@ -1,5 +1,4 @@
 import { Outlet } from 'react-router-dom'
-import { BackgroundCurves } from "@/components/layout/background-curves"
 
 export default function AuthLayout() {
   return (
