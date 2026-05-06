@@ -1,34 +1,41 @@
-import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import { useUserStore } from '@/store/user-store'
-import type { TaskSummary, QuotaToday, CreateTaskRequest } from '@/types/task'
-import { DEFAULT_FILTER } from '../components/filter-panel'
-import type { FilterState, TaskStatus } from '../components/filter-panel'
+import type { TaskSummary, QuotaToday, CreateTaskRequest, FilterState, TaskStatus } from '@/types/task'
+import {  ALL_STATUSES, DEFAULT_FILTER } from '@/types/task'
+
+// ─── Constants ────────────────────────────────────────────────────────────────
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 /**
  * Build query string từ FilterState để append vào URL.
- * Backend nhận: ?date=today|yesterday|7days|30days & status=active,paused,...
+ * BE nhận: ?date=today|yesterday|7days|30days & status=active,paused,...
+ * BE tự resolve CURRENT_DATE — FE không gửi date string.
+ * TODO: Add limit/offset pagination when needed
+ *       (worst case Premium 30days = 480 tasks, currently acceptable)
  */
-
-// TODO: Check if need to build extend in api.ts
 function buildQueryString(filter: FilterState): string {
   const params = new URLSearchParams({ date: filter.dateRange })
-  if (filter.statusFilters.size > 0) {
+  const isAll = ALL_STATUSES.every(s => filter.statusFilters.has(s))
+  if (!isAll) {
     params.set('status', [...filter.statusFilters].join(','))
   }
   return `?${params.toString()}`
 }
 
 /**
- * staleTime theo date range:
- * - today: 0 — data thay đổi liên tục trong ngày
- * - history: 2 phút — data đã settled, ít thay đổi
+ * staleTime theo filter:
+ * - Có 'active' trong filter → stale 0 (timer đang chạy, data thay đổi liên tục)
+ * - today không có active → stale 0 (user có thể submit/give_up bất cứ lúc nào)
+ * - history ranges (yesterday/7days/30days) không có active → cache 2 phút (data đã settled)
  */
-function resolveStaleTime(dateRange: FilterState['dateRange']): number {
-  return dateRange === 'today' ? 0 : 1000 * 60 * 2
+function resolveStaleTime(filter: FilterState): number {
+  const hasActive = filter.statusFilters.has('active')
+  const isHistory = filter.dateRange !== 'today'
+
+  if (hasActive || !isHistory) return 0
+  return 1000 * 60 * 2
 }
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
@@ -40,7 +47,7 @@ export function useTasks(filter: FilterState = DEFAULT_FILTER) {
   // Serialize statusFilters (Set không stable làm queryKey) → sorted array
   const statusKey = [...filter.statusFilters].sort() as TaskStatus[]
 
-  // 1. Task list — key bao gồm filter để mỗi filter combo cache riêng
+  // 1. Task list
   const {
     data: tasks = [],
     isLoading: isLoadingTasks,
@@ -51,10 +58,10 @@ export function useTasks(filter: FilterState = DEFAULT_FILTER) {
     queryFn: () =>
       api.get<TaskSummary[]>(`/api/tasks${buildQueryString(filter)}`),
     enabled: !!user,
-    staleTime: resolveStaleTime(filter.dateRange),
+    staleTime: resolveStaleTime(filter),
   })
 
-  // 2. Quota — không đổi, luôn là today, giữ nguyên 100%
+  // 2. Quota — luôn today, stale 0
   const {
     data: quota = { used: 0, limit: 3 },
     isLoading: isLoadingQuota,
@@ -68,7 +75,7 @@ export function useTasks(filter: FilterState = DEFAULT_FILTER) {
     refetchOnWindowFocus: true,
   })
 
-  // 3. Mutation tạo task — optimistic quota, giữ nguyên 100%
+  // 3. Mutation tạo task — optimistic quota
   const createTaskMutation = useMutation({
     mutationFn: (params: CreateTaskRequest) =>
       api.post<{ id: string }>('/api/tasks', params),
@@ -92,7 +99,6 @@ export function useTasks(filter: FilterState = DEFAULT_FILTER) {
       }
     },
     onSettled: () => {
-      // Chỉ invalidate đúng filter đang active (tránh refetch tất cả cache)
       queryClient.invalidateQueries({
         queryKey: ['tasks', filter.dateRange, statusKey, user?.id],
       })

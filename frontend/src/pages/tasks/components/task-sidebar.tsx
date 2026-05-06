@@ -1,5 +1,5 @@
 import { FilterPanel } from './filter-panel'
-import type { FilterState } from './filter-panel'
+import type { FilterState } from '@/types/task'
 
 // ─── Garden placeholder ───────────────────────────────────────────────────────
 

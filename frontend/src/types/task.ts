@@ -75,3 +75,19 @@ export interface AddNoteRequest {
 export interface UpdateNoteRequest {
     content: string
 }
+
+// ─── Filter ───────────────────────────────────────────────────────────────────
+ 
+export type DateRange = 'today' | 'yesterday' | '7days' | '30days'
+ 
+export interface FilterState {
+  dateRange: DateRange
+  statusFilters: Set<TaskStatus>
+}
+ 
+export const ALL_STATUSES: TaskStatus[] = ['active', 'paused', 'submitted', 'given_up']
+ 
+export const DEFAULT_FILTER: FilterState = {
+  dateRange: 'today',
+  statusFilters: new Set(ALL_STATUSES),
+}

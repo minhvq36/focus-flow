@@ -1,21 +1,8 @@
 "use client"
-
+import type { DateRange, FilterState, TaskStatus } from "@/types/task"
 import { useState } from "react"
 import { ChevronUp, ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
-
-export type TaskStatus = "active" | "paused" | "submitted" | "given_up"
-export type DateRange = "today" | "yesterday" | "7days" | "30days"
-
-export interface FilterState {
-  dateRange: DateRange
-  statusFilters: Set<TaskStatus>
-}
-
-export const DEFAULT_FILTER: FilterState = {
-  dateRange: "today",
-  statusFilters: new Set(["active", "paused", "submitted", "given_up"]),
-}
 
 interface FilterPanelProps {
   value: FilterState

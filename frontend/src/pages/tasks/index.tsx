@@ -5,8 +5,8 @@ import { TaskList } from './components/task-list'
 import { TaskSidebar } from './components/task-sidebar'
 import { CreateTaskModal } from './components/create-task-modal'
 import { Alert } from '@/components/ui/alert'
-import { DEFAULT_FILTER } from './components/filter-panel'
-import type { FilterState } from './components/filter-panel'
+import { DEFAULT_FILTER } from '@/types/task'
+import type { FilterState } from '@/types/task'
 
 // Chiều cao header + padding + quota text + alert row (khi xuất hiện)
 const HEIGHT_BASE    = 'calc(100vh - 220px)'
