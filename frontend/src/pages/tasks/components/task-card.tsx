@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { Play, Eye, Send, Clock, Sprout, Pause, CheckSquare } from 'lucide-react'
+import { Play, Eye, Send, Clock, Sprout, Pause, CheckSquare, Calendar } from 'lucide-react'
 import type { TaskSummary, TaskStatus } from '@/types/task'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -11,12 +11,26 @@ function formatDuration(min: number) {
   return m ? `${h}h ${m}m` : `${h}h`
 }
 
-// ─── Status config — mirror V0 exactly ───────────────────────────────────────
+function formatDateUTC(iso: string) {
+  return new Date(iso).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    timeZone: 'UTC',
+  })
+}
+function isTodayUTC(iso: string) {
+  const todayUTC = new Date().toISOString().slice(0, 10)
+  const dateUTC = new Date(iso).toISOString().slice(0, 10)
+
+  return dateUTC === todayUTC
+}
+
+// ─── Status config ────────────────────────────────────────────────────────────
 
 type StatusCfg = {
-  border: string   // border-l color
-  badge: string    // badge pill classes
-  dot: string      // dot color
+  border: string
+  badge: string
+  dot: string
   label: string
   icon: React.ReactNode
 }
@@ -93,7 +107,6 @@ export function TaskCard({ task, onSubmit }: TaskCardProps) {
               {task.title}
             </span>
 
-            {/* Status badge — V0 style */}
             <span className={`
               inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5
               text-[11px] font-medium ${cfg.badge}
@@ -104,7 +117,7 @@ export function TaskCard({ task, onSubmit }: TaskCardProps) {
             </span>
           </div>
 
-          {/* Meta row — Clock + Sprout + ⚔️ cùng hàng */}
+          {/* Meta row */}
           <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
             {!isTerminal && (
               <span className="flex items-center gap-1">
@@ -116,6 +129,12 @@ export function TaskCard({ task, onSubmit }: TaskCardProps) {
               <span className="flex items-center gap-1">
                 <Sprout className="h-3 w-3 text-primary" aria-hidden />
                 {task.todo_done_count}/{task.todo_count} todos
+              </span>
+            )}
+            {!isTodayUTC(task.created_at) && (
+              <span className="flex items-center gap-1">
+                <Calendar className="h-3 w-3" aria-hidden />
+                {formatDateUTC(task.created_at)}
               </span>
             )}
             {task.penalty_mode && (
@@ -132,8 +151,6 @@ export function TaskCard({ task, onSubmit }: TaskCardProps) {
 
         {/* ── Actions ── */}
         <div className="flex shrink-0 items-center gap-2">
-
-          {/* Active → Resume green */}
           {isActive && (
             <button
               type="button"
@@ -145,7 +162,6 @@ export function TaskCard({ task, onSubmit }: TaskCardProps) {
             </button>
           )}
 
-          {/* Paused → Resume (muted) + Submit */}
           {isPaused && (
             <>
               <button
@@ -167,7 +183,6 @@ export function TaskCard({ task, onSubmit }: TaskCardProps) {
             </>
           )}
 
-          {/* Terminal → Eye only */}
           {isTerminal && (
             <button
               type="button"
@@ -178,7 +193,6 @@ export function TaskCard({ task, onSubmit }: TaskCardProps) {
               <Eye className="h-3.5 w-3.5" />
             </button>
           )}
-
         </div>
       </div>
     </li>
