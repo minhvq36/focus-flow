@@ -25,33 +25,67 @@ func NewRepository(db *pgxpool.Pool, log *logger.Logger) *Repository {
 	}
 }
 
-// TODO: Add filter by date, status, pagination, etc. for endpoints
-// GetAllByUser — list view, does not load full todos, TODAY
-func (r *Repository) GetAllByUser(ctx context.Context, userID string) ([]TaskSummary, error) {
-	// TODO: Need to contract todos with FE
-	r.log.Info("GetAllByUser", "user_id", userID)
+// TODO: Add filter pagination
+/*
+	GET /api/tasks?date=today&status=active,paused
+	date: today | yesterday | 7days | 30days — default today, BE tự resolve từ CURRENT_DATE, không nhận date string từ FE
+	status: comma-separated, optional — nếu vắng mặt = all 4 status
+	Không có pagination params (TODO sau)
+*/
+// resolveDateRange — BE resolves date range from CURRENT_DATE (never trusts FE date)
+// Returns (fromExpr, toExpr) as PostgreSQL date expressions
+func resolveDateRange(dateRange string) (string, string) {
+	switch dateRange {
+	case "yesterday":
+		return "CURRENT_DATE - 1", "CURRENT_DATE - 1"
+	case "7days":
+		return "CURRENT_DATE - 6", "CURRENT_DATE"
+	case "30days":
+		return "CURRENT_DATE - 29", "CURRENT_DATE"
+	default: // "today" or empty
+		return "CURRENT_DATE", "CURRENT_DATE"
+	}
+}
+func (r *Repository) GetAllByUser(ctx context.Context, userID string, filter TaskFilter) ([]TaskSummary, error) {
+	r.log.Info("GetAllByUser", "user_id", userID, "filter", filter)
 
-	rows, err := r.db.Query(ctx, `
+	fromExpr, toExpr := resolveDateRange(filter.DateRange)
+
+	// Build status filter — empty = all statuses (no WHERE clause needed)
+	statusFilter := ""
+	args := []any{userID}
+
+	if len(filter.Statuses) > 0 {
+		// pgx supports []string natively for ANY($n)
+		args = append(args, filter.Statuses)
+		statusFilter = fmt.Sprintf("AND status = ANY($%d)", len(args))
+	}
+
+	query := fmt.Sprintf(`
 		SELECT id, title, status, penalty_mode,
 		       registered_duration_min, actual_duration_sec,
 		       started_at, created_at, completed_at,
-		       jsonb_array_length(todos) as todo_count,
+		       jsonb_array_length(todos) AS todo_count,
 		       (
 		           SELECT COUNT(*)
 		           FROM jsonb_array_elements(todos) t
 		           WHERE (t->>'done')::boolean = true
-		       ) as todo_done_count
+		       ) AS todo_done_count
 		FROM tasks
 		WHERE user_id = $1
 		  AND deleted_at IS NULL
-		  AND created_at::date = CURRENT_DATE
+		  AND created_at::date BETWEEN %s AND %s
+		  %s
 		ORDER BY created_at DESC
-	`, userID)
+	`, fromExpr, toExpr, statusFilter)
+
+	rows, err := r.db.Query(ctx, query, args...)
 	if err != nil {
 		r.log.Error("GetAllByUser failed", "user_id", userID, "error", err.Error())
 		return nil, fmt.Errorf("GetAllByUser: %w", err)
 	}
 	defer rows.Close()
+
 	tasks := make([]TaskSummary, 0)
 	for rows.Next() {
 		var t TaskSummary

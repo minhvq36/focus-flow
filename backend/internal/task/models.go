@@ -104,6 +104,12 @@ func ValidateTodosAllDone(todos []TodoItem) error {
 	return nil
 }
 
+// TaskFilter — parsed from query params by handler, passed down to repository
+type TaskFilter struct {
+	DateRange string   // "today" | "yesterday" | "7days" | "30days"
+	Statuses  []string // empty = all 4 statuses
+}
+
 // TaskSummary — Used for list view (Dashboard)
 // Does not load full todos, only count
 type TaskSummary struct {
