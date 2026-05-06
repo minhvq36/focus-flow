@@ -37,28 +37,28 @@ func NewRepository(db *pgxpool.Pool, log *logger.Logger) *Repository {
 func resolveDateRange(dateRange string) (string, string) {
 	switch dateRange {
 	case "yesterday":
-		return "CURRENT_DATE - 1", "CURRENT_DATE - 1"
+		return "1 day", "2 days"
 	case "7days":
-		return "CURRENT_DATE - 6", "CURRENT_DATE"
+		return "0 days", "7 days"
 	case "30days":
-		return "CURRENT_DATE - 29", "CURRENT_DATE"
-	default: // "today" or empty
-		return "CURRENT_DATE", "CURRENT_DATE"
+		return "0 days", "30 days"
+	default: // today
+		return "0 days", "1 day"
 	}
 }
 func (r *Repository) GetAllByUser(ctx context.Context, userID string, filter TaskFilter) ([]TaskSummary, error) {
 	r.log.Info("GetAllByUser", "user_id", userID, "filter", filter)
 
-	fromExpr, toExpr := resolveDateRange(filter.DateRange)
+	fromOffset, toOffset := resolveDateRange(filter.DateRange)
 
-	// Build status filter — empty = all statuses (no WHERE clause needed)
-	statusFilter := ""
-	args := []any{userID}
+	// $1=userID, $2=fromOffset, $3=toOffset
+	args := []any{userID, fromOffset, toOffset}
 
+	// Status filter — empty = all statuses
+	statusClause := ""
 	if len(filter.Statuses) > 0 {
-		// pgx supports []string natively for ANY($n)
 		args = append(args, filter.Statuses)
-		statusFilter = fmt.Sprintf("AND status = ANY($%d)", len(args))
+		statusClause = fmt.Sprintf("AND status = ANY($%d)", len(args))
 	}
 
 	query := fmt.Sprintf(`
@@ -74,10 +74,11 @@ func (r *Repository) GetAllByUser(ctx context.Context, userID string, filter Tas
 		FROM tasks
 		WHERE user_id = $1
 		  AND deleted_at IS NULL
-		  AND created_at::date BETWEEN %s AND %s
+		  AND created_at >= date_trunc('day', CURRENT_TIMESTAMP) - $2::interval
+		  AND created_at <  date_trunc('day', CURRENT_TIMESTAMP) - $3::interval + INTERVAL '1 day'
 		  %s
 		ORDER BY created_at DESC
-	`, fromExpr, toExpr, statusFilter)
+	`, statusClause)
 
 	rows, err := r.db.Query(ctx, query, args...)
 	if err != nil {

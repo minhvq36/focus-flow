@@ -9,7 +9,7 @@ import (
 )
 
 type RepositoryInterface interface {
-	GetAllByUser(ctx context.Context, userID string) ([]TaskSummary, error)
+	GetAllByUser(ctx context.Context, userID string, filter TaskFilter) ([]TaskSummary, error)
 	GetByID(ctx context.Context, taskID, userID string) (*Task, error)
 	Create(ctx context.Context, userID string, req CreateTaskRequest) (*Task, error)
 	UpdateTodos(ctx context.Context, taskID, userID string, req UpdateTodosRequest) error
@@ -37,8 +37,8 @@ func NewService(repo RepositoryInterface, log *logger.Logger) *Service {
 }
 
 // TODO: Check naming of service and repo
-func (s *Service) GetUserTasks(ctx context.Context, userID string) ([]TaskSummary, error) {
-	return s.repo.GetAllByUser(ctx, userID)
+func (s *Service) GetUserTasks(ctx context.Context, userID string, filter TaskFilter) ([]TaskSummary, error) {
+	return s.repo.GetAllByUser(ctx, userID, filter)
 }
 
 func (s *Service) GetTaskByID(ctx context.Context, taskID, userID string) (*Task, error) {

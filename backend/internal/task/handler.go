@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/minhvq36/focus-flow/backend/internal/auth"
@@ -14,7 +15,7 @@ import (
 )
 
 type ServiceInterface interface {
-	GetUserTasks(ctx context.Context, userID string) ([]TaskSummary, error)
+	GetUserTasks(ctx context.Context, userID string, filter TaskFilter) ([]TaskSummary, error)
 	GetTaskByID(ctx context.Context, taskID, userID string) (*Task, error)
 	CreateTask(ctx context.Context, userID string, req CreateTaskRequest) (*Task, error)
 	UpdateTodos(ctx context.Context, taskID, userID string, req UpdateTodosRequest) error
@@ -41,6 +42,14 @@ func NewHandler(service ServiceInterface, log *logger.Logger) *Handler {
 	}
 }
 
+// For fallback
+var validDateRanges = map[string]bool{
+	"today": true, "yesterday": true, "7days": true, "30days": true,
+}
+var validStatuses = map[string]bool{
+	"active": true, "paused": true, "submitted": true, "given_up": true,
+}
+
 func (h *Handler) GetUserTasks(w http.ResponseWriter, r *http.Request) {
 	userID, ok := auth.GetUserID(r.Context())
 	if !ok {
@@ -48,8 +57,32 @@ func (h *Handler) GetUserTasks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.log.Info("GetUserTasks", "user_id", userID)
-	tasks, err := h.service.GetUserTasks(r.Context(), userID)
+	// ── Parse date range ──────────────────────────────────────────────────────
+	dateRange := r.URL.Query().Get("date")
+	if dateRange == "" || !validDateRanges[dateRange] {
+		dateRange = "today" // default
+	}
+
+	// ── Parse status filter ───────────────────────────────────────────────────
+	var statuses []string
+	if raw := r.URL.Query().Get("status"); raw != "" {
+		for _, s := range strings.Split(raw, ",") {
+			s = strings.TrimSpace(s)
+			if validStatuses[s] {
+				statuses = append(statuses, s)
+			}
+		}
+	}
+	// statuses empty = all (no filter applied in repo)
+
+	filter := TaskFilter{
+		DateRange: dateRange,
+		Statuses:  statuses,
+	}
+
+	h.log.Info("GetUserTasks", "user_id", userID, "filter", filter)
+
+	tasks, err := h.service.GetUserTasks(r.Context(), userID, filter)
 	if err != nil {
 		h.log.Error("GetUserTasks failed", "user_id", userID, "error", err.Error())
 		response.InternalError(w)
