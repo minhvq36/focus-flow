@@ -37,13 +37,13 @@ func NewRepository(db *pgxpool.Pool, log *logger.Logger) *Repository {
 func resolveDateRange(dateRange string) (string, string) {
 	switch dateRange {
 	case "yesterday":
-		return "1 day", "2 days"
+		return "1 day", "1 day"
 	case "7days":
-		return "0 days", "7 days"
+		return "6 days", "0 days"
 	case "30days":
-		return "0 days", "30 days"
+		return "29 days", "0 days"
 	default: // today
-		return "0 days", "1 day"
+		return "0 days", "0 days"
 	}
 }
 func (r *Repository) GetAllByUser(ctx context.Context, userID string, filter TaskFilter) ([]TaskSummary, error) {
