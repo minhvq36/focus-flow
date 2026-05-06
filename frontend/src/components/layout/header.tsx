@@ -1,4 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
+import { useEffect, useState } from "react"
 import { Sprout } from 'lucide-react'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { cn } from '@/lib/utils'
@@ -7,6 +8,43 @@ const tabs = [
   { path: '/garden', label: 'My Garden' },
   { path: '/tasks',  label: 'My Tasks'  },
 ]
+
+function UtcClock() {
+  const [display, setDisplay] = useState<{ date: string; time: string } | null>(null)
+
+  useEffect(() => {
+    function tick() {
+      const now = new Date()
+      const date = now.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        timeZone: "UTC",
+      })
+      const hh = String(now.getUTCHours()).padStart(2, "0")
+      const mm = String(now.getUTCMinutes()).padStart(2, "0")
+      const ss = String(now.getUTCSeconds()).padStart(2, "0")
+      setDisplay({ date, time: `${hh}:${mm}:${ss}` })
+    }
+    tick()
+    const id = setInterval(tick, 1000)
+    return () => clearInterval(id)
+  }, [])
+
+  if (!display) return null
+
+  return (
+    <div
+      className="hidden items-center gap-2 rounded-md px-3 py-1.5 md:flex"
+      title="Current date and time in UTC"
+      aria-label={`UTC: ${display.date} ${display.time}`}
+    >
+      <span className="text-xs text-muted-foreground">{display.date}</span>
+      <span className="h-3 w-px bg-border" aria-hidden="true" />
+      <span className="font-mono text-xs font-medium tabular-nums text-foreground">{display.time}</span>
+      <span className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">UTC</span>
+    </div>
+  )
+}
 
 export default function Header() {
   const { pathname } = useLocation()
@@ -43,6 +81,7 @@ export default function Header() {
 
         {/* Right */}
         <div className="flex items-center gap-2">
+          <UtcClock />
           <span className="flex items-center gap-1 text-sm text-foreground/80">🪙 <strong>0</strong></span>
           <span className="flex items-center gap-1 text-sm text-foreground/80">💛 <strong>0</strong></span>
 
