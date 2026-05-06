@@ -8,11 +8,16 @@ import { Alert } from '@/components/ui/alert'
 import { DEFAULT_FILTER } from './components/filter-panel'
 import type { FilterState } from './components/filter-panel'
 
+// Chiều cao header + padding + quota text + alert row (khi xuất hiện)
+const HEIGHT_BASE    = 'calc(100vh - 220px)'
+const HEIGHT_COMPACT = 'calc(100vh - 284px)' // 220 + ~64px alert height
+
 export default function TasksPage() {
   const [filter, setFilter] = useState<FilterState>(DEFAULT_FILTER)
-  const { tasks, quota, loading, error, reload } =
-    useTasks(filter)
+  const { tasks, quota, loading, error, reload } = useTasks(filter)
   const [modalOpen, setModalOpen] = useState(false)
+
+  const quotaExceeded = quota.used >= quota.limit
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-8 md:px-8">
@@ -37,11 +42,11 @@ export default function TasksPage() {
               </button>
             </Alert>
           ) : (
-            // Alert quota đã chuyển sang TaskSidebar — TaskList không cần quota nữa
             <TaskList
               tasks={tasks}
               quota={quota}
               onNewTask={() => setModalOpen(true)}
+              maxHeight={quotaExceeded ? HEIGHT_COMPACT : HEIGHT_BASE}
             />
           )}
         </section>
@@ -49,7 +54,6 @@ export default function TasksPage() {
         {/* ── Right: filters + garden summary ── */}
         <aside className="hidden md:block md:w-[40%]">
           <TaskSidebar
-            quota={quota}
             filter={filter}
             onFilterChange={setFilter}
           />
