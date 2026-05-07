@@ -10,7 +10,6 @@ import { ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { TodoItem } from '@/types/task'
 
-// Tính elapsed hiện tại từ server data
 function calcElapsed(actualDurationSec: number, startedAt: string | null): number {
   if (!startedAt) return actualDurationSec
   const delta = Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000)
@@ -23,11 +22,9 @@ export default function FocusPage() {
   const { task, isLoading, pause, resume, submit, giveUp, updateTodos } =
     useTaskDetail(taskId!)
 
-  // Timer local state — seed từ server, tự đếm
   const [elapsed, setElapsed] = useState(0)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  // Seed elapsed khi task load xong lần đầu
   const seededRef = useRef(false)
   useEffect(() => {
     if (!task || seededRef.current) return
@@ -35,7 +32,6 @@ export default function FocusPage() {
     setElapsed(calcElapsed(task.actual_duration_sec, task.started_at))
   }, [task])
 
-  // Chạy/dừng interval theo status
   useEffect(() => {
     if (!task) return
     if (task.status === 'active') {
@@ -46,7 +42,6 @@ export default function FocusPage() {
     return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
   }, [task?.status])
 
-  // Todos local state — optimistic, debounce sync
   const [todos, setTodos] = useState<TodoItem[]>([])
   const todosInitRef = useRef(false)
   useEffect(() => {
@@ -64,7 +59,6 @@ export default function FocusPage() {
     }, 1000)
   }
 
-  // Force sync trước khi mutate status
   async function forceSyncTodos() {
     if (debounceRef.current) {
       clearTimeout(debounceRef.current)
@@ -89,9 +83,11 @@ export default function FocusPage() {
   const totalSec = task.registered_duration_min * 60
 
   return (
-    <div className="min-h-dvh" style={{ backgroundColor: '#f9f9f3' }}>
+    // overflow-hidden on root: prevents page scroll entirely
+    <div className="flex min-h-dvh flex-col overflow-hidden" style={{ backgroundColor: '#f9f9f3' }}>
+
       {/* Header */}
-      <header className="sticky top-0 z-10 border-b border-border/60 bg-[#f9f9f3]/80 backdrop-blur-sm">
+      <header className="shrink-0 border-b border-border/60 bg-[#f9f9f3]/80 backdrop-blur-sm">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 md:px-8">
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate('/tasks')}>
@@ -109,32 +105,31 @@ export default function FocusPage() {
         </div>
       </header>
 
-      {/* Body */}
-      <main className="mx-auto max-w-6xl px-4 py-8 md:px-8">
-        <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:gap-10">
+      {/* Body — fills remaining viewport height, no page scroll */}
+      <main className="min-h-0 flex-1 overflow-hidden">
+        <div className="mx-auto flex h-full max-w-6xl flex-col gap-8 px-4 py-8 md:px-8 lg:flex-row lg:items-start lg:gap-10">
 
-          {/* Left column */}
-          <div className="flex min-w-0 flex-1 flex-col gap-8">
+          {/* ── Left column: title + todos + action bar ── */}
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-6 lg:h-full">
+
             <EditableTitle
               value={task.title}
               isReadOnly={isReadOnly}
             />
 
-            <TimerRing
-              elapsedSec={elapsed}
-              totalSec={totalSec}
-              isReadOnly={isReadOnly}
-            />
-
-            <div className="rounded-2xl border border-border bg-white/60 p-6 shadow-sm">
-              <TodosPanel
-                todos={todos}
-                isReadOnly={isReadOnly}
-                onChange={handleTodosChange}
-              />
+            {/* Todos card — with scroll */}
+            <div className="rounded-2xl border border-border bg-white/60 shadow-sm overflow-hidden">
+              <div className="max-h-[480px] overflow-y-auto p-6">
+                <TodosPanel
+                  todos={todos}
+                  isReadOnly={isReadOnly}
+                  onChange={handleTodosChange}
+                />
+              </div>
             </div>
 
-            <div className="sticky bottom-6">
+            {/* Action bar pinned to bottom of left column */}
+            <div className="shrink-0">
               <div className="rounded-2xl border border-border bg-white/80 px-5 py-3 shadow-md backdrop-blur-sm">
                 <ActionBar
                   status={task.status}
@@ -147,8 +142,23 @@ export default function FocusPage() {
             </div>
           </div>
 
-          {/* Right: Notes */}
-          <NotesBar taskId={task.id} isReadOnly={isReadOnly} />
+          {/* ── Right column: timer on top, notes below, own scroll ── */}
+          <div className="flex shrink-0 flex-col gap-6 lg:h-full lg:w-72 xl:w-80">
+
+            <div className="shrink-0">
+              <TimerRing
+                elapsedSec={elapsed}
+                totalSec={totalSec}
+                isReadOnly={isReadOnly}
+              />
+            </div>
+
+            {/* Notes fills rest of right column height */}
+            <div className="min-h-0 flex-1 overflow-hidden">
+              <NotesBar taskId={task.id} isReadOnly={isReadOnly} />
+            </div>
+
+          </div>
         </div>
       </main>
     </div>
