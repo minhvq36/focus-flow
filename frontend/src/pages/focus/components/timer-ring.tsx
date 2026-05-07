@@ -27,7 +27,7 @@ export function TimerRing({ elapsedSec, totalSec, isReadOnly }: TimerRingProps) 
   */
   const cappedElapsed = Math.min(elapsedSec, totalSec)
   
-  const R = 88
+  const R = 92
   const STROKE = 7
   const SIZE = (R + STROKE) * 2
   const circumference = 2 * Math.PI * R
