@@ -89,5 +89,5 @@ export const ALL_STATUSES: TaskStatus[] = ['active', 'paused', 'submitted', 'giv
  
 export const DEFAULT_FILTER: FilterState = {
   dateRange: 'today',
-  statusFilters: new Set(ALL_STATUSES),
+  statusFilters: new Set(),
 }
