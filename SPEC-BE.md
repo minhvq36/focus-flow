@@ -223,30 +223,37 @@ wire ./cmd/server
 ### 3.4 Implementation Status
 
 **✅ Completed:**
-- [x] `cmd/server/main.go` - Basic HTTP server setup with Chi router
-- [x] `cmd/server/routes.go` - Router initialization with health endpoint
-- [x] `pkg/config/config.go` - Environment variable loading (Env, Port, DatabaseURL, SupabaseURL)
+- [x] `cmd/server/main.go` - HTTP server with Chi router
+- [x] `cmd/server/routes.go` - Router setup with health endpoint
+- [x] `pkg/config/config.go` - Env loading (Env, Port, DatabaseURL, SupabaseURL)
 - [x] `pkg/db/postgres.go` - PostgreSQL connection pool with pgxpool
-- [x] `internal/auth/` - JWT middleware integration with Supabase JWKS
+- [x] `internal/auth/` - JWT middleware + Supabase JWKS
+- [x] `internal/task/` - **Full Task CRUD implementation**:
+  - [x] handler.go - All task endpoints (list, create, pause, submit, give-up, resume, notes CRUD)
+  - [x] service.go - Business logic with state machine
+  - [x] repository.go - DB queries with nested todos (JSONB), quota enforcement
+  - [x] models.go - Types and validation
+  - [x] routes.go - All routes registered
+- [x] `pkg/apperr/` - Custom error types with DB error codes (Z0001-Z0008)
+- [x] `pkg/response/` - Standardized response wrapper
+- [x] `pkg/logger/` - Logger setup
 
-**⏳ In Progress / Needs Extension:**
-- [ ] `pkg/config/config.go` - Add Redis, Elasticsearch, Anthropic, Stripe, Prometheus config fields
-- [ ] `cmd/server/wire.go` - Implement Wire DI setup
-- [ ] `pkg/config/loader.go` - Implement extended config loader
-- [ ] `pkg/db/postgres.go` - Make MaxConns configurable from env (currently hardcoded to 10)
+**⏳ Partial / Needs Work:**
+- [ ] `pkg/config/config.go` - Redis, Elasticsearch, Anthropic, Stripe config added but not used yet
+- [ ] `cmd/server/wire.go` - Not implemented (services created directly in routes for now)
+- [ ] CORS - Hardcoded to localhost:5173 (needs .env for prod)
 
-**⚠️ Known TODOs (in code):**
-1. postgres.go: "Chuyển tất cả comment, log sang tiếng Anh, thêm tag [] để debug"
-2. postgres.go: "Tune or tối ưu hóa code để xử lý tải lớn, đọc từ .env or .yml"
-3. config.go: "Determine for Backend Port" - PORT should be configurable
-4. config.go: "Consider to upgrade to Asymmetric Key JWKS" - May need key rotation mechanism
-5. routes.go: "Task routes — thêm vào đây sau" - Need to add task endpoints
-
-**Not Yet Started:**
-- [ ] `pkg/cache/redis.go` - Redis client wrapper
-- [ ] `pkg/realtime/supabase.go` - Supabase Realtime client
-- [ ] Service layer implementations (Task, Reward, Garden, etc.)
-- [ ] Handler layer implementations
+**❌ Not Yet Started (Stubs only):**
+- [ ] `internal/garden/` - Models exist, service/handlers empty
+- [ ] `internal/reward/` - Models exist, logic empty
+- [ ] `internal/shop/` - Models exist, logic empty
+- [ ] `internal/marketplace/` - Models exist, logic empty
+- [ ] `internal/social/` - Models exist, logic empty
+- [ ] `internal/leaderboard/` - Models exist, logic empty
+- [ ] `internal/search/` - Elasticsearch integration
+- [ ] `internal/ai/` - Anthropic integration
+- [ ] `pkg/cache/redis.go` - Redis client (not wired)
+- [ ] `pkg/realtime/supabase.go` - Supabase Realtime (not wired)
 
 ---
 

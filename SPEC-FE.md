@@ -11,7 +11,7 @@
 - **Build Tool:** Vite
 - **Styling:** Tailwind CSS
 - **State Management:** Zustand (global stores)
-- **HTTP Client:** Fetch API with custom wrapper (api.ts) - **Note:** React Query planned for future optimization
+- **HTTP Client:** React Query (data fetching, caching, sync) + Fetch API wrapper (api.ts for auth injection)
 - **Forms:** Plain HTML forms (future: React Hook Form + Zod)
 - **Animation:** Tailwind CSS animations + tw-animate-css (future: Framer Motion)
 - **Charts/Visuals:** Canvas (garden grid), D3 or Chart.js (stats)
@@ -110,6 +110,8 @@
 
 **Route:** `/onboarding`
 
+**Status:** ❌ Not Started
+
 **Steps:**
 1. **Sign Up**
    - Email/Google OAuth
@@ -137,6 +139,8 @@
 ### 3.2 Dashboard
 
 **Route:** `/dashboard`
+
+**Status:** ✅ Partially Complete (task list + quota done, mini garden is placeholder)
 
 **Layout:**
 ```
@@ -182,6 +186,8 @@
 ### 3.3 Focus Screen
 
 **Route:** `/focus/:taskId`
+
+**Status:** ⏳ Skeleton Only (needs timer, todo editor, controls, notes)
 
 **Layout:**
 ```
@@ -258,6 +264,8 @@
 
 **Route:** `/garden/:index` (default index=1)
 
+**Status:** ❌ Not Started (placeholder component only)
+
 **Layout:**
 ```
 ┌──────────────────────────────────────────────────────┐
@@ -304,6 +312,8 @@
 
 **Route:** `/shop`
 
+**Status:** ❌ Not Started
+
 **Tabs:**
 1. **Buy**
    - Catalog of purchasable items (Common-Rare, structures, frames, watering)
@@ -335,6 +345,8 @@
 
 **Route:** `/marketplace`
 
+**Status:** ❌ Not Started
+
 **Tabs:**
 
 **Buy Tab:**
@@ -358,6 +370,8 @@
 ### 3.7 Leaderboard Page
 
 **Route:** `/leaderboard`
+
+**Status:** ❌ Not Started
 
 **Tabs:**
 
@@ -384,6 +398,8 @@
 ### 3.8 Profile Page
 
 **Route:** `/profile/:username` or `/profile/me`
+
+**Status:** ❌ Not Started
 
 **Layout:**
 ```
@@ -413,6 +429,8 @@
 
 **Route:** `/social`
 
+**Status:** ❌ Not Started
+
 **Friends Management:**
 - Tab: "Friends" → list of accepted friends
 - Tab: "Requests" → pending requests (sent/received)
@@ -430,6 +448,8 @@
 ### 3.10 Settings Page
 
 **Route:** `/settings`
+
+**Status:** ❌ Not Started
 
 **Sections:**
 
@@ -460,7 +480,19 @@
 
 ## 4. Global State (Zustand Stores)
 
-### 4.1 taskStore
+### ✅ 4.1 userStore (Implemented)
+```typescript
+type UserStore = {
+  user: User | null;
+  loading: boolean;
+  
+  setUser: (user: User | null) => void;
+  restoreSession: () => Promise<void>;
+  logout: () => Promise<void>;
+};
+```
+
+### ❌ 4.2 taskStore (TODO)
 ```typescript
 type TaskStore = {
   // Current active task
@@ -483,7 +515,7 @@ type TaskStore = {
 };
 ```
 
-### 4.2 gardenStore
+### ❌ 4.3 gardenStore (TODO)
 ```typescript
 type GardenStore = {
   gardens: Garden[];
@@ -498,24 +530,7 @@ type GardenStore = {
 };
 ```
 
-### 4.3 userStore
-```typescript
-type UserStore = {
-  user: User | null;
-  loading: boolean;
-  
-  setUser: (user: User | null) => void;
-  restoreSession: () => Promise<void>;
-  logout: () => Promise<void>;
-  
-  // Future fields (planned for later phases):
-  // penaltyMode: boolean;
-  // plan: 'free' | 'pro' | 'premium';
-  // togglePenaltyMode: () => Promise<void>;
-};
-```
-
-### 4.4 economyStore
+### ❌ 4.4 economyStore (TODO)
 ```typescript
 type EconomyStore = {
   silver: bigint;
@@ -527,11 +542,13 @@ type EconomyStore = {
 };
 ```
 
+### ❌ 4.5 socialStore (TODO)
+
 ---
 
 ## 5. Custom Hooks
 
-### 5.1 useTaskSession (with Todos Debounce)
+### ❌ 5.1 useTaskSession (TODO — with Todos Debounce)
 
 **State Management Strategy:**
 - **Local state is source of truth** during Focus session
@@ -624,7 +641,7 @@ interface TodoItem {
 - User clicks "Give Up" → `forceSyncTodos()` before penalty flow
 - Tab close/beforeunload → `forceSyncTodos()` (optional safety net)
 
-### 5.2 useGarden
+### ❌ 5.2 useGarden (TODO)
 ```typescript
 const useGarden = (gardenIndex: number) => {
   const [grid, setGrid] = useState<GardenPlacement[]>([]);
