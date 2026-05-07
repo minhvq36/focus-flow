@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useRef, useCallback } from "react"
+import React, { useState, useRef, useCallback, useEffect } from "react"
 import { XCircle, Plus } from "lucide-react"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
@@ -14,8 +14,6 @@ import {
 import type { TodoItem } from "@/types/task"
 
 // ─── TodoRow ──────────────────────────────────────────────────────────────────
-// Fully UNCONTROLLED textarea. Never reads item.text after mount.
-// Only re-renders when id / done / depth / isOnly changes.
 
 interface TodoRowProps {
   item: FlatItem
@@ -37,9 +35,12 @@ const TodoRow = React.memo(
     onKeyDown,
     registerRef,
   }: TodoRowProps) => {
+    // requestAnimationFrame: avoids forced sync layout on every keystroke
     const autoGrow = (el: HTMLTextAreaElement) => {
-      el.style.height = "auto"
-      el.style.height = `${el.scrollHeight}px`
+      requestAnimationFrame(() => {
+        el.style.height = "auto"
+        el.style.height = `${el.scrollHeight}px`
+      })
     }
 
     return (
@@ -47,7 +48,6 @@ const TodoRow = React.memo(
         className="group flex items-start gap-2.5"
         style={{ paddingLeft: `${item.depth * 20}px` }}
       >
-        {/* Checkbox */}
         <button
           type="button"
           onClick={() => onToggle(item.id)}
@@ -72,17 +72,14 @@ const TodoRow = React.memo(
           )}
         </button>
 
-        {/* Textarea – uncontrolled, initial value set once via ref */}
+        {/* Uncontrolled textarea — value seeded once imperatively via ref */}
         <textarea
           ref={(el) => {
             registerRef(item.id, el)
-            if (el) {
-              // Set initial value imperatively (avoids controlled-input overhead)
-              if (el.dataset.seeded !== "1") {
-                el.value = item.text
-                el.dataset.seeded = "1"
-                autoGrow(el)
-              }
+            if (el && el.dataset.seeded !== "1") {
+              el.value = item.text
+              el.dataset.seeded = "1"
+              autoGrow(el)
             }
           }}
           rows={1}
@@ -99,7 +96,6 @@ const TodoRow = React.memo(
           style={{ minHeight: "1.5rem" }}
         />
 
-        {/* Remove button */}
         <button
           type="button"
           onClick={() => onRemove(item.id)}
@@ -117,8 +113,7 @@ const TodoRow = React.memo(
     prev.item.done === next.item.done &&
     prev.item.depth === next.item.depth &&
     prev.isOnly === next.isOnly
-    // ↑ intentionally exclude item.text: textarea is uncontrolled,
-    //   value lives in the DOM, not in React state.
+  // item.text intentionally excluded: textarea is uncontrolled
 )
 
 TodoRow.displayName = "TodoRow"
@@ -133,14 +128,13 @@ interface EditableTodosProps {
 function EditableTodos({ flat, setFlat }: EditableTodosProps) {
   const inputRefs = useRef<Map<string, HTMLTextAreaElement>>(new Map())
 
-  // ⚡ flatRef: lets handlers read current flat WITHOUT being in their dependency
-  //    arrays and WITHOUT calling setFlat just to peek at state.
+  // flatRef: read current flat in event handlers without triggering re-renders
+  // and without needing setFlat just to peek at state.
   const flatRef = useRef(flat)
-  flatRef.current = flat // always in sync, no useEffect needed
+  flatRef.current = flat
 
   const doneCount = flat.filter((t) => t.done).length
 
-  // ── Ref registration ──────────────────────────────────────────────────────
   const registerRef = useCallback(
     (id: string, el: HTMLTextAreaElement | null) => {
       if (el) inputRefs.current.set(id, el)
@@ -154,19 +148,15 @@ function EditableTodos({ flat, setFlat }: EditableTodosProps) {
       const el = inputRefs.current.get(id)
       if (!el) return
       el.focus()
-      // Place caret at end
       el.selectionStart = el.selectionEnd = el.value.length
     }, 0)
   }, [])
 
-  // ── Mutations ─────────────────────────────────────────────────────────────
-
   const commitText = useCallback(
     (id: string, text: string) => {
-      // Only trigger a state update when the text actually changed.
-      // This prevents a re-render on every blur of an untouched item.
       setFlat((prev) => {
         const item = prev.find((t) => t.id === id)
+        // Bail early if text unchanged — prevents re-render on blur of untouched item
         if (!item || item.text === text) return prev
         return prev.map((t) => (t.id === id ? { ...t, text } : t))
       })
@@ -212,7 +202,6 @@ function EditableTodos({ flat, setFlat }: EditableTodosProps) {
         if (prev.length <= 1) return prev
         const idx = prev.findIndex((t) => t.id === id)
         const next = prev.filter((t) => t.id !== id)
-        // Focus the item above (or first if removing top item)
         focusId(next[Math.max(0, idx - 1)].id)
         return next
       })
@@ -227,7 +216,6 @@ function EditableTodos({ flat, setFlat }: EditableTodosProps) {
         if (idx === -1) return prev
         const item = prev[idx]
         const nextDepth = item.depth + delta
-
         if (nextDepth < 0) return prev
         if (delta > 0) {
           if (nextDepth > MAX_DEPTH) {
@@ -244,10 +232,8 @@ function EditableTodos({ flat, setFlat }: EditableTodosProps) {
     [setFlat]
   )
 
-  // ── Keyboard handler ──────────────────────────────────────────────────────
-  // ⚡ Key insight: uses flatRef.current instead of setFlat-for-reading.
-  //    Navigation (↑↓) never calls setFlat at all → zero re-renders.
-
+  // ⚡ Uses flatRef.current — navigation keys (↑↓) never call setFlat,
+  //    so they never trigger a re-render anywhere in the tree.
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>, id: string) => {
       const currentFlat = flatRef.current
@@ -258,7 +244,7 @@ function EditableTodos({ flat, setFlat }: EditableTodosProps) {
       switch (e.key) {
         case "Enter": {
           e.preventDefault()
-          // Commit current textarea value before splitting
+          // Commit textarea value before inserting new row
           const el = inputRefs.current.get(id)
           if (el) commitText(id, el.value)
           addAfter(id, item.depth)
@@ -293,7 +279,7 @@ function EditableTodos({ flat, setFlat }: EditableTodosProps) {
         }
       }
     },
-    // ↓ flatRef is stable (a ref), so it's safe to omit from deps
+    // flatRef is a stable ref object — safe to exclude from deps
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [commitText, addAfter, remove, indent, focusId]
   )
@@ -310,7 +296,7 @@ function EditableTodos({ flat, setFlat }: EditableTodosProps) {
       </div>
 
       <ul className="flex flex-col gap-1.5">
-        {flat.map((item, index) => (
+        {flat.map((item) => (
           <TodoRow
             key={item.id}
             item={item}
@@ -397,7 +383,7 @@ function ReadOnlyTodos({ flat }: { flat: FlatItem[] }) {
   )
 }
 
-// ─── TodosPanel (Main Controller) ─────────────────────────────────────────────
+// ─── TodosPanel ────────────────────────────────────────────────────────────────
 
 interface TodosPanelProps {
   todos: TodoItem[]
@@ -408,35 +394,33 @@ interface TodosPanelProps {
 export function TodosPanel({ todos, isReadOnly, onChange }: TodosPanelProps) {
   const [flat, setFlat] = useState<FlatItem[]>(() => nestedToFlat(todos))
 
-  // Track the last todos prop we seeded from, to detect genuine external updates
-  // (e.g. server push / undo) without fighting our own setFlat calls.
-  const lastExternalTodosRef = useRef(todos)
+  // Boolean flag: marks that the next `todos` prop change originated from us,
+  // so we don't re-seed flat from our own onChange output.
+  // Using a boolean avoids the reference-equality trap of comparing
+  // freshly-created nested objects (flatToNested always returns a new ref).
+  const isOwnUpdateRef = useRef(false)
 
-  // Detect external updates: only reseed if the reference changed AND
-  // it wasn't us who changed it (guarded by comparing refs).
-  const prevTodosRef = useRef(todos)
-  if (prevTodosRef.current !== todos) {
-    prevTodosRef.current = todos
-    // Only apply if this isn't originating from our own onChange flush
-    if (todos !== lastExternalTodosRef.current) {
-      // Re-seed from external source (e.g. server update, undo/redo)
-      setFlat(nestedToFlat(todos))
+  // FIX: useEffect instead of setState-during-render.
+  // Detects genuine external updates (server push, undo/redo)
+  // and re-seeds local flat state accordingly.
+  useEffect(() => {
+    if (isOwnUpdateRef.current) {
+      // This todos change came from our own onChange — skip re-seed
+      isOwnUpdateRef.current = false
+      return
     }
-  }
+    setFlat(nestedToFlat(todos))
+  }, [todos])
 
-  // Expose changes upward. Call onChange whenever flat mutates.
-  // Wrap setFlat to intercept writes and notify parent.
-  const setFlatWithNotify: React.Dispatch<React.SetStateAction<FlatItem[]>> =
+  const setFlatAndNotify: React.Dispatch<React.SetStateAction<FlatItem[]>> =
     useCallback(
       (action) => {
         setFlat((prev) => {
-          const next =
-            typeof action === "function" ? action(prev) : action
+          const next = typeof action === "function" ? action(prev) : action
           if (next !== prev) {
-            const nested = flatToNested(next)
-            // Mark so the prop-change guard above won't re-seed
-            lastExternalTodosRef.current = nested
-            onChange(nested)
+            // Mark flag BEFORE onChange so the useEffect above can skip
+            isOwnUpdateRef.current = true
+            onChange(flatToNested(next))
           }
           return next
         })
@@ -448,5 +432,5 @@ export function TodosPanel({ todos, isReadOnly, onChange }: TodosPanelProps) {
     return <ReadOnlyTodos flat={flat} />
   }
 
-  return <EditableTodos flat={flat} setFlat={setFlatWithNotify} />
+  return <EditableTodos flat={flat} setFlat={setFlatAndNotify} />
 }
