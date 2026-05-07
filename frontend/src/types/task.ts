@@ -91,3 +91,12 @@ export const DEFAULT_FILTER: FilterState = {
   dateRange: 'today',
   statusFilters: new Set(),
 }
+
+export interface TaskNote {
+  id: string
+  task_id: string
+  user_id: string
+  content: string
+  created_at: string
+  updated_at: string
+}
