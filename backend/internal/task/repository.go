@@ -351,7 +351,7 @@ func (r *Repository) GetNotes(ctx context.Context, taskID, userID string) ([]*Ta
 	}
 	defer rows.Close()
 
-	var notes []*TaskNote
+	notes := make([]*TaskNote, 0)
 	for rows.Next() {
 		var n TaskNote
 		if err := rows.Scan(&n.ID, &n.TaskID, &n.UserID, &n.Content, &n.CreatedAt, &n.UpdatedAt); err != nil {

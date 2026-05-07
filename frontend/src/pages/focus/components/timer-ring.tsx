@@ -1,13 +1,15 @@
 import { TimerIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 
+/**
+ * Format seconds to mm:ss or mmm:ss
+ * Handles cases where minutes > 60 without showing hours
+ */
 function formatSec(sec: number) {
-  const h = Math.floor(sec / 3600)
-  const m = Math.floor((sec % 3600) / 60)
+  /* Calculate total minutes and remaining seconds directly */
+  const m = Math.floor(sec / 60)
   const s = sec % 60
-  if (h > 0) {
-    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`
-  }
+  
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`
 }
 
@@ -18,11 +20,20 @@ interface TimerRingProps {
 }
 
 export function TimerRing({ elapsedSec, totalSec, isReadOnly }: TimerRingProps) {
+  /* 
+     Apply cap logic: 
+     The displayed elapsed time must not exceed the registered total time.
+     This UI-only cap prevents the "active task indefinitely" bug visual.
+  */
+  const cappedElapsed = Math.min(elapsedSec, totalSec)
+  
   const R = 88
   const STROKE = 7
   const SIZE = (R + STROKE) * 2
   const circumference = 2 * Math.PI * R
-  const progress = Math.min(elapsedSec / totalSec, 1)
+  
+  /* Progress calculation based on capped value */
+  const progress = totalSec > 0 ? Math.min(cappedElapsed / totalSec, 1) : 0
   const dashOffset = circumference * (1 - progress)
 
   return (
@@ -61,14 +72,26 @@ export function TimerRing({ elapsedSec, totalSec, isReadOnly }: TimerRingProps) 
           />
         </svg>
 
+        {/* 
+            Using DM Mono as requested. 
+            Ensure "DM Mono" is imported in your global CSS or tailwind config.
+        */}
         <div className="absolute flex flex-col items-center gap-0.5">
           <span
-            className="font-mono tabular-nums text-foreground"
-            style={{ fontSize: "clamp(2rem, 5vw, 3rem)", fontWeight: 500, lineHeight: 1.1 }}
+            className="tabular-nums text-foreground"
+            style={{ 
+              fontFamily: "'DM Mono', monospace",
+              fontSize: "clamp(2rem, 5vw, 3rem)", 
+              fontWeight: 500, 
+              lineHeight: 1.1 
+            }}
           >
-            {formatSec(elapsedSec)}
+            {formatSec(cappedElapsed)}
           </span>
-          <span className="font-mono text-sm tabular-nums text-muted-foreground">
+          <span 
+            className="text-sm tabular-nums text-muted-foreground"
+            style={{ fontFamily: "'DM Mono', monospace" }}
+          >
             / {formatSec(totalSec)}
           </span>
           {isReadOnly && (
