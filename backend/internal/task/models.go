@@ -56,9 +56,6 @@ func validateTodosRecursive(todos []TodoItem, depth int) error {
 		if !isValidUUID(todo.ID) {
 			return fmt.Errorf("Invalid todo ID: %s", todo.ID)
 		}
-		if strings.TrimSpace(todo.Text) == "" {
-			return fmt.Errorf("Todo text cannot be empty")
-		}
 		if len(todo.Children) > 0 {
 			if err := validateTodosRecursive(todo.Children, depth+1); err != nil {
 				return err
