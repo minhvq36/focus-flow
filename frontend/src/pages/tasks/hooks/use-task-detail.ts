@@ -44,6 +44,13 @@ export function useTaskDetail(taskId: string) {
     // Không invalidate — optimistic local only, debounce ở component
   })
 
+  const updateTitleMutation = useMutation({
+    mutationFn: (title: string) =>
+      api.patch(`/api/tasks/${taskId}/title`, { title }),
+
+    onSuccess: () => invalidate(),
+  })
+
   function invalidate() {
     queryClient.invalidateQueries({ queryKey: ['task', taskId] })
     queryClient.invalidateQueries({ queryKey: ['tasks'] })
@@ -59,6 +66,7 @@ export function useTaskDetail(taskId: string) {
     submit: submitMutation.mutateAsync,
     giveUp: giveUpMutation.mutateAsync,
     updateTodos: updateTodosMutation.mutateAsync,
+    updateTitle: updateTitleMutation.mutateAsync,
     isSubmitting: submitMutation.isPending,
     isGivingUp: giveUpMutation.isPending,
   }

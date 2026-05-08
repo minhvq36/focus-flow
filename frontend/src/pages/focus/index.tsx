@@ -19,7 +19,7 @@ function calcElapsed(actualDurationSec: number, startedAt: string | null): numbe
 export default function FocusPage() {
   const { taskId } = useParams<{ taskId: string }>()
   const navigate = useNavigate()
-  const { task, isLoading, pause, resume, submit, giveUp, updateTodos } =
+  const { task, isLoading, pause, resume, submit, giveUp, updateTodos, updateTitle } =
     useTaskDetail(taskId!)
 
   const [elapsed, setElapsed] = useState(0)
@@ -146,11 +146,12 @@ export default function FocusPage() {
         <div className="mx-auto flex h-full max-w-6xl flex-col gap-8 px-4 py-8 md:px-8 lg:flex-row lg:items-start lg:gap-10">
 
           {/* ── Left column: title + todos + action bar ── */}
-          <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-6 lg:h-full">
+          <div className="flex min-h-0 w-0 flex-1 flex-col gap-6 lg:h-full">
 
             <EditableTitle
               value={task.title}
               isReadOnly={isReadOnly}
+              onCommit={updateTitle}
             />
 
             {/* Todos card — with scroll */}
