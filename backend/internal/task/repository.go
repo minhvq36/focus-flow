@@ -186,8 +186,7 @@ func (r *Repository) UpdateTodos(ctx context.Context, taskID, userID string, req
 		SET todos = $1
 		WHERE id = $2
 		  AND user_id = $3
-		  AND status = 'active'
-		  AND deleted_at IS NULL
+		  AND status in ('active', 'paused')
 	`, todosJSON, taskID, userID)
 	if err != nil {
 		return fmt.Errorf("UpdateTodos: %w", err)
@@ -206,7 +205,7 @@ func (r *Repository) Extend(ctx context.Context, taskID, userID string, req Exte
 		SET registered_duration_min = registered_duration_min + $1
 		WHERE id = $2
 		  AND user_id = $3
-		  AND status = 'active'
+		  AND status in ('active', 'paused')
 		  AND deleted_at IS NULL
 	`, req.AddMinutes, taskID, userID)
 	if err != nil {
