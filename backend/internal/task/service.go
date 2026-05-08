@@ -13,6 +13,7 @@ type RepositoryInterface interface {
 	GetByID(ctx context.Context, taskID, userID string) (*Task, error)
 	Create(ctx context.Context, userID string, req CreateTaskRequest) (*Task, error)
 	UpdateTodos(ctx context.Context, taskID, userID string, req UpdateTodosRequest) error
+	UpdateTitle(ctx context.Context, taskID, userID string, req EditTaskTitleRequest) error
 	PauseTask(ctx context.Context, taskID, userID string, req PauseTaskRequest) (int, error)
 	Submit(ctx context.Context, taskID, userID string, req SubmitTaskRequest) error
 	GiveUp(ctx context.Context, taskID, userID string, req GiveUpTaskRequest) error
@@ -63,6 +64,29 @@ func (s *Service) UpdateTodos(ctx context.Context, taskID, userID string, req Up
 	}
 	s.log.Info("UpdateTodos", "user_id", userID, "task_id", taskID)
 	return s.repo.UpdateTodos(ctx, taskID, userID, req)
+}
+
+func (s *Service) EditTaskTitle(ctx context.Context, taskID, userID string, req EditTaskTitleRequest) error {
+	// Validate title
+	if strings.TrimSpace(req.Title) == "" {
+		return &apperr.ValidationError{Message: "Title cannot be empty"}
+	}
+	if len(req.Title) > 255 {
+		return &apperr.ValidationError{Message: "Title cannot exceed 255 characters"}
+	}
+
+	// Verify task exists and is in editable state
+	task, err := s.repo.GetByID(ctx, taskID, userID)
+	if err != nil {
+		return err
+	}
+
+	if task.Status != TaskStatusActive && task.Status != TaskStatusPaused {
+		return &apperr.InvalidStateError{Current: string(task.Status), Expected: "active|paused"}
+	}
+
+	s.log.Info("EditTaskTitle", "user_id", userID, "task_id", taskID)
+	return s.repo.UpdateTitle(ctx, taskID, userID, req)
 }
 
 func (s *Service) PauseTask(ctx context.Context, taskID, userID string, req PauseTaskRequest) error {

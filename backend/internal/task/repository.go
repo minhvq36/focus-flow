@@ -217,6 +217,25 @@ func (r *Repository) Extend(ctx context.Context, taskID, userID string, req Exte
 	return nil
 }
 
+// Update task title
+func (r *Repository) UpdateTitle(ctx context.Context, taskID, userID string, req EditTaskTitleRequest) error {
+	result, err := r.db.Exec(ctx, `
+		UPDATE tasks
+		SET title = $1
+		WHERE id = $2
+		  AND user_id = $3
+		  AND status in ('active', 'paused')
+		  AND deleted_at IS NULL
+	`, req.Title, taskID, userID)
+	if err != nil {
+		return fmt.Errorf("UpdateTitle: %w", err)
+	}
+	if result.RowsAffected() == 0 {
+		return &apperr.NotFoundError{Resource: "Task"}
+	}
+	return nil
+}
+
 func (r *Repository) PauseTask(ctx context.Context, taskID, userID string, req PauseTaskRequest) (int, error) {
 	var newDuration int
 	err := r.db.QueryRow(ctx, `
