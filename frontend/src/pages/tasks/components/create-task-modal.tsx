@@ -50,7 +50,7 @@ export function CreateTaskModal({ open, onOpenChange }: CreateTaskModalProps) {
 
   const [title, setTitle]           = useState('')
   const [todos, setTodos]           = useState<FlatItem[]>([makeDefaultTodo()])
-  const [todosValid, setTodosValid] = useState(false)
+  const [_todosValid, setTodosValid] = useState(false)
   const [durationMin, setDurationMin] = useState<number>(25)
   const [isCustom, setIsCustom]     = useState(false)
   // raw string while user is typing — avoids the "25 → 2530" problem

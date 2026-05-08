@@ -1,5 +1,4 @@
 type TextField = HTMLInputElement | HTMLTextAreaElement
-type InputLikeEvent = React.FormEvent<TextField>
 type PasteLikeEvent = React.ClipboardEvent<TextField>
 
 export function clampInput<T extends TextField>(

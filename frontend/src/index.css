@@ -193,7 +193,7 @@
     isolation: isolate;
     /* Không set background ở đây — để ::before lo */
   }
-
+  /*
   body::before {
     content: '';
     position: fixed;
@@ -214,5 +214,5 @@
       blob-3 27s ease-in-out infinite 7s,
       blob-4 20s ease-in-out infinite 11s;
     filter: blur(48px);
-  }
+  }*/
 }
