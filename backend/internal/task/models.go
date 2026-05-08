@@ -146,7 +146,7 @@ type QuotaToday struct {
 type CreateTaskRequest struct {
 	Title                 string     `json:"title"                validate:"required,min=1,max=255"`
 	Todos                 []TodoItem `json:"todos"                validate:"required,min=1"`
-	RegisteredDurationMin int        `json:"registered_duration_min" validate:"required,min=25"` // TODO: Check if all these config should add to contract or spec
+	RegisteredDurationMin int        `json:"registered_duration_min" validate:"required,min=25,max=480"` // TODO: Check if all these config should add to contract or spec
 	PenaltyMode           bool       `json:"penalty_mode"`
 }
 
@@ -169,7 +169,7 @@ type GiveUpTaskRequest struct {
 
 // ExtendRequest — Sent from FE when extending time
 type ExtendRequest struct {
-	AddMinutes int `json:"add_minutes" validate:"required,min=1"`
+	AddMinutes int `json:"add_minutes" validate:"required,min=1,max=480"`
 }
 
 type EditTaskTitleRequest struct {
