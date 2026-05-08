@@ -45,3 +45,12 @@ export function flatToNested(flat: FlatItem[]): TodoItem[] {
 
   return root
 }
+
+// ─── Validation ───────────────────────────────────────────────────────────────
+
+export function validateFlat(flat: FlatItem[]): { valid: boolean; error?: string } {
+  const withText = flat.filter(t => t.text.trim())
+  if (withText.length === 0) return { valid: false, error: 'Add at least one todo item.' }
+  if (flat.length > MAX_TODOS) return { valid: false, error: `Maximum ${MAX_TODOS} todos allowed.` }
+  return { valid: true }
+}

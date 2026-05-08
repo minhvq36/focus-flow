@@ -1,76 +1,7 @@
 import { useRef, useCallback } from 'react'
 import { ChevronRight, Trash2, Plus } from 'lucide-react'
 import { toast } from 'sonner'
-import type { TodoItem } from '@/types/task'
-
-// ─── Constants ───────────────────────────────────────────────────────────────
-
-const MAX_TODOS = 50
-const MAX_DEPTH = 4 // mirrors backend validateTodosRecursive depth limit
-
-// ─── Flat representation (internal only) ─────────────────────────────────────
-// Editor works with a flat list + depth number.
-// Converted to/from nested TodoItem[] at the boundary.
-
-export interface FlatItem {
-  id: string
-  text: string
-  depth: number
-  done: boolean
-}
-
-// ─── Nested ↔ Flat conversion ─────────────────────────────────────────────────
-
-export function nestedToFlat(todos: TodoItem[], depth = 0): FlatItem[] {
-  const result: FlatItem[] = []
-  for (const t of todos) {
-    result.push({ id: t.id, text: t.text, depth, done: t.done })
-    if (t.children?.length) {
-      result.push(...nestedToFlat(t.children, depth + 1))
-    }
-  }
-  return result
-}
-
-export function flatToNested(flat: FlatItem[]): TodoItem[] {
-  // Stack-based reconstruction: each entry is { item, depth }
-  const root: TodoItem[] = []
-  const stack: { item: TodoItem; depth: number }[] = []
-
-  for (const f of flat) {
-    const item: TodoItem = { id: f.id, text: f.text, done: f.done }
-
-    if (f.depth === 0 || stack.length === 0) {
-      root.push(item)
-      stack.length = 0
-      stack.push({ item, depth: 0 })
-    } else {
-      // Pop until we find a parent with depth < f.depth
-      while (stack.length > 1 && stack[stack.length - 1].depth >= f.depth) {
-        stack.pop()
-      }
-      const parent = stack[stack.length - 1].item
-      if (!parent.children) parent.children = []
-      parent.children.push(item)
-      stack.push({ item, depth: f.depth })
-    }
-  }
-
-  return root
-}
-
-// ─── Validation ───────────────────────────────────────────────────────────────
-
-export function validateFlat(flat: FlatItem[]): { valid: boolean; error?: string } {
-  const withText = flat.filter(t => t.text.trim())
-  if (withText.length === 0) return { valid: false, error: 'Add at least one todo item.' }
-  if (flat.length > MAX_TODOS) return { valid: false, error: `Maximum ${MAX_TODOS} todos allowed.` }
-  return { valid: true }
-}
-
-// ─── Silent sanitization ──────────────────────────────────────────────────────
-// Applied before converting to nested for API submission.
-// NOT applied during editing (would break mid-edit state).
+import { type FlatItem, validateFlat, MAX_TODOS, MAX_DEPTH } from '@/pages/tasks/utils/todo-utils'
 
 function findFirstNonEmptyDescendant(flat: FlatItem[], startIdx: number): string | null {
   const parentDepth = flat[startIdx].depth

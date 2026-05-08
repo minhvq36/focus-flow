@@ -19,8 +19,8 @@ import {
 import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { TodoEditor, sanitizeFlat, flatToNested } from './todo-editor'
-import type { FlatItem } from './todo-editor'
+import { TodoEditor, sanitizeFlat } from './todo-editor'
+import { type FlatItem, flatToNested } from '@/pages/tasks/utils/todo-utils'
 import type { Task, CreateTaskRequest } from '@/types/task'
 
 import { useQueryClient } from '@tanstack/react-query'
