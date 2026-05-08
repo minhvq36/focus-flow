@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react"
 import { Pencil } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { clampInput, clampPaste } from "@/pages/tasks/utils/text-constraints"  // ← added
 
 const MAX_LENGTH = 255
 
@@ -21,14 +22,11 @@ interface EditableTitleProps {
 }
 
 export function EditableTitle({ value, isReadOnly, onCommit }: EditableTitleProps) {
-  // Only 1 boolean state — controls editing mode. Zero state for text.
   const [editing, setEditing] = useState(false)
 
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-  // Track the committed value in a ref so commit() closure always has fresh value
   const committedValueRef = useRef(value)
 
-  // Sync ref whenever prop changes (e.g. optimistic update rolled back)
   useEffect(() => {
     committedValueRef.current = value
   }, [value])
@@ -44,7 +42,6 @@ export function EditableTitle({ value, isReadOnly, onCommit }: EditableTitleProp
     setEditing(true)
   }, [])
 
-  // Populate + focus textarea after React paints editing=true
   useEffect(() => {
     if (!editing || !textareaRef.current) return
     const el = textareaRef.current
@@ -63,7 +60,6 @@ export function EditableTitle({ value, isReadOnly, onCommit }: EditableTitleProp
     const prev = committedValueRef.current
 
     if (!trimmed || trimmed === prev) {
-      // Restore textarea to committed value (no-op visually if same)
       el.value = prev
       setEditing(false)
       return
@@ -97,44 +93,6 @@ export function EditableTitle({ value, isReadOnly, onCommit }: EditableTitleProp
     [commit],
   )
 
-  // ─── input handler — enforce 255 limit, zero React state touched ──────────
-  const handleInput = useCallback(
-    (e: React.FormEvent<HTMLTextAreaElement>) => {
-      const el = e.currentTarget
-
-      if (el.value.length > MAX_LENGTH) {
-        // Hard clamp — handles paste, drag-drop, IME, everything
-        el.value = el.value.slice(0, MAX_LENGTH)
-        // Restore caret to end of allowed text
-        el.setSelectionRange(MAX_LENGTH, MAX_LENGTH)
-      }
-
-      autoGrow(el)
-    },
-    [autoGrow],
-  )
-
-  // ─── paste guard — extra safety so paste never temporarily exceeds limit ──
-  const handlePaste = useCallback((e: React.ClipboardEvent<HTMLTextAreaElement>) => {
-    const el = e.currentTarget
-    const pasteText = e.clipboardData.getData("text")
-    const { selectionStart, selectionEnd, value } = el
-
-    const nextValue =
-      value.slice(0, selectionStart ?? value.length) +
-      pasteText +
-      value.slice(selectionEnd ?? value.length)
-
-    if (nextValue.length > MAX_LENGTH) {
-      e.preventDefault()
-      const allowed = MAX_LENGTH - (value.length - ((selectionEnd ?? 0) - (selectionStart ?? 0)))
-      if (allowed <= 0) return
-      const clipped = pasteText.slice(0, allowed)
-      // Manually insert
-      document.execCommand("insertText", false, clipped)
-    }
-  }, [])
-
   // ─── render ───────────────────────────────────────────────────────────────
   const sizeClass = getTitleSizeClass(value.length)
 
@@ -155,15 +113,15 @@ export function EditableTitle({ value, isReadOnly, onCommit }: EditableTitleProp
     <textarea
       ref={textareaRef}
       rows={1}
-      maxLength={MAX_LENGTH}       // native HTML safety net
-      onInput={handleInput}        // uncontrolled — no value prop, no setState
-      onPaste={handlePaste}
+      maxLength={MAX_LENGTH}
+      onInput={(e) => clampInput(e, MAX_LENGTH, autoGrow)}   // ← replaced handleInput
+      onPaste={(e) => clampPaste(e, MAX_LENGTH)}             // ← replaced handlePaste
       onBlur={commit}
       onKeyDown={handleKeyDown}
       className={cn(
         "w-full resize-none overflow-hidden bg-transparent font-bold leading-snug",
         "text-foreground outline-none border-b-2 border-primary/60 pb-0.5 break-words",
-        sizeClass,                 // size derived from committed value length; fine for editing
+        sizeClass,
       )}
     />
   ) : (
