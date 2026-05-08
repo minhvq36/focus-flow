@@ -2,9 +2,18 @@
 
 import { useState, useEffect, useRef } from "react"
 import { Pencil } from "lucide-react"
+import { cn } from "@/lib/utils"
 
-// Tạm thời isReadOnly=false thì hiện inline edit UI nhưng chưa call API
-// Sẽ thêm PATCH /api/tasks/:id/title sau
+// Dynamic heading scale based on text length
+function getTitleSizeClass(text: string) {
+  const len = text.length
+
+  if (len > 180) return "text-base"
+  if (len > 120) return "text-lg"
+  if (len > 80) return "text-xl"
+
+  return "text-2xl"
+}
 
 interface EditableTitleProps {
   value: string
@@ -16,6 +25,7 @@ export function EditableTitle({ value, isReadOnly, onCommit }: EditableTitleProp
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const titleSizeClass = getTitleSizeClass(value)
 
   // Auto-grow textarea
   function autoGrow(el: HTMLTextAreaElement) {
@@ -58,7 +68,10 @@ export function EditableTitle({ value, isReadOnly, onCommit }: EditableTitleProp
 
   if (isReadOnly) {
     return (
-      <h1 className="min-w-0 break-words text-2xl font-bold leading-snug text-foreground">
+      <h1 className={cn(
+        "min-w-0 break-words font-bold leading-snug text-foreground",
+        titleSizeClass
+      )}>
         {value}
       </h1>
     )
@@ -84,7 +97,10 @@ export function EditableTitle({ value, isReadOnly, onCommit }: EditableTitleProp
           setEditing(false)
         }
       }}
-      className="w-full resize-none overflow-hidden bg-transparent text-2xl font-bold leading-snug text-foreground outline-none border-b-2 border-primary/60 pb-0.5"
+      className={cn(
+        "w-full resize-none overflow-hidden bg-transparent font-bold leading-snug text-foreground outline-none border-b-2 border-primary/60 pb-0.5 break-words",
+        getTitleSizeClass(draft)
+      )}
     />
   ) : (
     <button
@@ -92,7 +108,10 @@ export function EditableTitle({ value, isReadOnly, onCommit }: EditableTitleProp
       onClick={() => { setDraft(value); setEditing(true) }}
       className="group flex w-full min-w-0 items-start gap-2 text-left"
     >
-      <h1 className="min-w-0 flex-1 break-words text-2xl font-bold leading-snug text-foreground transition-colors group-hover:text-primary">
+      <h1 className={cn(
+        "min-w-0 flex-1 break-words font-bold leading-snug text-foreground transition-colors group-hover:text-primary",
+        titleSizeClass
+      )}>
         {value}
       </h1>
       <Pencil className="mt-1 h-4 w-4 shrink-0 text-muted-foreground/40 opacity-0 group-hover:opacity-100 transition-opacity" />
