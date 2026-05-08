@@ -21,9 +21,9 @@ type ServiceInterface interface {
 	UpdateTodos(ctx context.Context, taskID, userID string, req UpdateTodosRequest) error
 	EditTaskTitle(ctx context.Context, taskID, userID string, req EditTaskTitleRequest) error
 	ExtendTask(ctx context.Context, taskID, userID string, req ExtendRequest) error
-	PauseTask(ctx context.Context, taskID, userID string, req PauseTaskRequest) error
-	SubmitTask(ctx context.Context, taskID, userID string, req SubmitTaskRequest) error
-	GiveUpTask(ctx context.Context, taskID, userID string, req GiveUpTaskRequest) error
+	PauseTask(ctx context.Context, taskID, userID string) error
+	SubmitTask(ctx context.Context, taskID, userID string) error
+	GiveUpTask(ctx context.Context, taskID, userID string) error
 	ResumeTask(ctx context.Context, taskID, userID string) error
 	CreateNote(ctx context.Context, taskID, userID string, req CreateTaskNoteRequest) (*TaskNote, error)
 	GetNotes(ctx context.Context, taskID, userID string) ([]*TaskNote, error)
@@ -283,14 +283,8 @@ func (h *Handler) PauseTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req PauseTaskRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.BadRequest(w, "INVALID_REQUEST", "Invalid request body")
-		return
-	}
-
 	h.log.Info("PauseTask", "user_id", userID, "task_id", taskID)
-	err := h.service.PauseTask(r.Context(), taskID, userID, req)
+	err := h.service.PauseTask(r.Context(), taskID, userID)
 	if err != nil {
 		switch {
 		case errors.Is(err, apperr.ErrNotFound):
@@ -320,18 +314,10 @@ func (h *Handler) SubmitTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req SubmitTaskRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.BadRequest(w, "INVALID_REQUEST", "Invalid request body")
-		return
-	}
-
 	h.log.Info("SubmitTask", "user_id", userID, "task_id", taskID)
-	err := h.service.SubmitTask(r.Context(), taskID, userID, req)
+	err := h.service.SubmitTask(r.Context(), taskID, userID)
 	if err != nil {
 		switch {
-		case errors.Is(err, apperr.ErrValidation):
-			response.BadRequest(w, "VALIDATION_ERROR", err.Error())
 		case errors.Is(err, apperr.ErrNotFound):
 			response.NotFound(w, "Task")
 		case errors.Is(err, apperr.ErrInvalidState):
@@ -359,14 +345,8 @@ func (h *Handler) GiveUpTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req GiveUpTaskRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.BadRequest(w, "INVALID_REQUEST", "Invalid request body")
-		return
-	}
-
 	h.log.Info("GiveUpTask", "user_id", userID, "task_id", taskID)
-	err := h.service.GiveUpTask(r.Context(), taskID, userID, req)
+	err := h.service.GiveUpTask(r.Context(), taskID, userID)
 	if err != nil {
 		switch {
 		case errors.Is(err, apperr.ErrNotFound):
