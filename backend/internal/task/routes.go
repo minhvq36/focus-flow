@@ -21,6 +21,7 @@ func Routes(db *pgxpool.Pool, log *logger.Logger) func(r chi.Router) {
 		// Update todos for a task (autosave)
 		r.Patch("/{id}/todos", handler.UpdateTodos)
 		r.Patch("/{id}/title", handler.EditTaskTitle)
+		r.Post("/{id}/extend", handler.ExtendTask)
 		r.Post("/{id}/pause", handler.PauseTask)
 		r.Post("/{id}/submit", handler.SubmitTask)
 		r.Post("/{id}/giveup", handler.GiveUpTask)

@@ -14,6 +14,7 @@ type RepositoryInterface interface {
 	Create(ctx context.Context, userID string, req CreateTaskRequest) (*Task, error)
 	UpdateTodos(ctx context.Context, taskID, userID string, req UpdateTodosRequest) error
 	UpdateTitle(ctx context.Context, taskID, userID string, req EditTaskTitleRequest) error
+	Extend(ctx context.Context, taskID, userID string, req ExtendRequest) error
 	PauseTask(ctx context.Context, taskID, userID string, req PauseTaskRequest) (int, error)
 	Submit(ctx context.Context, taskID, userID string, req SubmitTaskRequest) error
 	GiveUp(ctx context.Context, taskID, userID string, req GiveUpTaskRequest) error
@@ -62,6 +63,17 @@ func (s *Service) UpdateTodos(ctx context.Context, taskID, userID string, req Up
 	if err := ValidateTodos(req.Todos); err != nil {
 		return &apperr.ValidationError{Message: err.Error()}
 	}
+
+	// Verify task exists and is in editable state
+	task, err := s.repo.GetByID(ctx, taskID, userID)
+	if err != nil {
+		return err
+	}
+
+	if task.Status != TaskStatusActive && task.Status != TaskStatusPaused {
+		return &apperr.InvalidStateError{Current: string(task.Status), Expected: "active|paused"}
+	}
+
 	s.log.Info("UpdateTodos", "user_id", userID, "task_id", taskID)
 	return s.repo.UpdateTodos(ctx, taskID, userID, req)
 }
@@ -87,6 +99,26 @@ func (s *Service) EditTaskTitle(ctx context.Context, taskID, userID string, req 
 
 	s.log.Info("EditTaskTitle", "user_id", userID, "task_id", taskID)
 	return s.repo.UpdateTitle(ctx, taskID, userID, req)
+}
+
+func (s *Service) ExtendTask(ctx context.Context, taskID, userID string, req ExtendRequest) error {
+	// Validate extend minutes
+	if req.AddMinutes <= 0 {
+		return &apperr.ValidationError{Message: "Add minutes must be greater than 0"}
+	}
+
+	// Verify task exists and is in editable state
+	task, err := s.repo.GetByID(ctx, taskID, userID)
+	if err != nil {
+		return err
+	}
+
+	if task.Status != TaskStatusActive && task.Status != TaskStatusPaused {
+		return &apperr.InvalidStateError{Current: string(task.Status), Expected: "active|paused"}
+	}
+
+	s.log.Info("ExtendTask", "user_id", userID, "task_id", taskID)
+	return s.repo.Extend(ctx, taskID, userID, req)
 }
 
 func (s *Service) PauseTask(ctx context.Context, taskID, userID string, req PauseTaskRequest) error {

@@ -20,6 +20,7 @@ type ServiceInterface interface {
 	CreateTask(ctx context.Context, userID string, req CreateTaskRequest) (*Task, error)
 	UpdateTodos(ctx context.Context, taskID, userID string, req UpdateTodosRequest) error
 	EditTaskTitle(ctx context.Context, taskID, userID string, req EditTaskTitleRequest) error
+	ExtendTask(ctx context.Context, taskID, userID string, req ExtendRequest) error
 	PauseTask(ctx context.Context, taskID, userID string, req PauseTaskRequest) error
 	SubmitTask(ctx context.Context, taskID, userID string, req SubmitTaskRequest) error
 	GiveUpTask(ctx context.Context, taskID, userID string, req GiveUpTaskRequest) error
@@ -227,6 +228,45 @@ func (h *Handler) EditTaskTitle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response.Success(w, map[string]string{"message": "Task title updated successfully"})
+}
+
+func (h *Handler) ExtendTask(w http.ResponseWriter, r *http.Request) {
+	userID, ok := auth.GetUserID(r.Context())
+	if !ok {
+		response.Unauthorized(w)
+		return
+	}
+
+	taskID := chi.URLParam(r, "id")
+	if taskID == "" {
+		response.BadRequest(w, "INVALID_ID", "Task ID is required")
+		return
+	}
+
+	var req ExtendRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.BadRequest(w, "INVALID_REQUEST", "Invalid request body")
+		return
+	}
+
+	h.log.Info("ExtendTask", "user_id", userID, "task_id", taskID)
+	err := h.service.ExtendTask(r.Context(), taskID, userID, req)
+	if err != nil {
+		switch {
+		case errors.Is(err, apperr.ErrValidation):
+			response.BadRequest(w, "VALIDATION_ERROR", err.Error())
+		case errors.Is(err, apperr.ErrInvalidState):
+			response.BadRequest(w, "INVALID_STATE", err.Error())
+		case errors.Is(err, apperr.ErrNotFound):
+			response.NotFound(w, "Task")
+		default:
+			h.log.Error("ExtendTask failed", "user_id", userID, "task_id", taskID, "error", err.Error())
+			response.InternalError(w)
+		}
+		return
+	}
+
+	response.Success(w, map[string]string{"message": "Task time extended successfully"})
 }
 
 // TODO: Check SSE to redirect all active task open when task stopped
