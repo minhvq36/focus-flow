@@ -1,4 +1,3 @@
-// src/lib/todo-utils.ts
 import type { TodoItem } from '@/types/task'
 
 export const MAX_TODOS = 50
