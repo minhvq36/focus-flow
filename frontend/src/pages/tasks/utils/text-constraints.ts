@@ -1,37 +1,7 @@
-/**
- * text-constraints.ts
- *
- * Reusable DOM-level helpers that enforce a character limit on <input> and
- * <textarea> elements **without** touching React state.  Import these into any
- * component that needs a hard cap (title, todo items, focus-screen notes, …).
- *
- * Both functions are intentionally framework-agnostic: they receive the native
- * event objects that React's synthetic event system forwards, so they work
- * identically across components.
- */
-
-// ─── types ────────────────────────────────────────────────────────────────────
-
-/** Any writable text field — <input> or <textarea>. */
 type TextField = HTMLInputElement | HTMLTextAreaElement
-
-/** React-compatible oninput / onchange event shapes. */
 type InputLikeEvent = React.FormEvent<TextField>
 type PasteLikeEvent = React.ClipboardEvent<TextField>
 
-// ─── clampInput ───────────────────────────────────────────────────────────────
-
-/**
- * Attach to `onInput` (or `onChange`) to hard-clamp the field value whenever
- * it exceeds `maxLength` — regardless of *how* the text arrived (typing, IME
- * composition, drag-and-drop, browser auto-fill, …).
- *
- * Also calls `onAutoGrow` when provided, so callers that need auto-expanding
- * textareas don't have to wire a second handler.
- *
- * @example
- * <textarea onInput={(e) => clampInput(e, MAX_LENGTH, autoGrow)} />
- */
 export function clampInput<T extends TextField>(
   e: React.FormEvent<T>,
   maxLength: number,
@@ -47,21 +17,6 @@ export function clampInput<T extends TextField>(
 
   onAutoGrow?.(el)
 }
-
-// ─── clampPaste ───────────────────────────────────────────────────────────────
-
-/**
- * Attach to `onPaste` to intercept clipboard text **before** the browser
- * writes it to the DOM.  When the pasted content would push the total length
- * over `maxLength`, the event is cancelled and only the allowed portion of the
- * clipboard text is inserted via `document.execCommand`.
- *
- * This prevents even a momentary flash of over-limit text that
- * `clampInput` alone cannot fully avoid on some browsers.
- *
- * @example
- * <textarea onPaste={(e) => clampPaste(e, MAX_LENGTH)} />
- */
 export function clampPaste(e: PasteLikeEvent, maxLength: number): void {
   const el = e.currentTarget
   const pasteText = e.clipboardData.getData("text")
@@ -92,17 +47,6 @@ export function clampPaste(e: PasteLikeEvent, maxLength: number): void {
   document.execCommand("insertText", false, pasteText.slice(0, available))
 }
 
-// ─── createTextConstraintHandlers ────────────────────────────────────────────
-
-/**
- * Convenience factory that returns a pre-bound `{ onInput, onPaste }` handler
- * pair for the given `maxLength`.  Useful when you want to spread props onto a
- * field without wiring both handlers explicitly.
- *
- * @example
- * const handlers = createTextConstraintHandlers(MAX_TITLE_LENGTH, autoGrow)
- * <textarea {...handlers} />
- */
 export function createTextConstraintHandlers<T extends TextField>(
   maxLength: number,
   onAutoGrow?: (el: T) => void,

@@ -12,6 +12,7 @@ import {
   type FlatItem,
 } from "@/pages/tasks/utils/todo-utils"
 import type { TodoItem } from "@/types/task"
+import { clampInput, clampPaste } from "@/pages/tasks/utils/text-constraints"
 
 // ─── TodoRow ──────────────────────────────────────────────────────────────────
 
@@ -26,6 +27,7 @@ interface TodoRowProps {
 }
 
 const INDENT_SIZE = 32
+const MAX_TODO_LENGTH = 500
 
 const TodoRow = React.memo(
   ({
@@ -85,7 +87,10 @@ const TodoRow = React.memo(
             }
           }}
           rows={1}
-          onInput={(e) => autoGrow(e.currentTarget)}
+          onInput={(e) => {
+            clampInput(e, MAX_TODO_LENGTH, autoGrow)
+          }}
+          onPaste={(e) => clampPaste(e, MAX_TODO_LENGTH)}
           onBlur={(e) => onCommitText(item.id, e.currentTarget.value)}
           onKeyDown={(e) => onKeyDown(e, item.id)}
           placeholder="Todo item…"
@@ -234,8 +239,6 @@ function EditableTodos({ flat, setFlat }: EditableTodosProps) {
     [setFlat]
   )
 
-  // ⚡ Uses flatRef.current — navigation keys (↑↓) never call setFlat,
-  //    so they never trigger a re-render anywhere in the tree.
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>, id: string) => {
       const currentFlat = flatRef.current
@@ -395,19 +398,10 @@ interface TodosPanelProps {
 
 export function TodosPanel({ todos, isReadOnly, onChange }: TodosPanelProps) {
   const [flat, setFlat] = useState<FlatItem[]>(() => nestedToFlat(todos))
-
-  // Boolean flag: marks that the next `todos` prop change originated from us,
-  // so we don't re-seed flat from our own onChange output.
-  // Using a boolean avoids the reference-equality trap of comparing
-  // freshly-created nested objects (flatToNested always returns a new ref).
   const isOwnUpdateRef = useRef(false)
 
-  // FIX: useEffect instead of setState-during-render.
-  // Detects genuine external updates (server push, undo/redo)
-  // and re-seeds local flat state accordingly.
   useEffect(() => {
     if (isOwnUpdateRef.current) {
-      // This todos change came from our own onChange — skip re-seed
       isOwnUpdateRef.current = false
       return
     }
@@ -420,7 +414,6 @@ export function TodosPanel({ todos, isReadOnly, onChange }: TodosPanelProps) {
         setFlat((prev) => {
           const next = typeof action === "function" ? action(prev) : action
           if (next !== prev) {
-            // Mark flag BEFORE onChange so the useEffect above can skip
             isOwnUpdateRef.current = true
             onChange(flatToNested(next))
           }
