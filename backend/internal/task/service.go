@@ -149,6 +149,7 @@ func (s *Service) PauseTask(ctx context.Context, taskID, userID string) error {
 	return err
 }
 
+// TODO: Use Tx to mark all todos as done
 func (s *Service) SubmitTask(ctx context.Context, taskID, userID string) error {
 	task, err := s.repo.GetByID(ctx, taskID, userID)
 	if err != nil {
