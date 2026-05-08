@@ -156,7 +156,7 @@ export default function FocusPage() {
 
             {/* Todos card — with scroll */}
             <div className="rounded-2xl border border-border bg-white/60 shadow-sm overflow-hidden">
-              <div className="max-h-[441px] overflow-y-auto p-6">
+              <div className="max-h-[419px] overflow-y-auto p-6">
                 <TodosPanel
                   todos={todos}
                   isReadOnly={isReadOnly}
