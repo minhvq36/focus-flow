@@ -125,11 +125,9 @@ TodoRow.displayName = "TodoRow"
 interface EditableTodosProps {
   flat: FlatItem[]
   setFlat: React.Dispatch<React.SetStateAction<FlatItem[]>>
-  onChange: (todos: TodoItem[]) => void
-  isOwnUpdateRef: React.MutableRefObject<boolean>
 }
 
-function EditableTodos({ flat, setFlat, onChange, isOwnUpdateRef }: EditableTodosProps) {
+function EditableTodos({ flat, setFlat }: EditableTodosProps) {
   const inputRefs = useRef<Map<string, HTMLTextAreaElement>>(new Map())
 
   // flatRef: read current flat in event handlers without triggering re-renders
@@ -138,12 +136,6 @@ function EditableTodos({ flat, setFlat, onChange, isOwnUpdateRef }: EditableTodo
   flatRef.current = flat
 
   const doneCount = flat.filter((t) => t.done).length
-
-  // Sync function for critical actions
-  const syncNow = useCallback((nextFlat: FlatItem[]) => {
-    isOwnUpdateRef.current = true
-    onChange(flatToNested(nextFlat))
-  }, [onChange, isOwnUpdateRef])
 
   const registerRef = useCallback(
     (id: string, el: HTMLTextAreaElement | null) => {
@@ -176,13 +168,11 @@ function EditableTodos({ flat, setFlat, onChange, isOwnUpdateRef }: EditableTodo
 
   const toggleDone = useCallback(
     (id: string) => {
-      setFlat((prev) => {
-        const next = prev.map((t) => (t.id === id ? { ...t, done: !t.done } : t))
-        syncNow(next) // Immediate sync for toggle
-        return next
-      })
+      setFlat((prev) =>
+        prev.map((t) => (t.id === id ? { ...t, done: !t.done } : t))
+      )
     },
-    [setFlat, syncNow]
+    [setFlat]
   )
 
   const addAfter = useCallback(
@@ -215,11 +205,10 @@ function EditableTodos({ flat, setFlat, onChange, isOwnUpdateRef }: EditableTodo
         const idx = prev.findIndex((t) => t.id === id)
         const next = prev.filter((t) => t.id !== id)
         focusId(next[Math.max(0, idx - 1)].id)
-        syncNow(next) // Immediate sync for remove
         return next
       })
     },
-    [setFlat, focusId, syncNow]
+    [setFlat, focusId]
   )
 
   const indent = useCallback(
@@ -239,12 +228,10 @@ function EditableTodos({ flat, setFlat, onChange, isOwnUpdateRef }: EditableTodo
           const maxAllowed = prevItem ? prevItem.depth + 1 : 0
           if (nextDepth > maxAllowed) return prev
         }
-        const next = prev.map((t) => (t.id === id ? { ...t, depth: nextDepth } : t))
-        syncNow(next) // Immediate sync for indent
-        return next
+        return prev.map((t) => (t.id === id ? { ...t, depth: nextDepth } : t))
       })
     },
-    [setFlat, syncNow]
+    [setFlat]
   )
 
   // ⚡ Uses flatRef.current — navigation keys (↑↓) never call setFlat,
@@ -263,11 +250,6 @@ function EditableTodos({ flat, setFlat, onChange, isOwnUpdateRef }: EditableTodo
           const el = inputRefs.current.get(id)
           if (el) commitText(id, el.value)
           addAfter(id, item.depth)
-          // Immediate sync after Enter
-          setFlat((prev) => {
-            syncNow(prev)
-            return prev
-          })
           break
         }
         case "Backspace": {
@@ -301,27 +283,8 @@ function EditableTodos({ flat, setFlat, onChange, isOwnUpdateRef }: EditableTodo
     },
     // flatRef is a stable ref object — safe to exclude from deps
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [commitText, addAfter, remove, indent, focusId, syncNow]
+    [commitText, addAfter, remove, indent, focusId]
   )
-
-  // Debounce typing changes — sync every 2 seconds during typing
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      onChange(flatToNested(flat))
-    }, 2000)
-
-    return () => clearTimeout(timer)
-  }, [flat, onChange])
-
-  // Backup sync on beforeunload (tab close, page refresh, etc.)
-  useEffect(() => {
-    const handler = () => {
-      onChange(flatToNested(flat))
-    }
-
-    window.addEventListener("beforeunload", handler)
-    return () => window.removeEventListener("beforeunload", handler)
-  }, [flat, onChange])
 
   return (
     <div className="flex flex-col gap-3">
@@ -433,33 +396,43 @@ interface TodosPanelProps {
 export function TodosPanel({ todos, isReadOnly, onChange }: TodosPanelProps) {
   const [flat, setFlat] = useState<FlatItem[]>(() => nestedToFlat(todos))
 
-  // Track if we need to accept external updates
-  // When we're the ones triggering onChange, skip re-seeding
+  // Boolean flag: marks that the next `todos` prop change originated from us,
+  // so we don't re-seed flat from our own onChange output.
+  // Using a boolean avoids the reference-equality trap of comparing
+  // freshly-created nested objects (flatToNested always returns a new ref).
   const isOwnUpdateRef = useRef(false)
 
-  // Re-seed flat when todos prop changes externally (server push, undo/redo, etc.)
+  // FIX: useEffect instead of setState-during-render.
+  // Detects genuine external updates (server push, undo/redo)
+  // and re-seeds local flat state accordingly.
   useEffect(() => {
     if (isOwnUpdateRef.current) {
+      // This todos change came from our own onChange — skip re-seed
       isOwnUpdateRef.current = false
       return
     }
     setFlat(nestedToFlat(todos))
   }, [todos])
 
-  // Pure setFlat — just updates state, no sync
-  const setFlatPure = useCallback((action: React.SetStateAction<FlatItem[]>) => {
-    setFlat(action)
-  }, [])
-
-  // Return a wrapper that accepts setFlat signature
-  const setFlatWrapper: React.Dispatch<React.SetStateAction<FlatItem[]>> =
-    useCallback((action) => {
-      setFlatPure(action)
-    }, [setFlatPure])
+  const setFlatAndNotify: React.Dispatch<React.SetStateAction<FlatItem[]>> =
+    useCallback(
+      (action) => {
+        setFlat((prev) => {
+          const next = typeof action === "function" ? action(prev) : action
+          if (next !== prev) {
+            // Mark flag BEFORE onChange so the useEffect above can skip
+            isOwnUpdateRef.current = true
+            onChange(flatToNested(next))
+          }
+          return next
+        })
+      },
+      [onChange]
+    )
 
   if (isReadOnly) {
     return <ReadOnlyTodos flat={flat} />
   }
 
-  return <EditableTodos flat={flat} setFlat={setFlatWrapper} onChange={onChange} isOwnUpdateRef={isOwnUpdateRef} />
+  return <EditableTodos flat={flat} setFlat={setFlatAndNotify} />
 }
