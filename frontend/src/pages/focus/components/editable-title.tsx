@@ -18,9 +18,10 @@ interface EditableTitleProps {
   value: string
   isReadOnly: boolean
   onCommit?: (newTitle: string) => Promise<unknown>
+  displayClassName?: string
 }
 
-export function EditableTitle({ value, isReadOnly, onCommit }: EditableTitleProps) {
+export function EditableTitle({ value, isReadOnly, onCommit, displayClassName }: EditableTitleProps) {
   const [editing, setEditing] = useState(false)
   const [editingLength, setEditingLength] = useState<number | null>(null)
   // null = use prop value (no pending commit). Set immediately on commit,
@@ -123,7 +124,7 @@ export function EditableTitle({ value, isReadOnly, onCommit }: EditableTitleProp
 
   if (isReadOnly) {
     return (
-      <h1 className={cn("min-w-0 break-words font-bold leading-snug text-foreground", sizeClass)}>
+      <h1 className={cn("min-w-0 break-words font-bold leading-snug text-foreground", sizeClass, displayClassName)}>
         {displayValue}
       </h1>
     )
@@ -139,7 +140,8 @@ export function EditableTitle({ value, isReadOnly, onCommit }: EditableTitleProp
       onBlur={commit}
       onKeyDown={handleKeyDown}
       className={cn(
-        "w-full resize-none overflow-hidden bg-transparent font-bold leading-snug",
+        "w-full resize-none overflow-y-auto bg-transparent font-bold leading-snug",
+        "max-h-22",
         "text-foreground outline-none border-b-2 border-primary/60 pb-0.5 break-words",
         sizeClass,
       )}
@@ -155,6 +157,7 @@ export function EditableTitle({ value, isReadOnly, onCommit }: EditableTitleProp
           "min-w-0 flex-1 break-words font-bold leading-snug text-foreground",
           "transition-colors group-hover:text-primary",
           sizeClass,
+          displayClassName,
         )}
       >
         {displayValue}

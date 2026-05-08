@@ -148,11 +148,14 @@ export default function FocusPage() {
           {/* ── Left column: title + todos + action bar ── */}
           <div className="flex min-h-0 w-0 flex-1 flex-col gap-6 lg:h-full">
 
-            <EditableTitle
-              value={task.title}
-              isReadOnly={isReadOnly}
-              onCommit={updateTitle}
-            />
+            <div className="shrink-0 max-h-32 overflow-hidden">
+              <EditableTitle
+                value={task.title}
+                isReadOnly={isReadOnly}
+                onCommit={updateTitle}
+                displayClassName="line-clamp-4"
+              />
+            </div>
 
             {/* Todos card — with scroll */}
             <div className="rounded-2xl border border-border bg-white/60 shadow-sm overflow-hidden">
