@@ -82,6 +82,25 @@ export default function FocusPage() {
   const isReadOnly = task.status === 'submitted' || task.status === 'given_up'
   const totalSec = task.registered_duration_min * 60
 
+  const STATUS_CONFIG = {
+  active: {
+    label: 'Active',
+    color: 'text-emerald-600',
+  },
+  paused: {
+    label: 'Paused',
+    color: 'text-amber-600',
+  },
+  submitted: {
+    label: 'Submitted',
+    color: 'text-primary',
+  },
+  given_up: {
+    label: 'Given up',
+    color: 'text-red-500',
+  },
+} as const
+
   return (
     // overflow-hidden on root: prevents page scroll entirely
     <div className="flex min-h-dvh flex-col overflow-hidden" style={{ backgroundColor: '#f9f9f3' }}>
@@ -90,12 +109,29 @@ export default function FocusPage() {
       <header className="shrink-0 border-b border-border/60 bg-[#f9f9f3]/80 backdrop-blur-sm">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 md:px-8">
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate('/tasks')}>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-muted-foreground hover:text-foreground"
+              onClick={() => navigate('/tasks')}
+              aria-label="Back to tasks"
+            >
               <ArrowLeft className="h-4 w-4" />
             </Button>
-            <span className="text-sm text-muted-foreground">
-              {task.registered_duration_min} min session
-            </span>
+
+            <div className="flex items-center gap-2">
+              <span
+                className={`text-sm font-medium ${STATUS_CONFIG[task.status].color}`}
+              >
+                {STATUS_CONFIG[task.status].label}
+              </span>
+
+              <span className="text-muted-foreground/40">·</span>
+
+              <span className="text-sm text-muted-foreground">
+                {task.registered_duration_min} min session
+              </span>
+            </div>
           </div>
           <span className="text-xs text-muted-foreground/60">
             {new Date(task.created_at).toLocaleDateString('en-US', {
