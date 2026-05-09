@@ -159,13 +159,15 @@ export default function FocusPage() {
 
             {/* Todos card — with scroll */}
             <div className="rounded-2xl border border-border bg-white/60 shadow-sm overflow-hidden">
-              <div className="max-h-[419px] overflow-y-auto p-6">
-                <TodosPanel
-                  todos={todos}
-                  isReadOnly={isReadOnly}
-                  onChange={handleTodosChange}
-                />
-              </div>
+                <div className="max-h-[calc(100vh-300px)] overflow-y-auto scroll-smooth [scrollbar-gutter:stable]">
+                  <div className="p-6">
+                    <TodosPanel
+                      todos={todos}
+                      isReadOnly={isReadOnly}
+                      onChange={handleTodosChange}
+                    />
+                  </div>
+                </div>
             </div>
 
             {/* Action bar pinned to bottom of left column */}
