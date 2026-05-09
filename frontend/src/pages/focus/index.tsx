@@ -100,12 +100,14 @@ export default function FocusPage() {
     color: 'text-red-500',
   },
 } as const
+// ... (Phần logic phía trên giữ nguyên 100%)
 
   return (
-    // overflow-hidden on root: prevents page scroll entirely
-    <div className="flex min-h-dvh flex-col overflow-hidden" style={{ backgroundColor: '#f9f9f3' }}>
+    // THAY ĐỔI 1: Chỉ overflow-hidden ở desktop (lg). 
+    // Mobile bắt buộc phải cho cuộn toàn trang vì 2 cột xếp chồng lên nhau.
+    <div className="flex min-h-dvh flex-col overflow-x-hidden lg:overflow-hidden" style={{ backgroundColor: '#f9f9f3' }}>
 
-      {/* Header */}
+      {/* Header (Giữ nguyên) */}
       <header className="shrink-0 border-b border-border/60 bg-[#f9f9f3]/80 backdrop-blur-sm">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 md:px-8">
           <div className="flex items-center gap-3">
@@ -141,14 +143,16 @@ export default function FocusPage() {
         </div>
       </header>
 
-      {/* Body — fills remaining viewport height, no page scroll */}
-      <main className="min-h-0 flex-1 overflow-hidden">
-        <div className="mx-auto flex h-full max-w-6xl flex-col gap-8 px-4 py-8 md:px-8 lg:flex-row lg:items-start lg:gap-10">
+      {/* Body */}
+      <main className="min-h-0 flex-1 lg:overflow-hidden">
+        {/* THAY ĐỔI 2: lg:h-full giúp desktop chốt cứng chiều cao, mobile thì tự do giãn */}
+        <div className="mx-auto flex lg:h-full max-w-6xl flex-col gap-8 px-4 py-8 md:px-8 lg:flex-row lg:items-start lg:gap-10">
 
-          {/* ── Left column: title + todos + action bar ── */}
-          <div className="flex min-h-0 w-0 flex-1 flex-col gap-6 lg:h-full">
+          {/* ── Left column ── */}
+          <div className="flex min-h-0 w-full flex-col gap-6 lg:w-0 lg:flex-1 lg:h-full">
 
-            <div className="shrink-0 max-h-32 overflow-hidden">
+            {/* THAY ĐỔI 3: Bỏ max-h-32 và overflow-hidden. Để EditableTitle tự do múa */}
+            <div className="shrink-0">
               <EditableTitle
                 value={task.title}
                 isReadOnly={isReadOnly}
@@ -157,20 +161,21 @@ export default function FocusPage() {
               />
             </div>
 
-            {/* Todos card — with scroll */}
-            <div className="rounded-2xl border border-border bg-white/60 shadow-sm overflow-hidden">
-                <div className="max-h-[calc(100vh-300px)] overflow-y-auto scroll-smooth [scrollbar-gutter:stable]">
-                  <div className="p-6">
-                    <TodosPanel
-                      todos={todos}
-                      isReadOnly={isReadOnly}
-                      onChange={handleTodosChange}
-                    />
-                  </div>
+            {/* THAY ĐỔI 4: Bí kíp flex-1 min-h-0 thay cho calc() */}
+            {/* Vẫn xài trick tách lớp 2 div như cũ để scrollbar đẹp mắt */}
+            <div className="flex flex-1 flex-col min-h-0 rounded-2xl border border-border bg-white/60 shadow-sm overflow-hidden">
+              <div className="max-h-[calc(100vh-340px)] overflow-y-auto scroll-smooth [scrollbar-gutter:stable]">
+                <div className="p-6">
+                  <TodosPanel
+                    todos={todos}
+                    isReadOnly={isReadOnly}
+                    onChange={handleTodosChange}
+                  />
                 </div>
+              </div>
             </div>
 
-            {/* Action bar pinned to bottom of left column */}
+            {/* Action bar (Giữ nguyên) */}
             <div className="shrink-0">
               <div className="rounded-2xl border border-border bg-white/80 px-5 py-3 shadow-md backdrop-blur-sm">
                 <ActionBar
@@ -184,8 +189,9 @@ export default function FocusPage() {
             </div>
           </div>
 
-          {/* ── Right column: timer on top, notes below, own scroll ── */}
-          <div className="flex shrink-0 flex-col gap-6 lg:h-full lg:w-72 xl:w-80">
+          {/* ── Right column ── */}
+          {/* w-full ở mobile, lg:w-72 ở desktop */}
+          <div className="flex w-full shrink-0 flex-col gap-6 lg:h-full lg:w-72 xl:w-80">
 
             <div className="shrink-0">
               <TimerRing
@@ -195,8 +201,8 @@ export default function FocusPage() {
               />
             </div>
 
-            {/* Notes fills rest of right column height */}
-            <div className="min-h-0 flex-1 overflow-hidden">
+            {/* THAY ĐỔI 5: Tương tự Todos, thêm flex flex-col cho container của Notes */}
+            <div className="flex flex-1 flex-col min-h-0 overflow-hidden">
               <NotesBar taskId={task.id} isReadOnly={isReadOnly} />
             </div>
 

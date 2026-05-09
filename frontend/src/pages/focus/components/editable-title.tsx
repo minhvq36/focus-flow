@@ -141,7 +141,7 @@ export function EditableTitle({ value, isReadOnly, onCommit, displayClassName }:
       onKeyDown={handleKeyDown}
       className={cn(
         "w-full resize-none overflow-y-auto bg-transparent font-bold leading-snug",
-        "max-h-22",
+        "max-h-32",
         "text-foreground outline-none border-b-2 border-primary/60 pb-0.5 break-words",
         sizeClass,
       )}
