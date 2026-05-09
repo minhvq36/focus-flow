@@ -184,35 +184,29 @@
   html {
     background-color: #f3fbe6;
   }
-
   body {
     @apply text-foreground;
     min-height: 100dvh;
     overflow-x: hidden;
-    position: relative;
-    isolation: isolate;
-    /* Không set background ở đây — để ::before lo */
+    
+    background: linear-gradient(
+      -45deg,
+      #fafff5,
+      #e2f8cc,
+      #f0fde4,
+      #d8f5b8
+    );
+
+    background-size: 400% 400%;
+    animation: breathe-bg 60s ease infinite;
   }
-  /*
-  body::before {
-    content: '';
-    position: fixed;
-    inset: -20%;
-    z-index: -1;
-    width: 140%;
-    height: 140%;
-    background:
-      radial-gradient(ellipse 70% 55% at 15% 10%,  #f0fde4 0%, transparent 70%),
-      radial-gradient(ellipse 60% 50% at 88% 8%,   #fafff5 0%, transparent 65%),
-      radial-gradient(ellipse 65% 60% at 50% 48%,  #e2f8cc 0%, transparent 70%),
-      radial-gradient(ellipse 55% 50% at 8%  85%,  #d8f5b8 0%, transparent 65%),
-      radial-gradient(ellipse 70% 55% at 92% 90%,  #edfce0 0%, transparent 70%),
-      #f3fbe6;
-    animation:
-      blob-1 18s ease-in-out infinite,
-      blob-2 22s ease-in-out infinite 3s,
-      blob-3 27s ease-in-out infinite 7s,
-      blob-4 20s ease-in-out infinite 11s;
-    filter: blur(48px);
-  }*/
+  body.modal-open-pause-bg {
+    animation-play-state: paused !important;
+  }
+
+  @keyframes breathe-bg {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
 }

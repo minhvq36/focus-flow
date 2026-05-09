@@ -7,11 +7,30 @@ import { CreateTaskModal } from './components/create-task-modal'
 import { Alert } from '@/components/ui/alert'
 import { DEFAULT_FILTER } from '@/types/task'
 import type { FilterState } from '@/types/task'
+import { useEffect } from 'react';
 
 export default function TasksPage() {
   const [filter, setFilter] = useState<FilterState>(DEFAULT_FILTER)
   const { tasks, quota, loading, error, reload } = useTasks(filter)
   const[modalOpen, setModalOpen] = useState(false)
+  
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent("toggle-bg", { 
+      detail: { paused: modalOpen } 
+    }));
+    
+    // Tạm dừng luôn cả CSS Background Gradient
+    if (modalOpen) {
+      document.body.classList.add("modal-open-pause-bg");
+    } else {
+      document.body.classList.remove("modal-open-pause-bg");
+    }
+
+    return () => {
+      document.body.classList.remove("modal-open-pause-bg");
+      window.dispatchEvent(new CustomEvent("toggle-bg", { detail: { paused: false } }));
+    };
+  }, [modalOpen]);
 
   return (
     // THAY ĐỔI 1: Thêm h-full và flex flex-col để Container ăn trọn chiều cao từ AppLayout

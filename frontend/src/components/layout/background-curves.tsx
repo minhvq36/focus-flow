@@ -12,6 +12,14 @@ export function BackgroundCurves() {
   const isScrollableRef = useRef(false);
   // Biến t (từ 0 đến 1) để tạo hiệu ứng chuyển đổi mượt mà giữa 2 trạng thái
   const modeTransitionRef = useRef(0); 
+  
+  const isPausedRef = useRef(false);
+  useEffect(() => {
+    // Lắng nghe event từ Modal
+    const handlePause = (e: any) => { isPausedRef.current = e.detail.paused; };
+    window.addEventListener("toggle-bg", handlePause);
+    return () => window.removeEventListener("toggle-bg", handlePause);
+  },[]);
 
   // ─── 1. BỘ THEO DÕI THANH CUỘN ───────────────────────────────────────────
   useEffect(() => {
@@ -82,6 +90,8 @@ export function BackgroundCurves() {
     };
 
     const renderLoop = () => {
+      animationFrameIdRef.current = requestAnimationFrame(renderLoop);
+      if (isPausedRef.current) return; 
       // Tính toán Lerp (Linear Interpolation) để chuyển đổi cực mượt
       // Nếu có cuộn -> target = 1. Không cuộn -> target = 0
       const targetMode = isScrollableRef.current ? 1 : 0;
@@ -113,7 +123,6 @@ export function BackgroundCurves() {
       drawWave(150, 0.0025, Math.PI / 2, 2.0, 0.5, true, stepSize, "59, 130, 246", 30); // Xanh
       drawWave(220, 0.001, Math.PI / 1.5, 1.0, 0.4, true, stepSize, "236, 72, 153", -40); // Hồng
 
-      animationFrameIdRef.current = requestAnimationFrame(renderLoop);
     };
 
     renderLoop();
@@ -127,7 +136,7 @@ export function BackgroundCurves() {
   return (
     <canvas
       ref={canvasRef}
-      className="pointer-events-none fixed inset-0 z-[-1] h-full w-full"
+      className="pointer-events-none fixed inset-0 z-[0] h-full w-full"
       style={{
         // 2 Thuộc tính thần thánh cứu sống Scroll Performance
         willChange: "transform",
