@@ -182,59 +182,79 @@ function EditableTodos({ flat, setFlat }: EditableTodosProps) {
 
   const addAfter = useCallback(
     (afterId: string, depth: number) => {
+      // 1. Kiểm tra logic bên ngoài setState
+      const current = flatRef.current
+      if (current.length >= MAX_TODOS) {
+        toast.warning(`Maximum ${MAX_TODOS} todos reached`)
+        return
+      }
+
+      const newItem: FlatItem = {
+        id: crypto.randomUUID(),
+        text: "",
+        depth,
+        done: false,
+      }
+
+      // 2. Chỉ thực hiện update data thuần túy
       setFlat((prev) => {
-        if (prev.length >= MAX_TODOS) {
-          toast.warning(`Maximum ${MAX_TODOS} todos reached`)
-          return prev
-        }
+        if (prev.length >= MAX_TODOS) return prev // fallback an toàn
         const idx = prev.findIndex((t) => t.id === afterId)
-        const newItem: FlatItem = {
-          id: crypto.randomUUID(),
-          text: "",
-          depth,
-          done: false,
-        }
+        if (idx === -1) return prev
         const next = [...prev]
         next.splice(idx + 1, 0, newItem)
-        focusId(newItem.id)
         return next
       })
+
+      // 3. Side-effect focus (bắt buộc để ngoài)
+      focusId(newItem.id)
     },
     [setFlat, focusId]
   )
 
   const remove = useCallback(
     (id: string) => {
-      setFlat((prev) => {
-        if (prev.length <= 1) return prev
-        const idx = prev.findIndex((t) => t.id === id)
-        const next = prev.filter((t) => t.id !== id)
-        focusId(next[Math.max(0, idx - 1)].id)
-        return next
-      })
+      // 1. Lấy thông tin từ ref để tính toán trước
+      const current = flatRef.current
+      if (current.length <= 1) return
+      
+      const idx = current.findIndex((t) => t.id === id)
+      if (idx === -1) return
+      const idToFocus = current[Math.max(0, idx - 1)].id
+
+      // 2. Cập nhật state
+      setFlat((prev) => prev.filter((t) => t.id !== id))
+      
+      // 3. Thực hiện side-effect bên ngoài
+      focusId(idToFocus)
     },
     [setFlat, focusId]
   )
 
   const indent = useCallback(
     (id: string, delta: number) => {
-      setFlat((prev) => {
-        const idx = prev.findIndex((t) => t.id === id)
-        if (idx === -1) return prev
-        const item = prev[idx]
-        const nextDepth = item.depth + delta
-        if (nextDepth < 0) return prev
-        if (delta > 0) {
-          if (nextDepth > MAX_DEPTH) {
-            toast.warning(`Maximum nesting depth is ${MAX_DEPTH} levels`)
-            return prev
-          }
-          const prevItem = idx > 0 ? prev[idx - 1] : null
-          const maxAllowed = prevItem ? prevItem.depth + 1 : 0
-          if (nextDepth > maxAllowed) return prev
+      // 1. Validate logic bằng flatRef
+      const current = flatRef.current
+      const idx = current.findIndex((t) => t.id === id)
+      if (idx === -1) return
+      
+      const item = current[idx]
+      const nextDepth = item.depth + delta
+      if (nextDepth < 0) return
+      
+      if (delta > 0) {
+        if (nextDepth > MAX_DEPTH) {
+          // Toast giờ nằm NGOÀI setState, sẽ chỉ chạy đúng 1 lần!
+          toast.warning(`Maximum nesting depth is ${MAX_DEPTH} levels`)
+          return
         }
-        return prev.map((t) => (t.id === id ? { ...t, depth: nextDepth } : t))
-      })
+        const prevItem = idx > 0 ? current[idx - 1] : null
+        const maxAllowed = prevItem ? prevItem.depth + 1 : 0
+        if (nextDepth > maxAllowed) return
+      }
+
+      // 2. Set state thuần túy
+      setFlat((prev) => prev.map((t) => (t.id === id ? { ...t, depth: nextDepth } : t)))
     },
     [setFlat]
   )
