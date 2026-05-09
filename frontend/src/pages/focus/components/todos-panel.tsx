@@ -26,7 +26,7 @@ interface TodoRowProps {
   registerRef: (id: string, el: HTMLTextAreaElement | null) => void
 }
 
-const INDENT_SIZE = 32
+const INDENT_SIZE = 2
 const MAX_TODO_LENGTH = 500
 
 const TodoRow = React.memo(
@@ -50,7 +50,7 @@ const TodoRow = React.memo(
     return (
       <li
         className="group flex items-start gap-2.5"
-        style={{ paddingLeft: `${item.depth * INDENT_SIZE}px` }}
+        style={{ paddingLeft: `${item.depth * INDENT_SIZE}rem` }}
       >
         <button
           type="button"
@@ -351,7 +351,7 @@ function ReadOnlyTodos({ flat }: { flat: FlatItem[] }) {
           <li
             key={item.id}
             className="flex items-start gap-2.5"
-            style={{ paddingLeft: `${item.depth * INDENT_SIZE}px` }}
+            style={{ paddingLeft: `${item.depth * INDENT_SIZE}rem` }}
           >
             <div
               className={cn(

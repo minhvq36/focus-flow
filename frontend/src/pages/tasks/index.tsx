@@ -8,25 +8,24 @@ import { Alert } from '@/components/ui/alert'
 import { DEFAULT_FILTER } from '@/types/task'
 import type { FilterState } from '@/types/task'
 
-// Chiều cao header + padding + quota text + alert row (khi xuất hiện)
-const HEIGHT_BASE    = 'calc(100vh - 220px)'
-const HEIGHT_COMPACT = 'calc(100vh - 284px)' // 220 + ~64px alert height
-
 export default function TasksPage() {
   const [filter, setFilter] = useState<FilterState>(DEFAULT_FILTER)
   const { tasks, quota, loading, error, reload } = useTasks(filter)
-  const [modalOpen, setModalOpen] = useState(false)
-
-  const quotaExceeded = quota.used >= quota.limit
+  const[modalOpen, setModalOpen] = useState(false)
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-8 md:px-8">
-      <div className="flex gap-6">
+    // THAY ĐỔI 1: Thêm h-full và flex flex-col để Container ăn trọn chiều cao từ AppLayout
+    <div className="mx-auto flex h-full w-full max-w-6xl flex-col px-4 py-8 md:px-8">
+      
+      {/* THAY ĐỔI 2: flex-1 min-h-0 giúp nội dung bên trong không bao giờ bị tràn ra ngoài */}
+      <div className="flex flex-1 gap-6 min-h-0">
 
         {/* ── Left: task list ── */}
-        <section className="w-full md:w-[63%]">
+        {/* THAY ĐỔI 3: Chỉnh lại width thành w-3/5 (~60%) thay vì 63% để cộng với sidebar 40% (w-2/5) không bị lố */}
+        <section className="flex w-full flex-col md:w-[63%] min-h-0">
+          
           {loading ? (
-            <div className="flex items-center justify-center py-24 text-muted-foreground">
+            <div className="flex flex-1 items-center justify-center text-muted-foreground">
               <Loader2 className="h-6 w-6 animate-spin" />
             </div>
           ) : error ? (
@@ -42,17 +41,19 @@ export default function TasksPage() {
               </button>
             </Alert>
           ) : (
+            // THAY ĐỔI 4: Không cần truyền maxHeight vào đây nữa!
+            // Component TaskList sẽ tự động chiếm vùng không gian còn lại nhờ Flexbox.
             <TaskList
               tasks={tasks}
               quota={quota}
               onNewTask={() => setModalOpen(true)}
-              maxHeight={quotaExceeded ? HEIGHT_COMPACT : HEIGHT_BASE}
             />
           )}
         </section>
 
         {/* ── Right: filters + garden summary ── */}
-        <aside className="hidden md:block md:w-[40%]">
+        {/* THAY ĐỔI 5: Dùng w-2/5 (40%) và shrink-0 để không bị bóp */}
+        <aside className="hidden md:w-[37%] shrink-0 md:block">
           <TaskSidebar
             filter={filter}
             onFilterChange={setFilter}

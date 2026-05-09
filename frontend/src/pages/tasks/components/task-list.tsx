@@ -3,7 +3,7 @@ import { TaskCard } from './task-card'
 import type { TaskSummary, QuotaToday } from '@/types/task'
 import { Alert } from '@/components/ui/alert'
 
-// ─── Sub-components tách biệt (Chỉ dùng nội bộ trong file này) ─────────────
+// ─── Sub-components ──────────────────────────────────────────────────────────
 
 function TaskHeader({
   quota,
@@ -31,7 +31,7 @@ function TaskHeader({
         <button
           type="button"
           onClick={onNewTask}
-          className="flex shrink-0 items-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 transition-opacity shadow-sm"
+          className="flex shrink-0 items-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground shadow-sm transition-opacity hover:opacity-90"
         >
           <Plus className="h-4 w-4" />
           New Task
@@ -56,7 +56,7 @@ function EmptyState({ onNewTask }: { onNewTask: () => void }) {
       <button
         type="button"
         onClick={onNewTask}
-        className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 transition-opacity"
+        className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
       >
         <Plus className="h-4 w-4" />
         New Task
@@ -65,7 +65,7 @@ function EmptyState({ onNewTask }: { onNewTask: () => void }) {
   )
 }
 
-// ─── Main Component ───────────────────────────────────────────────────────────
+// ─── Main Component ──────────────────────────────────────────────────────────
 
 interface TaskListProps {
   tasks: TaskSummary[]
@@ -73,9 +73,7 @@ interface TaskListProps {
   onNewTask: () => void
   /**
    * Max height of the scrollable task list area.
-   * Accepts any valid CSS value — e.g. "400px", "50vh", "calc(100vh - 220px)".
-   * Defaults to "calc(100vh - 220px)" so it fills the remaining viewport
-   * without causing a global page scroll.
+   * Defaults to "calc(100vh - 220px)" to prevent full-page scrolls.
    */
   maxHeight?: string
 }
@@ -84,22 +82,24 @@ export function TaskList({
   tasks,
   quota,
   onNewTask,
-  maxHeight = 'calc(100vh - 220px)',
+  maxHeight = 'calc(100vh - 203px)',
 }: TaskListProps) {
   const quotaExceeded = quota.used >= quota.limit
 
   return (
     <div className="flex flex-col gap-4">
-      {/* ── Header (fixed, never scrolls) ── */}
-      <TaskHeader
-        quota={quota}
-        onNewTask={onNewTask}
-        hideButton={quotaExceeded || tasks.length === 0}
-      />
+      {/* ── Header (fixed) ── */}
+      <div className="shrink-0">
+        <TaskHeader
+          quota={quota}
+          onNewTask={onNewTask}
+          hideButton={quotaExceeded || tasks.length === 0}
+        />
+      </div>
 
-      {/* ── Quota warning (fixed, never scrolls) ── */}
+      {/* ── Quota warning (fixed) ── */}
       {quotaExceeded && (
-        <Alert variant="warning">
+        <Alert variant="warning" className="shrink-0">
           <AlertTriangle className="h-4 w-4" />
           Daily limit reached ({quota.used}/{quota.limit}). Resets tomorrow.
         </Alert>
@@ -107,27 +107,13 @@ export function TaskList({
 
       {/* ── Scrollable task list ── */}
       <div
-        className="mt-2"
-        style={{ maxHeight, overflowY: 'auto' }}
-        /*
-         * Dùng inline style cho maxHeight thay vì Tailwind arbitrary value
-         * để prop `maxHeight` hoạt động đúng lúc runtime.
-         *
-         * scrollbar-gutter: stable → giữ layout ổn định khi scrollbar xuất hiện/mất.
-         * scroll-behavior: smooth → cuộn mượt khi dùng scrollIntoView().
-         */
+        className="mt-2 overflow-y-auto pr-1 scroll-smooth [scrollbar-gutter:stable]"
+        style={{ maxHeight }}
       >
         {tasks.length === 0 ? (
           <EmptyState onNewTask={onNewTask} />
         ) : (
-          <ul
-            className="flex flex-col gap-3 pb-3"
-            /*
-             * Thêm padding-right nhỏ để nội dung không dính sát scrollbar
-             * khi danh sách đủ dài để scroll.
-             */
-            style={{ paddingRight: '4px' }}
-          >
+          <ul className="flex flex-col gap-3 pb-3">
             {tasks.map((task) => (
               <TaskCard key={task.id} task={task} />
             ))}
