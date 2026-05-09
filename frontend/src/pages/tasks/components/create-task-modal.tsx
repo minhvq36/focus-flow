@@ -164,11 +164,11 @@ export function CreateTaskModal({ open, onOpenChange }: CreateTaskModalProps) {
         </DialogHeader>
 
         <div
-          className="flex flex-col gap-5 overflow-y-auto px-6 py-5"
+          className="flex flex-col gap-5 overflow-hidden px-6 py-5"
           style={{ maxHeight: '70vh' }}
         >
           {/* Title */}
-          <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-1.5 shrink-0">
             <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
               What will you focus on?
             </label>
@@ -188,28 +188,33 @@ export function CreateTaskModal({ open, onOpenChange }: CreateTaskModalProps) {
           </div>
 
           {/* Todos */}
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+          <div className="flex flex-col gap-1.5 shrink min-h-0">
+            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide shrink-0">
               Todo checklist
             </label>
-            <Controller
-              name="todos"
-              control={control}
-              render={({ field }) => (
-                <TodoEditor
-                  todos={field.value}
-                  onChange={(next, valid) => {
-                    field.onChange(next)
-                    // Clear the todos error eagerly once user adds content
-                    if (valid && errors.todos) {
-                      clearErrors('todos')
-                    }
-                  }}
-                  autoFocus={false}
-                  disabled={isSubmitting}
-                />
-              )}
-            />
+            
+            {/* THÊM WRAPPER NÀY: Giới hạn chiều cao và bật scroll cho riêng Todo */}
+            <div className="max-h-[35vh] overflow-y-auto pr-1 -mr-1 custom-scrollbar">
+              <Controller
+                name="todos"
+                control={control}
+                render={({ field }) => (
+                  <TodoEditor
+                    todos={field.value}
+                    onChange={(next, valid) => {
+                      field.onChange(next)
+                      // Clear the todos error eagerly once user adds content
+                      if (valid && errors.todos) {
+                        clearErrors('todos')
+                      }
+                    }}
+                    autoFocus={false}
+                    disabled={isSubmitting}
+                  />
+                )}
+              />
+            </div>
+
             {errors.todos && (
               <p className="text-xs text-destructive">{errors.todos.message}</p>
             )}
@@ -219,7 +224,7 @@ export function CreateTaskModal({ open, onOpenChange }: CreateTaskModalProps) {
           </div>
 
           {/* Duration */}
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2 shrink-0">
             <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
               Session duration
             </label>

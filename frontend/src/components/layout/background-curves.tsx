@@ -13,13 +13,13 @@ export function BackgroundCurves() {
   // Biến t (từ 0 đến 1) để tạo hiệu ứng chuyển đổi mượt mà giữa 2 trạng thái
   const modeTransitionRef = useRef(0); 
   
-  const isPausedRef = useRef(false);
-  useEffect(() => {
-    // Lắng nghe event từ Modal
-    const handlePause = (e: any) => { isPausedRef.current = e.detail.paused; };
-    window.addEventListener("toggle-bg", handlePause);
-    return () => window.removeEventListener("toggle-bg", handlePause);
-  },[]);
+  // const isPausedRef = useRef(false);
+  // useEffect(() => {
+  //   // Lắng nghe event từ Modal
+  //   const handlePause = (e: any) => { isPausedRef.current = e.detail.paused; };
+  //   window.addEventListener("toggle-bg", handlePause);
+  //   return () => window.removeEventListener("toggle-bg", handlePause);
+  // },[]);
 
   // ─── 1. BỘ THEO DÕI THANH CUỘN ───────────────────────────────────────────
   useEffect(() => {
@@ -91,7 +91,7 @@ export function BackgroundCurves() {
 
     const renderLoop = () => {
       animationFrameIdRef.current = requestAnimationFrame(renderLoop);
-      if (isPausedRef.current) return; 
+      // if (isPausedRef.current) return; 
       // Tính toán Lerp (Linear Interpolation) để chuyển đổi cực mượt
       // Nếu có cuộn -> target = 1. Không cuộn -> target = 0
       const targetMode = isScrollableRef.current ? 1 : 0;
