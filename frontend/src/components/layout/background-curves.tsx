@@ -103,7 +103,7 @@ export function BackgroundCurves() {
       timeRef.current += timeIncrement;
 
       // 2. TỐI ƯU DENSITY: t=0 -> 8px (Nét căng), t=1 -> 20px (Giảm 60% vòng lặp CPU)
-      const stepSize = Math.max(8, Math.floor(8 + (12 * t)));
+      const stepSize = Math.max(10, Math.floor(8 + (12 * t)));
 
       ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
 

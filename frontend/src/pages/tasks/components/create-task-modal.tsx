@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useForm, Controller } from 'react-hook-form'
 import { ChevronRight, Loader2, HelpCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -35,6 +36,13 @@ function makeDefaultTodo(): FlatItem {
   return { id: crypto.randomUUID(), text: '', depth: 0, done: false }
 }
 
+// ─── Form Values ──────────────────────────────────────────────────────────────
+
+interface FormValues {
+  title: string
+  todos: FlatItem[]
+}
+
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 interface CreateTaskModalProps {
@@ -45,32 +53,40 @@ interface CreateTaskModalProps {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function CreateTaskModal({ open, onOpenChange }: CreateTaskModalProps) {
-  const navigate = useNavigate()
+  const navigate    = useNavigate()
   const queryClient = useQueryClient()
 
-  const [title, setTitle]           = useState('')
-  const [todos, setTodos]           = useState<FlatItem[]>([makeDefaultTodo()])
-  const [_todosValid, setTodosValid] = useState(false)
+  // ── RHF — chỉ cho các field liên quan đến typing (title, todos) ───────────
+  const {
+    register,
+    control,
+    handleSubmit,
+    reset: resetForm,
+    formState: { errors, isSubmitting },
+    setError,
+    clearErrors,
+  } = useForm<FormValues>({
+    defaultValues: {
+      title: '',
+      todos: [makeDefaultTodo()],
+    },
+  })
+
+  // ── Local state — các field không liên quan đến typing ────────────────────
   const [durationMin, setDurationMin] = useState<number>(25)
-  const [isCustom, setIsCustom]     = useState(false)
+  const [isCustom, setIsCustom]       = useState(false)
   // raw string while user is typing — avoids the "25 → 2530" problem
-  const [customRaw, setCustomRaw]   = useState('25')
+  const [customRaw, setCustomRaw]     = useState('25')
   const [penaltyMode, setPenaltyMode] = useState(false)
-  const [titleError, setTitleError] = useState<string | null>(null)
-  const [submitting, setSubmitting] = useState(false)
 
   // ── Reset ──────────────────────────────────────────────────────────────────
 
   function reset() {
-    setTitle('')
-    setTodos([makeDefaultTodo()])
-    setTodosValid(false)
+    resetForm({ title: '', todos: [makeDefaultTodo()] })
     setDurationMin(25)
     setIsCustom(false)
     setCustomRaw('25')
     setPenaltyMode(false)
-    setTitleError(null)
-    setSubmitting(false)
   }
 
   function handleOpenChange(v: boolean) {
@@ -107,27 +123,20 @@ export function CreateTaskModal({ open, onOpenChange }: CreateTaskModalProps) {
 
   // ── Submit ─────────────────────────────────────────────────────────────────
 
-  async function handleSubmit() {
-    if (!title.trim()) {
-      setTitleError('Title is required.')
-      return
-    }
-    setTitleError(null)
-
-    const sanitized = sanitizeFlat(todos)
+  const onSubmit = handleSubmit(async (values) => {
+    const sanitized = sanitizeFlat(values.todos)
     const nested    = flatToNested(sanitized)
+
     if (nested.length === 0 || !sanitized.some(t => t.text.trim())) {
-      toast.error('Add at least one todo item.')
+      setError('todos', { message: 'Add at least one todo item.' })
       return
     }
-
-    setSubmitting(true)
 
     const body: CreateTaskRequest = {
-      title:                  title.trim(),
-      todos:                  nested,
+      title:                   values.title.trim(),
+      todos:                   nested,
       registered_duration_min: finalDuration,
-      penalty_mode:           penaltyMode,
+      penalty_mode:            penaltyMode,
     }
 
     try {
@@ -142,9 +151,8 @@ export function CreateTaskModal({ open, onOpenChange }: CreateTaskModalProps) {
       } else {
         toast.error(e.message ?? 'Failed to create task. Please try again.')
       }
-      setSubmitting(false)
     }
-  }
+  })
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -167,13 +175,15 @@ export function CreateTaskModal({ open, onOpenChange }: CreateTaskModalProps) {
             <Input
               autoFocus
               placeholder="e.g. Write the product brief"
-              value={title}
-              onChange={e => { setTitle(e.target.value); setTitleError(null) }}
-              onKeyDown={e => e.key === 'Enter' && handleSubmit()}
-              className={cn('text-sm bg-white', titleError && 'border-destructive focus-visible:ring-destructive')}
+              {...register('title', { required: 'Title is required.' })}
+              onKeyDown={e => { if (e.key === 'Enter') onSubmit() }}
+              className={cn(
+                'text-sm bg-white',
+                errors.title && 'border-destructive focus-visible:ring-destructive',
+              )}
             />
-            {titleError && (
-              <p className="text-xs text-destructive">{titleError}</p>
+            {errors.title && (
+              <p className="text-xs text-destructive">{errors.title.message}</p>
             )}
           </div>
 
@@ -182,12 +192,27 @@ export function CreateTaskModal({ open, onOpenChange }: CreateTaskModalProps) {
             <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
               Todo checklist
             </label>
-            <TodoEditor
-              todos={todos}
-              onChange={(next, valid) => { setTodos(next); setTodosValid(valid) }}
-              autoFocus={false}
-              disabled={submitting}
+            <Controller
+              name="todos"
+              control={control}
+              render={({ field }) => (
+                <TodoEditor
+                  todos={field.value}
+                  onChange={(next, valid) => {
+                    field.onChange(next)
+                    // Clear the todos error eagerly once user adds content
+                    if (valid && errors.todos) {
+                      clearErrors('todos')
+                    }
+                  }}
+                  autoFocus={false}
+                  disabled={isSubmitting}
+                />
+              )}
             />
+            {errors.todos && (
+              <p className="text-xs text-destructive">{errors.todos.message}</p>
+            )}
             <p className="text-[11px] text-muted-foreground/70">
               Enter to add · Tab to indent · Shift+Tab to unindent
             </p>
@@ -245,8 +270,8 @@ export function CreateTaskModal({ open, onOpenChange }: CreateTaskModalProps) {
                     value={customRaw}
                     onChange={e => {
                       // Filter to only allow digits (0-9)
-                      const onlyNumbers = e.target.value.replace(/[^0-9]/g, '');
-                      setCustomRaw(onlyNumbers);
+                      const onlyNumbers = e.target.value.replace(/[^0-9]/g, '')
+                      setCustomRaw(onlyNumbers)
                     }}
                     onBlur={commitCustom}
                     placeholder={String(CUSTOM_MIN)}
@@ -302,7 +327,7 @@ export function CreateTaskModal({ open, onOpenChange }: CreateTaskModalProps) {
             <Switch
               checked={penaltyMode}
               onCheckedChange={setPenaltyMode}
-              disabled={submitting}
+              disabled={isSubmitting}
             />
           </div>
 
@@ -311,18 +336,18 @@ export function CreateTaskModal({ open, onOpenChange }: CreateTaskModalProps) {
             <Button
               variant="outline"
               onClick={() => handleOpenChange(false)}
-              disabled={submitting}
+              disabled={isSubmitting}
               className="bg-white"
             >
               Cancel
             </Button>
             <Button
-              onClick={handleSubmit}
-              disabled={submitting}
+              onClick={onSubmit}
+              disabled={isSubmitting}
               className="gap-2"
             >
-              {submitting ? 'Creating…' : 'Create & Start'}
-              {submitting ? (
+              {isSubmitting ? 'Creating…' : 'Create & Start'}
+              {isSubmitting ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <ChevronRight className="h-4 w-4" />
