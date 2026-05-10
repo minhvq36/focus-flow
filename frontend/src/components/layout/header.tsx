@@ -9,38 +9,70 @@ const tabs = [
   { path: '/tasks',  label: 'My Tasks'  },
 ]
 
+// 1. TỐI ƯU BỘ NHỚ: Khởi tạo formatter ở ngoài Component.
+// Việc này giúp JS Engine không phải khởi tạo lại Object DateFormat mỗi lần render.
+const dateFormatter = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  timeZone: "UTC",
+})
+
 function UtcClock() {
-  const [display, setDisplay] = useState<{ date: string; time: string } | null>(null)
+  // 2. CHỐNG CLS (Giật Layout): Khởi tạo state bằng string có độ dài chuẩn.
+  // Tabular-nums sẽ giúp "00:00:00" chiếm đúng diện tích bằng giờ thật.
+  const [timeStr, setTimeStr] = useState("00:00:00")
+  const [dateStr, setDateStr] = useState("...") 
+  const[isMounted, setIsMounted] = useState(false) // Dùng để làm hiệu ứng fade-in
 
   useEffect(() => {
+    let lastDateNum = -1
+
     function tick() {
       const now = new Date()
-      const date = now.toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        timeZone: "UTC",
-      })
+
+      // Vẫn giữ padStart cho time vì đây là thuật toán O(1) nhẹ nhất của JS
       const hh = String(now.getUTCHours()).padStart(2, "0")
       const mm = String(now.getUTCMinutes()).padStart(2, "0")
       const ss = String(now.getUTCSeconds()).padStart(2, "0")
-      setDisplay({ date, time: `${hh}:${mm}:${ss}` })
-    }
-    tick()
-    const id = setInterval(tick, 1000)
-    return () => clearInterval(id)
-  }, [])
+      setTimeStr(`${hh}:${mm}:${ss}`)
 
-  if (!display) return null
+      const currentUtcDate = now.getUTCDate()
+      if (currentUtcDate !== lastDateNum) {
+        lastDateNum = currentUtcDate
+        // Dùng formatter đã cache ở ngoài để format
+        setDateStr(dateFormatter.format(now))
+      }
+    }
+
+    tick()
+    setIsMounted(true) // Render xong lần 1 có data thật mới cho hiện
+    const id = setInterval(tick, 1000)
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") tick()
+    }
+    document.addEventListener("visibilitychange", handleVisibilityChange)
+
+    return () => {
+      clearInterval(id)
+      document.removeEventListener("visibilitychange", handleVisibilityChange)
+    }
+  },[])
 
   return (
     <div
-      className="hidden items-center gap-2 rounded-md px-3 py-1.5 md:flex"
+      // 3. UX ĐỈNH CAO: Dùng opacity-0 lúc init để giữ nguyên chỗ trống (chống đẩy Layout),
+      // khi có data thì fade-in mượt mà với duration-300
+      className={cn(
+        "hidden items-center gap-2 rounded-md px-3 py-1.5 md:flex transition-opacity duration-300",
+        isMounted ? "opacity-100" : "opacity-0"
+      )}
       title="Current date and time in UTC"
-      aria-label={`UTC: ${display.date} ${display.time}`}
+      aria-label={`UTC: ${dateStr} ${timeStr}`}
     >
-      <span className="text-xs text-muted-foreground">{display.date}</span>
+      <span className="text-xs text-muted-foreground">{dateStr}</span>
       <span className="h-3 w-px bg-border" aria-hidden="true" />
-      <span className="font-mono text-xs font-medium tabular-nums text-foreground">{display.time}</span>
+      <span className="font-mono text-xs font-medium tabular-nums text-foreground">{timeStr}</span>
       <span className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">UTC</span>
     </div>
   )
