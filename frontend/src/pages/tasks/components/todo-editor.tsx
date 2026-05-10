@@ -2,6 +2,7 @@ import { useRef, useCallback } from 'react'
 import { ChevronRight, Trash2, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import { type FlatItem, validateFlat, MAX_TODOS, MAX_DEPTH } from '@/pages/tasks/utils/todo-utils'
+import { createTextConstraintHandlers } from '@/pages/tasks/utils/text-constraints'
 
 function findFirstNonEmptyDescendant(flat: FlatItem[], startIdx: number): string | null {
   const parentDepth = flat[startIdx].depth
@@ -87,7 +88,7 @@ export interface TodoEditorProps {
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
-
+const todoConstraints = createTextConstraintHandlers<HTMLInputElement>(500)
 export function TodoEditor({ todos, onChange, disabled = false, autoFocus = false }: TodoEditorProps) {
   const inputRefs = useRef<Record<string, HTMLInputElement | null>>({})
 
@@ -187,6 +188,7 @@ export function TodoEditor({ todos, onChange, disabled = false, autoFocus = fals
           />
 
           <input
+            {...todoConstraints}
             ref={el => { inputRefs.current[item.id] = el }}
             value={item.text}
             onChange={e => updateText(item.id, e.target.value)}

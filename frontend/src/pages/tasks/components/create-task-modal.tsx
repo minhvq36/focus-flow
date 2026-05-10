@@ -25,12 +25,15 @@ import { type FlatItem, flatToNested } from '@/pages/tasks/utils/todo-utils'
 import type { Task, CreateTaskRequest } from '@/types/task'
 
 import { useQueryClient } from '@tanstack/react-query'
+import { createTextConstraintHandlers } from '@/pages/tasks/utils/text-constraints'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const DURATIONS = [25, 30, 45, 60, 90, 120] as const
 const CUSTOM_MIN = 25
 const CUSTOM_MAX = 480
+
+const titleConstraints = createTextConstraintHandlers<HTMLInputElement>(255)
 
 function makeDefaultTodo(): FlatItem {
   return { id: crypto.randomUUID(), text: '', depth: 0, done: false }
@@ -176,6 +179,7 @@ export function CreateTaskModal({ open, onOpenChange }: CreateTaskModalProps) {
               autoFocus
               placeholder="e.g. Write the product brief"
               {...register('title', { required: 'Title is required.' })}
+              {...titleConstraints}
               onKeyDown={e => { if (e.key === 'Enter') onSubmit() }}
               className={cn(
                 'text-sm bg-white',
