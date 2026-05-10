@@ -32,15 +32,47 @@ export default function FocusPage() {
     setElapsed(calcElapsed(task.actual_duration_sec, task.started_at))
   }, [task])
 
+// ... (giữ nguyên phần seededRef bên trên)
+
   useEffect(() => {
-    if (!task) return
-    if (task.status === 'active') {
-      intervalRef.current = setInterval(() => setElapsed(s => s + 1), 1000)
-    } else {
-      if (intervalRef.current) clearInterval(intervalRef.current)
+    // 1. Dọn dẹp interval cũ nếu có
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current)
+      intervalRef.current = null
     }
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
-  }, [task?.status])
+
+    if (!task || task.status !== 'active' || !task.started_at) return
+
+    // 2. PARSE NGÀY CHỈ MỘT LẦN KHI MOUNT/ACTIVE (Tối ưu hiệu năng)
+    const startTimeMs = new Date(task.started_at).getTime()
+    const baseDurationSec = task.actual_duration_sec
+
+    // 3. Hàm tính toán và cập nhật giờ dựa trên mốc thời gian tuyệt đối (Date.now())
+    const updateTimer = () => {
+      const nowMs = Date.now()
+      const deltaSec = Math.floor((nowMs - startTimeMs) / 1000)
+      setElapsed(baseDurationSec + Math.max(0, deltaSec))
+    }
+
+    // Set ngay lập tức để tránh delay 1s đầu tiên
+    updateTimer()
+
+    // Chạy interval mỗi giây
+    intervalRef.current = setInterval(updateTimer, 1000)
+
+    // 4. BÍ KÍP CHỐNG LAGGING KHI ĐỔI TAB: Lắng nghe sự kiện tab được focus lại
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        updateTimer() // Cập nhật ngay tức thì khi người dùng quay lại tab
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  },[task?.status, task?.started_at, task?.actual_duration_sec])
 
   const [todos, setTodos] = useState<TodoItem[]>([])
   const todosInitRef = useRef(false)
