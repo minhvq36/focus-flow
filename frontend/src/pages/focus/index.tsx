@@ -10,6 +10,18 @@ import { ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { TodoItem } from '@/types/task'
 
+import { toast } from "sonner"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+
 function calcElapsed(actualDurationSec: number, startedAt: string | null): number {
   if (!startedAt) return actualDurationSec
   const delta = Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000)
@@ -25,14 +37,14 @@ export default function FocusPage() {
   const [elapsed, setElapsed] = useState(0)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
+  const [showGiveUpConfirm, setShowGiveUpConfirm] = useState(false)
+
   const seededRef = useRef(false)
   useEffect(() => {
     if (!task || seededRef.current) return
     seededRef.current = true
     setElapsed(calcElapsed(task.actual_duration_sec, task.started_at))
   }, [task])
-
-// ... (giữ nguyên phần seededRef bên trên)
 
   useEffect(() => {
     // 1. Dọn dẹp interval cũ nếu có
@@ -96,7 +108,13 @@ export default function FocusPage() {
       clearTimeout(debounceRef.current)
       debounceRef.current = null
     }
-    await updateTodos(todos)
+    try {
+      await updateTodos(todos)
+    } catch (error) {
+      // TODO: To map with specific error from api
+      toast.error("An error occurred. Try to check connection.")
+      throw error
+    }
   }
 
   if (isLoading) return (
@@ -132,7 +150,43 @@ export default function FocusPage() {
     color: 'text-red-500',
   },
 } as const
-// ... (Phần logic phía trên giữ nguyên 100%)
+
+// --- 1. HÀM XỬ LÝ SUBMIT CHẶN KHI CHƯA XONG TODOS ---
+  async function handleActionSubmit() {
+    // Chỉ check khi task đang active
+    if (task?.status === 'active') {
+      const isAllDone = todos.every((todo) => todo.done)
+      
+      if (!isAllDone) {
+        // Bắn Sonner toast với border xanh như yêu cầu và KHÔNG gọi API
+        toast("Task is not yet complete", {
+          description: "Please complete all todos before submitting.",
+          style: {
+            border: "1px solid #3b82f6", // Border màu xanh (blue-500)
+            color: "#1e3a8a", 
+            backgroundColor: "#eff6ff"
+          },
+        })
+        return
+      }
+    }
+
+    // Pass qua được thì tiến hành sync todos và gọi API submit
+    await forceSyncTodos()
+    await submit()
+  }
+
+  // --- 2. HÀM XỬ LÝ GIVE UP (Chỉ mở popup) ---
+  function handleActionGiveUp() {
+    setShowGiveUpConfirm(true)
+  }
+
+  // --- 3. HÀM XÁC NHẬN GIVE UP (Khi user bấm Yes trong popup) ---
+  async function confirmGiveUp() {
+    await forceSyncTodos()
+    await giveUp()
+    setShowGiveUpConfirm(false)
+  }
 
   return (
     // THAY ĐỔI 1: Chỉ overflow-hidden ở desktop (lg). 
@@ -213,8 +267,8 @@ export default function FocusPage() {
                   status={task.status}
                   onPause={async () => { await forceSyncTodos(); await pause() }}
                   onResume={async () => { await resume() }}
-                  onSubmit={async () => { await forceSyncTodos(); await submit() }}
-                  onGiveUp={async () => { await forceSyncTodos(); await giveUp() }}
+                  onSubmit={handleActionSubmit}
+                  onGiveUp={handleActionGiveUp}
                 />
             </div>
           </div>
@@ -239,6 +293,21 @@ export default function FocusPage() {
           </div>
         </div>
       </main>
+
+      <AlertDialog open={showGiveUpConfirm} onOpenChange={setShowGiveUpConfirm}>
+        <AlertDialogContent className="w-[95vw] sm:max-w-2xl pt-8">
+          <AlertDialogHeader className="gap-4">
+            <AlertDialogTitle>Give up on this task?</AlertDialogTitle>
+            <AlertDialogDescription className="gap-4 pb-3">
+              This action cannot be undone. The task will be marked as given up.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-row justify-center gap-4 sm:justify-center py-4">
+            <AlertDialogCancel className="w-16 hover:bg-gray">No</AlertDialogCancel>
+            <AlertDialogAction className="w-16 bg-red-600 hover:bg-red-700 text-white" onClick={confirmGiveUp}>Yes</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
     </div>
   )
 }
