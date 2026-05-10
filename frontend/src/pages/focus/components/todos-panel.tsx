@@ -173,9 +173,38 @@ function EditableTodos({ flat, setFlat }: EditableTodosProps) {
 
   const toggleDone = useCallback(
     (id: string) => {
-      setFlat((prev) =>
-        prev.map((t) => (t.id === id ? { ...t, done: !t.done } : t))
-      )
+      setFlat((prev) => {
+        const idx = prev.findIndex((t) => t.id === id)
+        if (idx === -1) return prev
+
+        const item = prev[idx]
+        const isCurrentlyDone = item.done
+
+        if (isCurrentlyDone) {
+          // YÊU CẦU 2: UNCLICK (từ done -> undone) chỉ unclick chính nó
+          const next = [...prev]
+          next[idx] = { ...item, done: false }
+          return next
+        } else {
+          // YÊU CẦU 1: CLICK (từ undone -> done) done nó và TẤT CẢ descendants
+          const next = [...prev]
+          next[idx] = { ...item, done: true } // Done chính nó
+          
+          const parentDepth = item.depth
+
+          // Duyệt các phần tử ngay bên dưới nó
+          for (let i = idx + 1; i < prev.length; i++) {
+            // Nếu depth lớn hơn (tức là children, grandchildren...), thì mark done
+            if (prev[i].depth > parentDepth) {
+              next[i] = { ...prev[i], done: true }
+            } else {
+              // Gặp anh em (cùng depth) hoặc cha/chú (depth nhỏ hơn) -> Dừng lại ngay
+              break
+            }
+          }
+          return next
+        }
+      })
     },
     [setFlat]
   )
