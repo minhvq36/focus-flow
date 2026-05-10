@@ -109,7 +109,7 @@ export function TaskCard({ task, onSubmit }: TaskCardProps) {
 
             <span className={`
               inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5
-              text-[11px] font-medium ${cfg.badge}
+              text-[11px] font-medium whitespace-nowrap shrink-0 ${cfg.badge}
             `}>
               <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${cfg.dot}`} aria-hidden />
               {cfg.label}
