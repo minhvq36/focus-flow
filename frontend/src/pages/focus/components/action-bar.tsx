@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { ArrowLeft, Pause, Play, CheckCircle2, XCircle, ChevronDown } from "lucide-react"
+import { ArrowLeft, Pause, Play, CheckCircle2, XCircle, ChevronDown, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {
@@ -18,14 +18,13 @@ interface ActionBarProps {
   onResume: () => void
   onSubmit: () => void
   onGiveUp: () => void
+  isLoading?: boolean
 }
 
 type PrimaryAction = "submit" | "give_up"
 
-export function ActionBar({ status, onPause, onResume, onSubmit, onGiveUp }: ActionBarProps) {
+export function ActionBar({ status, onPause, onResume, onSubmit, onGiveUp, isLoading = false }: ActionBarProps) {
   const navigate = useNavigate()
-  
-  // State quản lý xem nút chính đang là Submit hay Give up
   const [primaryAction, setPrimaryAction] = useState<PrimaryAction>("submit")
 
   const isReadOnly = status === "submitted" || status === "given_up"
@@ -48,9 +47,8 @@ export function ActionBar({ status, onPause, onResume, onSubmit, onGiveUp }: Act
   const isActive = status === "active"
   const isSubmit = primaryAction === "submit"
 
-  // Thay đổi màu sắc dựa trên state (Xanh cho Submit, Đỏ cho Give up)
-  const actionBgClass = isSubmit 
-    ? "bg-green-600 hover:bg-green-700 text-white" 
+  const actionBgClass = isSubmit
+    ? "bg-green-600 hover:bg-green-700 text-white"
     : "bg-red-600 hover:bg-red-700 text-white"
 
   return (
@@ -58,6 +56,7 @@ export function ActionBar({ status, onPause, onResume, onSubmit, onGiveUp }: Act
       {/* Pause / Resume */}
       <Button
         onClick={isActive ? onPause : onResume}
+        disabled={isLoading}
         className={cn(
           "gap-2 text-sm border-0",
           isActive
@@ -65,37 +64,46 @@ export function ActionBar({ status, onPause, onResume, onSubmit, onGiveUp }: Act
             : "bg-primary text-primary-foreground hover:opacity-90"
         )}
       >
-        {isActive ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+        {isLoading ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : isActive ? (
+          <Pause className="h-4 w-4" />
+        ) : (
+          <Play className="h-4 w-4" />
+        )}
         {isActive ? "Pause" : "Resume"}
       </Button>
 
       {/* Split Button: Submit / Give up */}
       <div className="inline-flex rounded-md shadow-sm">
-        {/* Nút bên trái: Thực hiện hành động (Fetch) */}
         <Button
           onClick={isSubmit ? onSubmit : onGiveUp}
+          disabled={isLoading}
           className={cn(
             "gap-2 text-sm rounded-r-none border-r border-white/20 focus-visible:z-10",
             actionBgClass
           )}
         >
-          {isSubmit ? <CheckCircle2 className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
+          {isLoading ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : isSubmit ? (
+            <CheckCircle2 className="h-4 w-4" />
+          ) : (
+            <XCircle className="h-4 w-4" />
+          )}
           {isSubmit ? "Submit" : "Give up"}
         </Button>
 
-        {/* Nút bên phải: Sổ dropdown để thay đổi State */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button 
-              className={cn(
-                "px-2 rounded-l-none focus-visible:z-10", 
-                actionBgClass
-              )}
+            <Button
+              disabled={isLoading}
+              className={cn("px-2 rounded-l-none focus-visible:z-10", actionBgClass)}
             >
               <ChevronDown className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
-          
+
           <DropdownMenuContent align="end" className="w-44">
             <DropdownMenuItem
               onClick={() => setPrimaryAction("submit")}
@@ -104,9 +112,9 @@ export function ActionBar({ status, onPause, onResume, onSubmit, onGiveUp }: Act
               <CheckCircle2 className="h-4 w-4 text-green-600" />
               Submit task
             </DropdownMenuItem>
-            
+
             <DropdownMenuSeparator />
-            
+
             <DropdownMenuItem
               onClick={() => setPrimaryAction("give_up")}
               className="gap-2 focus:bg-red-50 focus:text-red-700"
