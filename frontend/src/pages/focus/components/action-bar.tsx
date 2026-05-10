@@ -1,3 +1,4 @@
+import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { ArrowLeft, Pause, Play, CheckCircle2, XCircle, ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -19,8 +20,14 @@ interface ActionBarProps {
   onGiveUp: () => void
 }
 
+type PrimaryAction = "submit" | "give_up"
+
 export function ActionBar({ status, onPause, onResume, onSubmit, onGiveUp }: ActionBarProps) {
   const navigate = useNavigate()
+  
+  // State quản lý xem nút chính đang là Submit hay Give up
+  const [primaryAction, setPrimaryAction] = useState<PrimaryAction>("submit")
+
   const isReadOnly = status === "submitted" || status === "given_up"
 
   if (isReadOnly) {
@@ -32,16 +39,22 @@ export function ActionBar({ status, onPause, onResume, onSubmit, onGiveUp }: Act
           onClick={() => navigate("/tasks")}
         >
           <ArrowLeft className="h-4 w-4" />
-          Back to My Tasks
+          My Tasks
         </Button>
       </div>
     )
   }
 
   const isActive = status === "active"
+  const isSubmit = primaryAction === "submit"
+
+  // Thay đổi màu sắc dựa trên state (Xanh cho Submit, Đỏ cho Give up)
+  const actionBgClass = isSubmit 
+    ? "bg-green-600 hover:bg-green-700 text-white" 
+    : "bg-red-600 hover:bg-red-700 text-white"
 
   return (
-    <div className="flex w-full items-center justify-end gap-2">
+    <div className="flex w-full items-center justify-end gap-3">
       {/* Pause / Resume */}
       <Button
         onClick={isActive ? onPause : onResume}
@@ -56,33 +69,54 @@ export function ActionBar({ status, onPause, onResume, onSubmit, onGiveUp }: Act
         {isActive ? "Pause" : "Resume"}
       </Button>
 
-      {/* Submit / Give up dropdown */}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="outline" className="gap-1.5 text-sm">
-            <CheckCircle2 className="h-4 w-4 text-primary" />
-            Submit
-            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-44">
-          <DropdownMenuItem
-            onClick={onSubmit}
-            className="gap-2 text-primary focus:text-primary"
-          >
-            <CheckCircle2 className="h-4 w-4" />
-            Submit task
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            onClick={onGiveUp}
-            className="gap-2 text-destructive focus:text-destructive"
-          >
-            <XCircle className="h-4 w-4" />
-            Give up
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      {/* Split Button: Submit / Give up */}
+      <div className="inline-flex rounded-md shadow-sm">
+        {/* Nút bên trái: Thực hiện hành động (Fetch) */}
+        <Button
+          onClick={isSubmit ? onSubmit : onGiveUp}
+          className={cn(
+            "gap-2 text-sm rounded-r-none border-r border-white/20 focus-visible:z-10",
+            actionBgClass
+          )}
+        >
+          {isSubmit ? <CheckCircle2 className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
+          {isSubmit ? "Submit" : "Give up"}
+        </Button>
+
+        {/* Nút bên phải: Sổ dropdown để thay đổi State */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button 
+              className={cn(
+                "px-2 rounded-l-none focus-visible:z-10", 
+                actionBgClass
+              )}
+            >
+              <ChevronDown className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          
+          <DropdownMenuContent align="end" className="w-44">
+            <DropdownMenuItem
+              onClick={() => setPrimaryAction("submit")}
+              className="gap-2 focus:bg-green-50 focus:text-green-700"
+            >
+              <CheckCircle2 className="h-4 w-4 text-green-600" />
+              Submit task
+            </DropdownMenuItem>
+            
+            <DropdownMenuSeparator />
+            
+            <DropdownMenuItem
+              onClick={() => setPrimaryAction("give_up")}
+              className="gap-2 focus:bg-red-50 focus:text-red-700"
+            >
+              <XCircle className="h-4 w-4 text-red-600" />
+              Give up
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
     </div>
   )
 }
