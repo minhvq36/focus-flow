@@ -208,8 +208,7 @@ export default function FocusPage() {
             </div>
 
             {/* Action bar (Giữ nguyên) */}
-            <div className="shrink-0">
-              <div className="rounded-2xl border border-border bg-white/80 px-5 py-3 shadow-md backdrop-blur-sm">
+            <div className="shrink-0 mt-1.5">
                 <ActionBar
                   status={task.status}
                   onPause={async () => { await forceSyncTodos(); await pause() }}
@@ -217,7 +216,6 @@ export default function FocusPage() {
                   onSubmit={async () => { await forceSyncTodos(); await submit() }}
                   onGiveUp={async () => { await forceSyncTodos(); await giveUp() }}
                 />
-              </div>
             </div>
           </div>
 
