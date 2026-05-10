@@ -64,9 +64,7 @@ export function ActionBar({ status, onPause, onResume, onSubmit, onGiveUp, isLoa
             : "bg-primary text-primary-foreground hover:opacity-90"
         )}
       >
-        {isLoading ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
-        ) : isActive ? (
+        {isActive ? (
           <Pause className="h-4 w-4" />
         ) : (
           <Play className="h-4 w-4" />
@@ -84,9 +82,7 @@ export function ActionBar({ status, onPause, onResume, onSubmit, onGiveUp, isLoa
             actionBgClass
           )}
         >
-          {isLoading ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : isSubmit ? (
+          {isSubmit ? (
             <CheckCircle2 className="h-4 w-4" />
           ) : (
             <XCircle className="h-4 w-4" />
