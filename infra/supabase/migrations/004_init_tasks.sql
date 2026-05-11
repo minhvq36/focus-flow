@@ -13,7 +13,8 @@ create table if not exists public.tasks (
     updated_at timestamptz not null default now(),
     completed_at timestamptz,
     deleted_at timestamptz,
-    constraint task_must_have_todos check (jsonb_array_length(todos)>0 and jsonb_array_length(todos)<=50) -- DONE: need valid with backend to handle nested deep structured + valid with frontend for max length of kind of text
+    constraint task_must_have_todos check (jsonb_array_length(todos)>0 and jsonb_array_length(todos)<=50), -- DONE: need valid with backend to handle nested deep structured + valid with frontend for max length of kind of text
+    constraint max_todos_size check (octet_length(todos::text) <= 51200)
 );
 
 create index if not exists idx_tasks_user_id on public.tasks(user_id);
