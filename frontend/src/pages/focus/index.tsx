@@ -87,7 +87,15 @@ export default function FocusPage() {
   const [todos, setTodos] = useState<TodoItem[]>([])
   const todosInitRef = useRef(false)
   useEffect(() => {
-    if (!task || todosInitRef.current) return
+    if (!task) return
+
+    if (task.status === 'submitted' || task.status === 'given_up') {
+      setTodos(task.todos)
+      return
+    }
+
+    if (todosInitRef.current) return
+    
     todosInitRef.current = true
     setTodos(task.todos)
   }, [task])
