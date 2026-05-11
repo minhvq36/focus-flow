@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { Play, Eye, Send, Clock, Sprout, Pause, CheckSquare, Calendar } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import type { TaskSummary, TaskStatus } from '@/types/task'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -91,7 +92,6 @@ export function TaskCard({ task, onSubmit, isSubmitting = false }: TaskCardProps
       rounded-xl border border-border border-l-4 ${cfg.border}
       bg-card/80 p-4 shadow-sm backdrop-blur-sm
       transition-shadow hover:shadow-md
-      ${isSubmitting ? 'opacity-50 pointer-events-none animate-pulse' : ''}
     `}>
       <div className="flex items-start justify-between gap-3">
 
@@ -169,18 +169,25 @@ export function TaskCard({ task, onSubmit, isSubmitting = false }: TaskCardProps
               <button
                 type="button"
                 onClick={() => navigate(`/focus/${task.id}`)}
-                className="inline-flex items-center gap-1.5 rounded-md px-3 h-8 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-md px-3 h-8 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors",
+                  isSubmitting && "opacity-50 pointer-events-none"
+                )}
               >
                 <Play className="h-3 w-3" />
                 Resume
               </button>
+
               <button
                 type="button"
                 onClick={() => onSubmit?.(task.id)}
-                className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 h-8 text-xs font-medium text-muted-foreground hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200 transition-colors"
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 h-8 text-xs font-medium text-muted-foreground hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200 transition-colors",
+                  isSubmitting && "opacity-50 pointer-events-none"
+                )}
               >
                 <Send className="h-3 w-3" />
-                {isSubmitting ? 'Submitting...' : 'Submit'}
+                {isSubmitting ? 'Submit' : 'Submit'}
               </button>
             </>
           )}
