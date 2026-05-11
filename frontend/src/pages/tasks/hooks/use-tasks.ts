@@ -117,4 +117,32 @@ export function useTasks(filter: FilterState = DEFAULT_FILTER) {
     createTask: createTaskMutation.mutateAsync,
     isCreating: createTaskMutation.isPending,
   }
+
+  const submitTaskMutation = useMutation({
+    mutationFn: (taskId: string) => 
+      // Sửa lại endpoint này cho đúng với Backend của bạn nhé (post, patch hay put)
+      api.post(`/api/tasks/${taskId}/submit`, {}), 
+    onSuccess: () => {
+      // Báo queryClient fetch lại list task sau khi submit thành công
+      queryClient.invalidateQueries({
+        queryKey: ['tasks', filter.dateRange, statusKey, user?.id],
+      })
+    },
+  })
+
+  return {
+    tasks,
+    quota,
+    loading: isLoadingTasks || isLoadingQuota,
+    error: tasksError ? (tasksError as Error).message : null,
+    reload: async () => {
+      await Promise.all([reloadTasks(), reloadQuota()])
+    },
+    createTask: createTaskMutation.mutateAsync,
+    isCreating: createTaskMutation.isPending,
+    
+    // THÊM 2 DÒNG NÀY ĐỂ TRẢ VỀ:
+    submitTask: submitTaskMutation.mutateAsync,
+    isSubmitting: submitTaskMutation.isPending,
+  }
 }

@@ -71,11 +71,8 @@ interface TaskListProps {
   tasks: TaskSummary[]
   quota: QuotaToday
   onNewTask: () => void
-  /**
-   * Max height of the scrollable task list area.
-   * Defaults to "calc(100vh - 220px)" to prevent full-page scrolls.
-   */
   maxHeight?: string
+  onSubmit?: (taskId: string) => void
 }
 
 export function TaskList({
@@ -83,6 +80,7 @@ export function TaskList({
   quota,
   onNewTask,
   maxHeight = 'calc(100vh - 203px)',
+  onSubmit,
 }: TaskListProps) {
   const quotaExceeded = quota.used >= quota.limit
 
@@ -115,7 +113,7 @@ export function TaskList({
         ) : (
           <ul className="flex flex-col gap-3 pb-3">
             {tasks.map((task) => (
-              <TaskCard key={task.id} task={task} />
+              <TaskCard key={task.id} task={task} onSubmit={onSubmit}/>
             ))}
           </ul>
         )}

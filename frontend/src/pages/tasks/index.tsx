@@ -11,26 +11,8 @@ import type { FilterState } from '@/types/task'
 
 export default function TasksPage() {
   const [filter, setFilter] = useState<FilterState>(DEFAULT_FILTER)
-  const { tasks, quota, loading, error, reload } = useTasks(filter)
+  const { tasks, quota, loading, error, reload, submitTask } = useTasks(filter)
   const[modalOpen, setModalOpen] = useState(false)
-  
-  // useEffect(() => {
-  //   window.dispatchEvent(new CustomEvent("toggle-bg", { 
-  //     detail: { paused: modalOpen } 
-  //   }));
-    
-  //   // Tạm dừng luôn cả CSS Background Gradient
-  //   if (modalOpen) {
-  //     document.body.classList.add("modal-open-pause-bg");
-  //   } else {
-  //     document.body.classList.remove("modal-open-pause-bg");
-  //   }
-
-  //   return () => {
-  //     document.body.classList.remove("modal-open-pause-bg");
-  //     window.dispatchEvent(new CustomEvent("toggle-bg", { detail: { paused: false } }));
-  //   };
-  // }, [modalOpen]);
 
   return (
     // THAY ĐỔI 1: Thêm h-full và flex flex-col để Container ăn trọn chiều cao từ AppLayout
@@ -66,6 +48,7 @@ export default function TasksPage() {
               tasks={tasks}
               quota={quota}
               onNewTask={() => setModalOpen(true)}
+              onSubmit={submitTask}
             />
           )}
         </section>
