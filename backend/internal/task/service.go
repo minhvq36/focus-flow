@@ -17,7 +17,7 @@ type RepositoryInterface interface {
 	UpdateTitle(ctx context.Context, taskID, userID string, req EditTaskTitleRequest) error
 	Extend(ctx context.Context, taskID, userID string, req ExtendRequest) error
 	PauseTask(ctx context.Context, taskID, userID string) (int, error)
-	Submit(ctx context.Context, taskID, userID string) error
+	Submit(ctx context.Context, taskID, userID string, todos []TodoItem) error
 	GiveUp(ctx context.Context, taskID, userID string) error
 	ResumeTask(ctx context.Context, taskID, userID string) error
 	CreateNote(ctx context.Context, taskID, userID string, req CreateTaskNoteRequest) (*TaskNote, error)
@@ -160,7 +160,9 @@ func (s *Service) SubmitTask(ctx context.Context, taskID, userID string) error {
 		return &apperr.InvalidStateError{Current: string(task.Status), Expected: "active|paused"}
 	}
 
-	return s.repo.Submit(ctx, taskID, userID)
+	doneTodos := markAllTodosDone(task.Todos)
+
+	return s.repo.Submit(ctx, taskID, userID, doneTodos)
 	// TODO: trigger reward flow (phase 2)
 }
 

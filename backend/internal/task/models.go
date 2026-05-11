@@ -101,6 +101,18 @@ func ValidateTodosAllDone(todos []TodoItem) error {
 	return nil
 }
 
+func markAllTodosDone(todos []TodoItem) []TodoItem {
+	result := make([]TodoItem, len(todos))
+	for i, todo := range todos {
+		todo.Done = true
+		if len(todo.Children) > 0 {
+			todo.Children = markAllTodosDone(todo.Children)
+		}
+		result[i] = todo
+	}
+	return result
+}
+
 // TaskFilter — parsed from query params by handler, passed down to repository
 type TaskFilter struct {
 	DateRange string   // "today" | "yesterday" | "7days" | "30days"
