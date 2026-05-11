@@ -130,6 +130,6 @@ export function useTasks(filter: FilterState = DEFAULT_FILTER) {
     isCreating: createTaskMutation.isPending,
 
     submitTask: submitTaskMutation.mutateAsync,
-    isSubmitting: submitTaskMutation.isPending,
+    submittingTaskId: submitTaskMutation.isPending ? submitTaskMutation.variables : null,
   }
 }

@@ -71,11 +71,12 @@ const STATUS_CFG: Record<TaskStatus, StatusCfg> = {
 interface TaskCardProps {
   task: TaskSummary
   onSubmit?: (taskId: string) => void
+  isSubmitting?: boolean
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function TaskCard({ task, onSubmit }: TaskCardProps) {
+export function TaskCard({ task, onSubmit, isSubmitting = false }: TaskCardProps) {
   const navigate = useNavigate()
   const cfg = STATUS_CFG[task.status]
 
@@ -90,6 +91,7 @@ export function TaskCard({ task, onSubmit }: TaskCardProps) {
       rounded-xl border border-border border-l-4 ${cfg.border}
       bg-card/80 p-4 shadow-sm backdrop-blur-sm
       transition-shadow hover:shadow-md
+      ${isSubmitting ? 'opacity-50 pointer-events-none animate-pulse' : ''}
     `}>
       <div className="flex items-start justify-between gap-3">
 
@@ -178,7 +180,7 @@ export function TaskCard({ task, onSubmit }: TaskCardProps) {
                 className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 h-8 text-xs font-medium text-muted-foreground hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200 transition-colors"
               >
                 <Send className="h-3 w-3" />
-                Submit
+                {isSubmitting ? 'Submitting...' : 'Submit'}
               </button>
             </>
           )}

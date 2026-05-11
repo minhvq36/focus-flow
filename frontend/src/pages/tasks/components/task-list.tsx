@@ -73,6 +73,7 @@ interface TaskListProps {
   onNewTask: () => void
   maxHeight?: string
   onSubmit?: (taskId: string) => void
+  submittingTaskId?: string | null
 }
 
 export function TaskList({
@@ -81,6 +82,7 @@ export function TaskList({
   onNewTask,
   maxHeight = 'calc(100vh - 203px)',
   onSubmit,
+  submittingTaskId,
 }: TaskListProps) {
   const quotaExceeded = quota.used >= quota.limit
 
@@ -113,7 +115,7 @@ export function TaskList({
         ) : (
           <ul className="flex flex-col gap-3 pb-3">
             {tasks.map((task) => (
-              <TaskCard key={task.id} task={task} onSubmit={onSubmit}/>
+              <TaskCard key={task.id} task={task} onSubmit={onSubmit} isSubmitting={submittingTaskId === task.id} />
             ))}
           </ul>
         )}
