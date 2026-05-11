@@ -106,18 +106,6 @@ export function useTasks(filter: FilterState = DEFAULT_FILTER) {
     },
   })
 
-  return {
-    tasks,
-    quota,
-    loading: isLoadingTasks || isLoadingQuota,
-    error: tasksError ? (tasksError as Error).message : null,
-    reload: async () => {
-      await Promise.all([reloadTasks(), reloadQuota()])
-    },
-    createTask: createTaskMutation.mutateAsync,
-    isCreating: createTaskMutation.isPending,
-  }
-
   const submitTaskMutation = useMutation({
     mutationFn: (taskId: string) => 
       // Sửa lại endpoint này cho đúng với Backend của bạn nhé (post, patch hay put)
@@ -140,8 +128,7 @@ export function useTasks(filter: FilterState = DEFAULT_FILTER) {
     },
     createTask: createTaskMutation.mutateAsync,
     isCreating: createTaskMutation.isPending,
-    
-    // THÊM 2 DÒNG NÀY ĐỂ TRẢ VỀ:
+
     submitTask: submitTaskMutation.mutateAsync,
     isSubmitting: submitTaskMutation.isPending,
   }
