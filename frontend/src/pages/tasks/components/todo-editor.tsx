@@ -99,17 +99,20 @@ export function TodoEditor({ todos, onChange, disabled = false, autoFocus = fals
 
   // ── Mutations ────────────────────────────────────────────────────────────────
 
-  function addAfter(afterId: string, depth: number) {
+  function addAfter(afterId: string, depth: number, textBefore = '', textAfter = '') {
     if (totalCount(todos) >= MAX_TODOS) {
       toast.warning(`Maximum ${MAX_TODOS} todos reached`)
       return
     }
     const idx = todos.findIndex(t => t.id === afterId)
-    const newItem: FlatItem = { id: crypto.randomUUID(), text: '', depth, done: false }
-    const next = [...todos]
+    const newItem: FlatItem = { id: crypto.randomUUID(), text: textAfter, depth, done: false }
+    const next = todos.map(t => t.id === afterId ? { ...t, text: textBefore } : t)
     next.splice(idx + 1, 0, newItem)
     emit(next)
-    requestAnimationFrame(() => inputRefs.current[newItem.id]?.focus())
+    requestAnimationFrame(() => {
+      const el = inputRefs.current[newItem.id]
+      if (el) { el.focus(); el.setSelectionRange(0, 0) }
+    })
   }
 
   function updateText(id: string, text: string) {
@@ -154,7 +157,9 @@ export function TodoEditor({ todos, onChange, disabled = false, autoFocus = fals
   function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>, id: string, depth: number) {
     if (e.key === 'Enter') {
       e.preventDefault()
-      addAfter(id, depth)
+      const el = inputRefs.current[id]
+      const cursor = el?.selectionStart ?? el?.value.length ?? 0
+      addAfter(id, depth, el?.value.slice(0, cursor) ?? '', el?.value.slice(cursor) ?? '')
     } else if (e.key === 'Tab') {
       e.preventDefault()
       indent(id, e.shiftKey ? -1 : 1)

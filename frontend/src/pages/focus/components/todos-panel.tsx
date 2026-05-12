@@ -210,8 +210,7 @@ function EditableTodos({ flat, setFlat }: EditableTodosProps) {
   )
 
   const addAfter = useCallback(
-    (afterId: string, depth: number) => {
-      // 1. Kiểm tra logic bên ngoài setState
+    (afterId: string, depth: number, textBefore = '', textAfter = '') => {
       const current = flatRef.current
       if (current.length >= MAX_TODOS) {
         toast.warning(`Maximum ${MAX_TODOS} todos reached`)
@@ -220,25 +219,28 @@ function EditableTodos({ flat, setFlat }: EditableTodosProps) {
 
       const newItem: FlatItem = {
         id: crypto.randomUUID(),
-        text: "",
+        text: textAfter,
         depth,
         done: false,
       }
 
-      // 2. Chỉ thực hiện update data thuần túy
       setFlat((prev) => {
-        if (prev.length >= MAX_TODOS) return prev // fallback an toàn
+        if (prev.length >= MAX_TODOS) return prev
         const idx = prev.findIndex((t) => t.id === afterId)
         if (idx === -1) return prev
-        const next = [...prev]
+        const next = prev.map(t => t.id === afterId ? { ...t, text: textBefore } : t)
         next.splice(idx + 1, 0, newItem)
         return next
       })
 
-      // 3. Side-effect focus (bắt buộc để ngoài)
-      focusId(newItem.id)
+      setTimeout(() => {
+        const el = inputRefs.current.get(newItem.id)
+        if (!el) return
+        el.focus()
+        el.setSelectionRange(0, 0)
+      }, 0)
     },
-    [setFlat, focusId]
+    [setFlat]
   )
 
   const remove = useCallback(
@@ -298,10 +300,17 @@ function EditableTodos({ flat, setFlat }: EditableTodosProps) {
       switch (e.key) {
         case "Enter": {
           e.preventDefault()
-          // Commit textarea value before inserting new row
           const el = inputRefs.current.get(id)
-          if (el) commitText(id, el.value)
-          addAfter(id, item.depth)
+          const cursor = el?.selectionStart ?? (el?.value.length ?? 0)
+          const currentText = el?.value ?? ''
+          const textBefore = currentText.slice(0, cursor)
+          const textAfter  = currentText.slice(cursor)
+
+          // Update DOM trực tiếp trước — uncontrolled nên React không tự làm
+          if (el) el.value = textBefore
+
+          commitText(id, textBefore)
+          addAfter(id, item.depth, textBefore, textAfter)
           break
         }
         case "Backspace": {
