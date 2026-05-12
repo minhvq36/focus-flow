@@ -1,0 +1,177 @@
+import { useEffect, useRef, useState } from 'react'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
+import type { TaskNote } from '@/types/task'
+
+const MAX_CHARS = 2000
+
+interface NoteEditDialogProps {
+  note: TaskNote | null
+  open: boolean
+  onClose: () => void
+  onSave: (noteId: string, content: string) => Promise<void>
+  isSaving?: boolean
+}
+
+export function NoteEditDialog({
+  note,
+  open,
+  onClose,
+  onSave,
+  isSaving = false,
+}: NoteEditDialogProps) {
+  const [text, setText] = useState('')
+  const [showConfirm, setShowConfirm] = useState(false)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  // Sync text when note changes
+  useEffect(() => {
+    if (note) setText(note.content)
+  }, [note])
+
+  const isDirty = note ? text.trim() !== note.content.trim() : false
+  const isOverLimit = text.length > MAX_CHARS
+  const canSave = isDirty && !isOverLimit && text.trim().length > 0
+
+  function handleClose() {
+    if (isDirty) {
+      setShowConfirm(true)
+    } else {
+      onClose()
+    }
+  }
+
+  function handleConfirmDiscard() {
+    setShowConfirm(false)
+    onClose()
+  }
+
+  function handleCancelDiscard() {
+    setShowConfirm(false)
+    // Re-focus textarea after dismissing confirm
+    setTimeout(() => textareaRef.current?.focus(), 0)
+  }
+
+  async function handleSave() {
+    if (!note || !canSave) return
+    await onSave(note.id, text.trim())
+    onClose()
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      e.preventDefault()
+      handleSave()
+    }
+  }
+
+  // Intercept Dialog's own Escape handling so we can show confirm instead
+  function handleOpenChange(open: boolean) {
+    if (!open) handleClose()
+  }
+
+  return (
+    <>
+      <Dialog open={open && !showConfirm} onOpenChange={handleOpenChange}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-semibold">Edit note</DialogTitle>
+          </DialogHeader>
+
+          <div className="flex flex-col gap-1.5">
+            <textarea
+              ref={textareaRef}
+              autoFocus
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              onKeyDown={handleKeyDown}
+              rows={6}
+              className={cn(
+                'w-full resize-none rounded-lg border bg-white/70 px-3 py-2.5 text-sm leading-relaxed text-foreground outline-none transition-colors placeholder:text-muted-foreground/50',
+                isOverLimit
+                  ? 'border-destructive focus:border-destructive'
+                  : 'border-border focus:border-primary/50'
+              )}
+              placeholder="Write your note…"
+            />
+            <div className="flex items-center justify-end">
+              <span
+                className={cn(
+                  'text-[11px] tabular-nums transition-colors',
+                  isOverLimit
+                    ? 'text-destructive font-medium'
+                    : text.length > MAX_CHARS * 0.9
+                      ? 'text-amber-500'
+                      : 'text-muted-foreground/50'
+                )}
+              >
+                {text.length.toLocaleString()}/{MAX_CHARS.toLocaleString()}
+              </span>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-2">
+            <p className="mr-auto hidden text-[11px] text-muted-foreground/50 sm:block">
+              Ctrl+Enter to save
+            </p>
+            <Button variant="ghost" size="sm" onClick={handleClose}>
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleSave}
+              disabled={!canSave || isSaving}
+            >
+              {isSaving ? 'Saving…' : 'Save'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirm discard */}
+      <AlertDialog open={showConfirm} onOpenChange={setShowConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-sm font-semibold">
+              Discard changes?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-xs">
+              You have unsaved changes. If you leave now, they will be lost.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              className="text-xs"
+              onClick={handleCancelDiscard}
+            >
+              Keep editing
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="text-xs"
+              onClick={handleConfirmDiscard}
+            >
+              Discard
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  )
+}
