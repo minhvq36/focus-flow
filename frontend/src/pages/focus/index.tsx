@@ -3,6 +3,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useTaskDetail } from '@/pages/tasks/hooks/use-task-detail'
 import { EditableTitle } from './components/editable-title'
 import { TimerRing } from './components/timer-ring'
+import { ExtendTime } from './components/extend-time'
 import { TodosPanel } from './components/todos-panel'
 import { NotesBar } from './components/notes-bar'
 import { ActionBar } from './components/action-bar'
@@ -38,7 +39,7 @@ const STATUS_CONFIG = {
 export default function FocusPage() {
   const { taskId } = useParams<{ taskId: string }>()
   const navigate = useNavigate()
-  const { task, isLoading, pause, resume, submit, giveUp, updateTodos, updateTitle } =
+  const { task, isLoading, pause, resume, submit, giveUp, updateTodos, updateTitle, extend } =
     useTaskDetail(taskId!)
 
   const [elapsed, setElapsed] = useState(0)
@@ -173,6 +174,14 @@ export default function FocusPage() {
     setShowGiveUpConfirm(false)
   }
 
+  async function handleExtend(addMinutes: number) {
+    await withAction(async () => {
+      await extend(addMinutes)
+      // Bust seed ref để effect bên dưới seed lại elapsed từ task mới
+      seededRef.current = false
+    })
+  }
+
   return (
     <div className="flex min-h-dvh flex-col overflow-x-hidden lg:overflow-hidden" style={{ backgroundColor: '#f9f9f3' }}>
 
@@ -253,6 +262,11 @@ export default function FocusPage() {
                 totalSec={totalSec}
                 isReadOnly={isReadOnly}
               />
+              {task.status === 'active' && (
+                <div className="mt-2 flex justify-center">
+                  <ExtendTime onExtend={handleExtend} />
+                </div>
+              )}
             </div>
 
             <div className="flex flex-1 flex-col min-h-0 overflow-hidden">

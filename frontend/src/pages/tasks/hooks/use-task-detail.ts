@@ -51,6 +51,12 @@ export function useTaskDetail(taskId: string) {
     onSuccess: () => invalidate(),
   })
 
+  const extendMutation = useMutation({
+    mutationFn: (addMinutes: number) =>
+      api.post(`/api/tasks/${taskId}/extend`, { add_minutes: addMinutes }),
+    onSuccess: () => invalidate(),
+  })
+
   function invalidate() {
     queryClient.invalidateQueries({ queryKey: ['task', taskId] })
     queryClient.invalidateQueries({ queryKey: ['tasks'] })
@@ -69,5 +75,6 @@ export function useTaskDetail(taskId: string) {
     updateTitle: updateTitleMutation.mutateAsync,
     isSubmitting: submitMutation.isPending,
     isGivingUp: giveUpMutation.isPending,
+    extend: extendMutation.mutateAsync,
   }
 }

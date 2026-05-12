@@ -201,13 +201,26 @@ func (r *Repository) UpdateTodos(ctx context.Context, taskID, userID string, req
 // Extend time
 func (r *Repository) Extend(ctx context.Context, taskID, userID string, req ExtendRequest) error {
 	result, err := r.db.Exec(ctx, `
-		UPDATE tasks
-		SET registered_duration_min = registered_duration_min + $1
-		WHERE id = $2
-		  AND user_id = $3
-		  AND status in ('active', 'paused')
-		  AND deleted_at IS NULL
-	`, req.AddMinutes, taskID, userID)
+        UPDATE tasks
+        SET
+            registered_duration_min = registered_duration_min + $1,
+            actual_duration_sec = LEAST(
+				actual_duration_sec + COALESCE(
+					EXTRACT(EPOCH FROM (now() - started_at))::int,
+					0
+				),
+				registered_duration_min * 60
+			),
+			started_at = CASE
+				WHEN status = 'active' THEN now()
+				ELSE started_at
+			END,
+            updated_at = now()
+        WHERE id = $2
+          AND user_id = $3
+          AND status in ('active', 'paused')
+          AND deleted_at IS NULL
+    `, req.AddMinutes, taskID, userID)
 	if err != nil {
 		return fmt.Errorf("Extend: %w", err)
 	}
