@@ -10,12 +10,14 @@ export function useTaskDetail(taskId: string) {
   const {
     data: task,
     isLoading,
+    isFetching,
     error,
   } = useQuery({
     queryKey: ['task', taskId, user?.id],
     queryFn: () => api.get<Task>(`/api/tasks/${taskId}`),
     enabled: !!user && !!taskId,
     staleTime: 0,
+    refetchOnMount: 'always',
   })
 
   const pauseMutation = useMutation({
@@ -66,6 +68,7 @@ export function useTaskDetail(taskId: string) {
   return {
     task,
     isLoading,
+    isFetching,
     error,
     pause: pauseMutation.mutateAsync,
     resume: resumeMutation.mutateAsync,

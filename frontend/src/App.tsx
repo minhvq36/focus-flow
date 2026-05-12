@@ -10,8 +10,8 @@ import Focus from './pages/focus'
 import { Toaster } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
 
+const queryClient = new QueryClient()
 function App() {
-  const queryClient = new QueryClient()
 
   return (
     <QueryClientProvider client={queryClient}>

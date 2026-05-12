@@ -39,7 +39,7 @@ const STATUS_CONFIG = {
 export default function FocusPage() {
   const { taskId } = useParams<{ taskId: string }>()
   const navigate = useNavigate()
-  const { task, isLoading, pause, resume, submit, giveUp, updateTodos, updateTitle, extend } =
+  const { task, isLoading, isFetching, pause, resume, submit, giveUp, updateTodos, updateTitle, extend } =
     useTaskDetail(taskId!)
 
   const [elapsed, setElapsed] = useState(0)
@@ -48,13 +48,16 @@ export default function FocusPage() {
   const [showGiveUpConfirm, setShowGiveUpConfirm] = useState(false)
   const [isActioning, setIsActioning] = useState(false)
 
-  const seededRef = useRef(false)
+  // ── Timer seed ────────────────────────────────────────────────────────────
+  // Chỉ theo dõi 2 primitive values từ server thay vì dùng seededRef.
+  // Mỗi khi pause/resume/extend làm actual_duration_sec hoặc started_at thay đổi,
+  // effect này tự snap lại elapsed đúng với DB — không cần ref phức tạp.
   useEffect(() => {
-    if (!task || seededRef.current) return
-    seededRef.current = true
+    if (!task) return
     setElapsed(calcElapsed(task.actual_duration_sec, task.started_at))
-  }, [task])
+  }, [task?.actual_duration_sec, task?.started_at])
 
+  // ── Timer interval ────────────────────────────────────────────────────────
   useEffect(() => {
     if (intervalRef.current) {
       clearInterval(intervalRef.current)
@@ -85,23 +88,38 @@ export default function FocusPage() {
     }
   }, [task?.status, task?.started_at, task?.actual_duration_sec])
 
+  // ── Todos ─────────────────────────────────────────────────────────────────
   const [todos, setTodos] = useState<TodoItem[]>([])
   const todosInitRef = useRef(false)
+
+  useEffect(() => {
+    todosInitRef.current = false
+  }, [task?.id])
+
   useEffect(() => {
     if (!task) return
 
+    // Terminal status: luôn sync từ server, không cần guard
     if (task.status === 'submitted' || task.status === 'given_up') {
       setTodos(task.todos)
       return
     }
 
+    // Đợi background refetch xong mới seed — tránh cache cũ đè lên DB mới
+    // khi user back rồi resume lại
+    if (isFetching) return
+
+    // Đã seed rồi thì không seed lại — tránh API ngầm đè lên local state
+    // khi user đang edit (toggle todo, v.v.)
     if (todosInitRef.current) return
-    
+
     todosInitRef.current = true
     setTodos(task.todos)
-  }, [task])
+  }, [task, isFetching])
 
+  // ── Todos debounce ────────────────────────────────────────────────────────
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   function handleTodosChange(next: TodoItem[]) {
     setTodos(next)
     if (debounceRef.current) clearTimeout(debounceRef.current)
@@ -123,6 +141,7 @@ export default function FocusPage() {
     }
   }
 
+  // ── Actions ───────────────────────────────────────────────────────────────
   async function withAction(fn: () => Promise<void>) {
     setIsActioning(true)
     try {
@@ -131,21 +150,6 @@ export default function FocusPage() {
       setIsActioning(false)
     }
   }
-
-  if (isLoading) return (
-    <div className="flex min-h-dvh items-center justify-center text-muted-foreground text-sm">
-      Loading…
-    </div>
-  )
-
-  if (!task) return (
-    <div className="flex min-h-dvh items-center justify-center text-muted-foreground text-sm">
-      Task not found.
-    </div>
-  )
-
-  const isReadOnly = task.status === 'submitted' || task.status === 'given_up'
-  const totalSec = task.registered_duration_min * 60
 
   async function handleActionSubmit() {
     if (task?.status === 'active') {
@@ -177,11 +181,28 @@ export default function FocusPage() {
   async function handleExtend(addMinutes: number) {
     await withAction(async () => {
       await extend(addMinutes)
-      // Bust seed ref để effect bên dưới seed lại elapsed từ task mới
-      seededRef.current = false
+      // seededRef không còn nữa — timer tự snap lại qua effect
+      // [task?.actual_duration_sec, task?.started_at] khi invalidate xong
     })
   }
 
+  // ── Guards ────────────────────────────────────────────────────────────────
+  if (isLoading) return (
+    <div className="flex min-h-dvh items-center justify-center text-muted-foreground text-sm">
+      Loading…
+    </div>
+  )
+
+  if (!task) return (
+    <div className="flex min-h-dvh items-center justify-center text-muted-foreground text-sm">
+      Task not found.
+    </div>
+  )
+
+  const isReadOnly = task.status === 'submitted' || task.status === 'given_up'
+  const totalSec = task.registered_duration_min * 60
+
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="flex min-h-dvh flex-col overflow-x-hidden lg:overflow-hidden" style={{ backgroundColor: '#f9f9f3' }}>
 
