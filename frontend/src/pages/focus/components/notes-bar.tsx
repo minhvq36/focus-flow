@@ -112,7 +112,7 @@ export function NotesBar({ taskId, isReadOnly }: NotesBarProps) {
           </div>
 
           {/* Notes list with max height */}
-          <div className="mt-4 flex flex-col gap-2 max-h-72 overflow-y-auto pr-0.5">
+          <div className="mt-4 flex flex-col gap-2 max-h-60 overflow-y-auto pr-0.5">
             {isLoading && (
               <p className="text-xs italic text-muted-foreground/60">Loading…</p>
             )}
@@ -130,7 +130,7 @@ export function NotesBar({ taskId, isReadOnly }: NotesBarProps) {
                 key={note.id}
                 onClick={() => handleCardClick(note)}
                 className={cn(
-                  'group rounded-lg border border-border bg-white/50 p-3 text-sm',
+                  'group rounded-lg border border-border bg-white/50 p-2 text-sm',
                   !isReadOnly && 'cursor-default hover:border-primary/30 hover:bg-white/80 transition-colors'
                 )}
               >
