@@ -174,9 +174,9 @@ type EditTaskTitleRequest struct {
 }
 
 type CreateTaskNoteRequest struct {
-	Content string `json:"content" validate:"required,min=1,max=22000"`
+	Content string `json:"content" validate:"required,min=1,max=12000"`
 }
 
 type UpdateTaskNoteRequest struct {
-	Content string `json:"content" validate:"required,min=1,max=22000"`
+	Content string `json:"content" validate:"required,min=1,max=12000"`
 }

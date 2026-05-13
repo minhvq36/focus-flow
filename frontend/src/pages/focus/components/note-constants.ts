@@ -1,0 +1,1 @@
+export const NOTE_MAX_CHARS = 12_000

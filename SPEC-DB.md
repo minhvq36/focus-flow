@@ -135,7 +135,7 @@ PRIMARY KEY         (user_id, target_date)
 id                  uuid PK
 task_id             uuid NOT NULL → tasks(id) [CASCADE delete]
 user_id             uuid NOT NULL → users(id) [CASCADE delete]
-content             text NOT NULL CHECK (char_length(trim(content)) > 0 AND char_length(content) <= 22000)
+content             text NOT NULL CHECK (char_length(trim(content)) > 0 AND char_length(content) <= 12000)
 created_at          timestamptz
 updated_at          timestamptz
 ```

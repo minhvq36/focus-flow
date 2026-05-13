@@ -198,8 +198,8 @@ func (s *Service) CreateNote(ctx context.Context, taskID, userID string, req Cre
 	if strings.TrimSpace(req.Content) == "" {
 		return nil, &apperr.ValidationError{Message: "Content cannot be empty"}
 	}
-	if utf8.RuneCountInString(req.Content) > 22000 {
-		return nil, &apperr.ValidationError{Message: "Content exceeds 22000 characters"}
+	if utf8.RuneCountInString(req.Content) > 12000 {
+		return nil, &apperr.ValidationError{Message: "Content exceeds 12000 characters"}
 	}
 	return s.repo.CreateNote(ctx, taskID, userID, req)
 }
@@ -216,8 +216,8 @@ func (s *Service) UpdateNote(ctx context.Context, noteID, userID, taskID string,
 	if strings.TrimSpace(req.Content) == "" {
 		return nil, &apperr.ValidationError{Message: "Content cannot be empty"}
 	}
-	if utf8.RuneCountInString(req.Content) > 22000 {
-		return nil, &apperr.ValidationError{Message: "Content exceeds 22000 characters"}
+	if utf8.RuneCountInString(req.Content) > 12000 {
+		return nil, &apperr.ValidationError{Message: "Content exceeds 12000 characters"}
 	}
 	return s.repo.UpdateNote(ctx, noteID, userID, taskID, req)
 }

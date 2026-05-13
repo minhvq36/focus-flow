@@ -5,7 +5,7 @@ create table if not exists public.task_notes (
     content text not null,
     created_at timestamptz not null default now(),
     updated_at timestamptz not null default now(),
-    constraint task_note_must_have_content check (char_length(trim(content))>0 and char_length(content)<=22000)
+    constraint task_note_must_have_content check (char_length(trim(content))>0 and char_length(content)<=12000)
 );
 
 -- Index for foreign keys: task_id, user_id

@@ -19,8 +19,10 @@ import {
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import type { TaskNote } from '@/types/task'
+import { createTextConstraintHandlers } from "@/pages/tasks/utils/text-constraints"
+import { NOTE_MAX_CHARS } from "./note-constants"
 
-const MAX_CHARS = 2000
+const noteConstraints = createTextConstraintHandlers<HTMLTextAreaElement>(NOTE_MAX_CHARS)
 
 interface NoteEditDialogProps {
   note: TaskNote | null
@@ -47,7 +49,7 @@ export function NoteEditDialog({
   }, [note])
 
   const isDirty = note ? text.trim() !== note.content.trim() : false
-  const isOverLimit = text.length > MAX_CHARS
+  const isOverLimit = text.length > NOTE_MAX_CHARS
   const canSave = isDirty && !isOverLimit && text.trim().length > 0
 
   function handleClose() {
@@ -85,7 +87,7 @@ export function NoteEditDialog({
       <Dialog open={open && !showConfirm} onOpenChange={handleOpenChange}>
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle className="text-sm font-semibold">Edit note</DialogTitle>
+            <DialogTitle className="text-sm font-semibold pt-3">Edit note</DialogTitle>
           </DialogHeader>
 
           <div className="flex flex-col gap-1.5 px-1.5">
@@ -102,6 +104,7 @@ export function NoteEditDialog({
                   : 'border-border focus:border-primary/50'
               )}
               placeholder="Write your note…"
+              {...noteConstraints}
             />
             <div className="flex items-center justify-end">
               <span
@@ -109,12 +112,12 @@ export function NoteEditDialog({
                   'text-[11px] tabular-nums transition-colors',
                   isOverLimit
                     ? 'text-destructive font-medium'
-                    : text.length > MAX_CHARS * 0.9
+                    : text.length > NOTE_MAX_CHARS * 0.9
                       ? 'text-amber-500'
                       : 'text-muted-foreground/50'
                 )}
               >
-                {text.length.toLocaleString()}/{MAX_CHARS.toLocaleString()}
+                {text.length.toLocaleString()}/{NOTE_MAX_CHARS.toLocaleString()}
               </span>
             </div>
           </div>
