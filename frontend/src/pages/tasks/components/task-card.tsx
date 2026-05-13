@@ -52,9 +52,9 @@ const STATUS_CFG: Record<TaskStatus, StatusCfg> = {
     icon:   <Pause className="h-3 w-3" aria-hidden />,
   },
   submitted: {
-    border: 'border-l-primary',
-    badge:  'border-primary/20 bg-primary/10 text-primary',
-    dot:    'bg-primary',
+  border: 'border-l-blue-300',
+  badge:  'border-blue-100 bg-blue-50 text-blue-400',
+  dot:    'bg-blue-400',
     label:  'Submitted',
     icon:   <CheckSquare className="h-3 w-3" aria-hidden />,
   },
