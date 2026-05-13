@@ -252,7 +252,7 @@ export default function FocusPage() {
             </div>
 
             <div className="flex flex-1 flex-col min-h-0 rounded-2xl border border-border bg-white/60 shadow-sm overflow-hidden">
-              <div className="min-h-[135px] max-h-[calc(100vh-340px)] overflow-y-auto scroll-smooth [scrollbar-gutter:stable]">
+              <div className="min-h-[135px] max-h-[calc(100vh-282px)] overflow-y-auto scroll-smooth [scrollbar-gutter:stable]">
                 <div className="p-6">
                   <TodosPanel
                     todos={todos}

@@ -75,13 +75,6 @@ export function NoteEditDialog({
     onClose()
   }
 
-  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-      e.preventDefault()
-      handleSave()
-    }
-  }
-
   // Intercept Dialog's own Escape handling so we can show confirm instead
   function handleOpenChange(open: boolean) {
     if (!open) handleClose()
@@ -90,19 +83,18 @@ export function NoteEditDialog({
   return (
     <>
       <Dialog open={open && !showConfirm} onOpenChange={handleOpenChange}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle className="text-sm font-semibold">Edit note</DialogTitle>
           </DialogHeader>
 
-          <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-1.5 px-1.5">
             <textarea
               ref={textareaRef}
               autoFocus
               value={text}
               onChange={(e) => setText(e.target.value)}
-              onKeyDown={handleKeyDown}
-              rows={6}
+              rows={12}
               className={cn(
                 'w-full resize-none rounded-lg border bg-white/70 px-3 py-2.5 text-sm leading-relaxed text-foreground outline-none transition-colors placeholder:text-muted-foreground/50',
                 isOverLimit
@@ -128,13 +120,11 @@ export function NoteEditDialog({
           </div>
 
           <DialogFooter className="gap-2 sm:gap-2">
-            <p className="mr-auto hidden text-[11px] text-muted-foreground/50 sm:block">
-              Ctrl+Enter to save
-            </p>
             <Button variant="ghost" size="sm" onClick={handleClose}>
               Cancel
             </Button>
             <Button
+              className="hover:opacity-80"
               size="sm"
               onClick={handleSave}
               disabled={!canSave || isSaving}
@@ -164,7 +154,7 @@ export function NoteEditDialog({
               Keep editing
             </AlertDialogCancel>
             <AlertDialogAction
-              className="text-xs"
+              className="text-xs hover:opacity-90"
               onClick={handleConfirmDiscard}
             >
               Discard
