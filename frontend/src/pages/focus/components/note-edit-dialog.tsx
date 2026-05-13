@@ -30,6 +30,7 @@ interface NoteEditDialogProps {
   onClose: () => void
   onSave: (noteId: string, content: string) => Promise<void>
   isSaving?: boolean
+  isReadOnly?: boolean
 }
 
 export function NoteEditDialog({
@@ -38,6 +39,7 @@ export function NoteEditDialog({
   onClose,
   onSave,
   isSaving = false,
+  isReadOnly = false,
 }: NoteEditDialogProps) {
   const [text, setText] = useState('')
   const [showConfirm, setShowConfirm] = useState(false)
@@ -80,6 +82,30 @@ export function NoteEditDialog({
   // Intercept Dialog's own Escape handling so we can show confirm instead
   function handleOpenChange(open: boolean) {
     if (!open) handleClose()
+  }
+
+  // Read-only mode: simplified view
+  if (isReadOnly) {
+    return (
+      <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-semibold pt-3">Note</DialogTitle>
+          </DialogHeader>
+          <div className="px-1.5">
+            <div className="h-72 overflow-y-auto rounded-lg border border-border bg-white/70 px-3 py-2.5">
+              <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground"
+                 style={{ overflowWrap: 'anywhere' }}>
+                {note?.content}
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" size="sm" onClick={onClose}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    )
   }
 
   return (

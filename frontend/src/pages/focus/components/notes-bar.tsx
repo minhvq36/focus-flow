@@ -67,7 +67,6 @@ export function NotesBar({ taskId, isReadOnly }: NotesBarProps) {
   }
 
   function handleCardClick(note: TaskNote) {
-    if (isReadOnly) return
     setEditingNote(note)
   }
 
@@ -203,6 +202,7 @@ export function NotesBar({ taskId, isReadOnly }: NotesBarProps) {
         onClose={() => setEditingNote(null)}
         onSave={handleSave}
         isSaving={isSaving}
+        isReadOnly={isReadOnly}
       />
     </>
   )

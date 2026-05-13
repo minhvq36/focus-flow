@@ -299,6 +299,7 @@ function EditableTodos({ flat, setFlat }: EditableTodosProps) {
 
       switch (e.key) {
         case "Enter": {
+          if (e.shiftKey) break
           e.preventDefault()
           const el = inputRefs.current.get(id)
           const cursor = el?.selectionStart ?? (el?.value.length ?? 0)
