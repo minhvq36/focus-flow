@@ -6,6 +6,7 @@ import { NoteEditDialog } from './note-edit-dialog'
 import { createTextConstraintHandlers } from '@/pages/tasks/utils/text-constraints'
 import { NOTE_MAX_CHARS } from './note-constants'
 import type { TaskNote } from '@/types/task'
+import { toast } from 'sonner'
 
 const draftConstraints = createTextConstraintHandlers<HTMLTextAreaElement>(NOTE_MAX_CHARS)
 
@@ -37,11 +38,16 @@ export function NotesBar({ taskId, isReadOnly }: NotesBarProps) {
   const [draft, setDraft] = useState('')
   const [editingNote, setEditingNote] = useState<TaskNote | null>(null)
   const [isSaving, setIsSaving] = useState(false)
-  const [collapsed, setCollapsed] = useState(false)
+  const [collapsed, setCollapsed] = useState(true)
 
   async function handleAdd() {
     const content = draft.trim()
     if (!content) return
+    if (notes.length >= 5) {
+      toast.error('Can only add up to 5 notes per task', {
+      })
+      return
+    }
     await createNote({ content })
     setDraft('')
   }
