@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { Play, Eye, Send, Clock, Sprout, Pause, CheckSquare, Calendar } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { TaskSummary, TaskStatus } from '@/types/task'
@@ -78,7 +78,6 @@ interface TaskCardProps {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function TaskCard({ task, onSubmit, isSubmitting = false }: TaskCardProps) {
-  const navigate = useNavigate()
   const cfg = STATUS_CFG[task.status]
 
   const isActive    = task.status === 'active'
@@ -154,21 +153,19 @@ export function TaskCard({ task, onSubmit, isSubmitting = false }: TaskCardProps
         {/* ── Actions ── */}
         <div className="flex shrink-0 items-center gap-2">
           {isActive && (
-            <button
-              type="button"
-              onClick={() => navigate(`/focus/${task.id}`)}
+            <Link
+              to={`/focus/${task.id}`}
               className="inline-flex items-center gap-1.5 rounded-md px-3 h-8 text-xs font-medium bg-emerald-100 text-emerald-800 hover:bg-emerald-200 border-0 shadow-none transition-colors"
             >
               <Play className="h-3 w-3" />
               Resume
-            </button>
+            </Link>
           )}
 
           {isPaused && (
             <>
-              <button
-                type="button"
-                onClick={() => navigate(`/focus/${task.id}`)}
+              <Link
+                to={`/focus/${task.id}`}
                 className={cn(
                   "inline-flex items-center gap-1.5 rounded-md px-3 h-8 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors",
                   isSubmitting && "opacity-50 pointer-events-none"
@@ -176,8 +173,9 @@ export function TaskCard({ task, onSubmit, isSubmitting = false }: TaskCardProps
               >
                 <Play className="h-3 w-3" />
                 Resume
-              </button>
+              </Link>
 
+              {/* Nút Submit giữ nguyên là button vì nó gọi hàm xử lý chứ không chuyển trang */}
               <button
                 type="button"
                 onClick={() => onSubmit?.(task.id)}
@@ -193,14 +191,13 @@ export function TaskCard({ task, onSubmit, isSubmitting = false }: TaskCardProps
           )}
 
           {isTerminal && (
-            <button
-              type="button"
-              onClick={() => navigate(`/focus/${task.id}`)}
+            <Link
+              to={`/focus/${task.id}`}
               aria-label="View details"
               className="inline-flex items-center justify-center rounded-md h-8 w-8 text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
             >
               <Eye className="h-3.5 w-3.5" />
-            </button>
+            </Link>
           )}
         </div>
       </div>
