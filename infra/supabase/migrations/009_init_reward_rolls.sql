@@ -1,59 +1,16 @@
 create table if not exists public.reward_rolls (
     id uuid primary key default gen_random_uuid(),
     task_id uuid not null references public.tasks(id) on delete cascade,
-    user_id uuid not null references public.users(id) on delete cascade, -- For optimization to query user rewards
+    user_id uuid not null references public.users(id) on delete cascade,
+    roll_type varchar(20) not null default 'reward' check (roll_type in ('reward', 'penalty')),
     item_id uuid references public.items(id),
-    silver_amount int default 0,
-    seed text, -- tracing from backend task_id + user_id + timestamp for audit and anticheating
+    silver_amount int default 0, -- âm nếu penalty trừ bạc sau này
+    seed text,
     created_at timestamptz default now(),
-    constraint unique_task_reward_per_user unique (task_id) -- Ensure one reward roll per task per user, insert only
+    constraint unique_task_reward_per_user unique (task_id)
 );
 
 -- Indexes for foreign keys: task_id, user_id, item_id
 create index if not exists idx_reward_rolls_task_id on public.reward_rolls(task_id);
 create index if not exists idx_reward_rolls_user_id on public.reward_rolls(user_id);
 create index if not exists idx_reward_rolls_item_id on public.reward_rolls(item_id);
-
-create or replace function fn_submit_task_reward(
-    p_task_id uuid,
-    p_user_id uuid,
-    p_item_id uuid,
-    p_silver_amount int,
-    p_seed text
-) returns void
-security definer
-set search_path = public
-as $$
-begin
-    update public.user_wallets
-    set silver_balance = silver_balance + p_silver_amount
-    where user_id = p_user_id;
-
-    if not found then
-        raise exception 'User wallet not found'
-        using
-            errcode = 'Z0007',
-            detail = format('Wallet record does not exist for user %s', p_user_id);
-    end if;
-
-    if p_item_id is not null then
-        insert into public.inventory (user_id, item_id, is_placed)
-        values (p_user_id, p_item_id, false);
-    end if;
-
-    insert into public.reward_rolls (task_id, user_id, item_id, silver_amount, seed)
-    values (p_task_id, p_user_id, p_item_id, p_silver_amount, p_seed);
-
-    update public.tasks as t
-    set status = 'submitted', 
-        completed_at = now()
-    where t.id = p_task_id and status != 'submitted';
-
-    if not found then
-        raise exception 'Task already submitted or not found'
-        using
-            errcode = 'Z0008',
-            detail = format('Task %s has already been submitted or does not exist', p_task_id);
-    end if;
-end;
-$$ language plpgsql;
