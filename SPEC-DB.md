@@ -34,9 +34,9 @@ plan_type           text DEFAULT 'free' → plan_quotas(plan_type)
 updated_at          timestamptz
 ```
 
-**Note:** Penalty mode is stored per-task (`penalty_mode` field in tasks table) captured at task creation time. User-level default preference can be stored in frontend localStorage or added to this table later if needed.
+**Note:** Penalty mode is stored per-task (`penalty_mode` field in tasks table) sent by client during task creation. User-level default preference can be stored in frontend localStorage. Currently, each task has its own penalty_mode snapshot sent at creation time.
 
-**Purpose:** Stores sensitive user data (email), subscription plan, and penalty mode setting. Never queried in public endpoints.
+**Purpose:** Stores sensitive user data (email) and subscription plan. Never queried in public endpoints.
 
 **Triggers:**
 - `trg_update_user_private_modtime` — auto-update `updated_at`
@@ -112,7 +112,7 @@ deleted_at          timestamptz                -- soft delete, not restored in c
 - Task created with status='active' and `started_at` = NOW() (timer auto-starts immediately)
 - When paused, `actual_duration_sec` += (NOW() - started_at), then `started_at` = NULL
 - When submitted/given_up, finalize `actual_duration_sec` and set `completed_at`
-- `penalty_mode` captured at task creation from user.penalty_mode (never changes after)
+- `penalty_mode` is a per-task snapshot sent by client during task creation (can differ from user's default preference)
 - `deleted_at` used for soft delete; restore feature not implemented in current phase
 - **Todo Structure:**
   - Nested array format: `{id, text, done, children: [{id, text, done, children}, ...]}`

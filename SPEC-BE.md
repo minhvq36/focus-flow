@@ -263,79 +263,91 @@ wire ./cmd/server
 
 **State Machine:**
 ```
-[Created] → [Active] ──┬─→ Paused → Resume → [Active]
-                       ├─→ [Submitted] (reward flow)
-                       └─→ [Given Up] (penalty flow, if penalty mode ON)
+[Active] (created & timer running) ──┬─→ Paused ─→ Active (resume)
+                                     ├─→ [Submitted] (reward flow)
+                                     └─→ [Given Up] (penalty flow, if penalty mode ON)
 ```
 
 **Key Operations:**
 
 #### CreateTask
-- **Input:** user_id, title, todos[], duration_min
+- **Input:** user_id, title, todos[], duration_min (no penalty_mode from client)
 - **Logic:**
   1. Validate todos non-empty
   2. Create task with status='active', started_at=NOW() (auto-starts immediately)
-  3. Insert into DB (status='active')
-  4. Increment task_daily_quotas (via trigger)
-  5. If quota exceeded → transaction rolls back, return 409 Conflict
+  3. penalty_mode captured from user_private at creation (not sent by client)
+  4. Insert into DB (status='active')
+  5. Increment task_daily_quotas (via trigger)
+  6. If quota exceeded → transaction rolls back, return 409 Conflict
 - **Output:** task_id, redirect to Focus screen
 - **Note:** Migration 004 automatically sets started_at=NOW() on task creation (timer auto-starts)
 
-#### PauseTask (Toggle)
+#### PauseTask
 - **Input:** task_id
 - **Logic:**
   1. Fetch task, validate status='active'
-  2. If started_at IS NOT NULL:
-     - Calculate delta = NOW() - started_at
-     - Accumulate: actual_duration_sec += delta
-     - Set started_at = NULL (timer paused)
-  3. Else (already paused):
-     - Set started_at = NOW() (resume)
+  2. Calculate delta = NOW() - started_at
+  3. Accumulate: actual_duration_sec += delta
+  4. Set started_at = NULL (timer paused)
+  5. Set status = 'paused'
+  6. Update DB
+- **Output:** updated task, 200 OK
+- **Note:** Separate endpoint from ResumeTask. Only pauses active tasks.
+
+#### ResumeTask
+- **Input:** task_id
+- **Logic:**
+  1. Fetch task, validate status='paused'
+  2. Set started_at = NOW() (resume timer)
+  3. Set status = 'active'
   4. Update DB
 - **Output:** updated task, 200 OK
-- **Note:** Single endpoint toggles pause/resume state
+- **Note:** Only resumes paused tasks.
 
 #### SubmitTask
 - **Input:** task_id
 - **Logic:**
   1. Fetch task, validate status='active' or 'paused' (can submit anytime)
-  2. Finalize actual_duration_sec:
+  2. Auto-mark all todos as done (regardless of current state)
+  3. Finalize actual_duration_sec:
      - If started_at IS NOT NULL: actual_duration_sec += (NOW() - started_at)
      - Set started_at = NULL
-  3. Set completed_at = NOW(), status='submitted'
-  4. Update DB, clear Redis timer state
-  5. Trigger reward flow (→ RewardService.RollReward)
+  4. Set completed_at = NOW(), status='submitted'
+  5. Update DB, clear Redis timer state
+  6. Trigger reward flow (→ RewardService.RollReward)
 - **Output:** reward modal data (item dropped, silver earned, 200 OK)
-- **Note:** Submit allowed from active or paused state. Todos are not validated at submit time (only checked during Focus session for UX feedback, not backend validation).
+- **Note:** Submit allowed from active or paused state. All todos auto-marked done on submission (no validation for checked status).
 
 #### GiveUpTask
 - **Input:** task_id, confirm=true
 - **Logic:**
-  1. Fetch task, validate status='active'
-  2. Check user.penalty_mode from user_private
+  1. Fetch task, validate status='active' (and started_at IS NOT NULL)
+  2. task.penalty_mode is already captured from user_private at task creation time
   3. Set status='given_up', completed_at=NOW()
-  4. If penalty_mode=true:
+  4. If task.penalty_mode=true:
      - Trigger PenaltyService.ApplyPenalty (remove/wilt items)
   5. Update DB, clear Redis state
 - **Output:** penalty modal data (items affected)
+- **Note:** penalty_mode is snapshot at task creation, used at give-up time (not user's current setting)
 
 #### ExtendTask
-- **Input:** task_id, extend_min=15
+- **Input:** task_id, add_minutes (min 1, max 480)
 - **Logic:**
-  1. Fetch task
-  2. Validate no hard limit (just allow any times)
-  3. registered_duration_min += extend_min
+  1. Fetch task, validate status='active' or 'paused'
+  2. registered_duration_min += add_minutes
+  3. Validate total registered_duration_min does not exceed 480 minutes
   4. Update DB
-- **Output:** updated task
+- **Output:** success message
+- **Note:** Each extend must be 1-480 minutes. Total cannot exceed 480 minutes.
 
 #### UpdateTodos (Debounced Autosave)
 - **Input:** task_id, todos[]
 - **Logic:**
-  1. Fetch task, validate status='active'
+  1. Fetch task, validate status='active' or 'paused'
   2. Update task.todos = new todos[] in DB
-  3. Return updated todos (confirmation)
-- **Output:** todos[], 200 OK
-- **Note:** Called from frontend on ~1 sec idle (debounced). No need to validate all-checked at this point — that's done on Submit. This is just persistence.
+  3. Return success message
+- **Output:** success message, 200 OK
+- **Note:** Called from frontend on ~1 sec idle (debounced). No validation of todos state. This is just persistence.
 
 #### AddTaskNote
 - **Input:** task_id, content

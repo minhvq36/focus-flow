@@ -27,8 +27,8 @@ Vườn hoa là bản đồ nỗ lực của người dùng. Mỗi hoa, cổng, 
 
 ### 2.3 Reward/Penalty System (optional penalty)
 - **Thưởng:** Hoàn thành task → nhận hoa (random) + bạc.
-- **Phạt (optional, user chọn bật/tắt):** Give up task → hoa trong vườn bị ảnh hưởng.
-- Penalty mode được chọn lúc onboarding và có thể thay đổi trong Settings. Khi tắt, give up task chỉ mất lượt task trong ngày, không ảnh hưởng vườn.
+- **Phạt (optional, user chọn bật/tắt per-task):** Give up task → hoa trong vườn bị ảnh hưởng.
+- Penalty mode được chọn lúc tạo task. User có thể enable/disable nó cho từng task riêng lẻ. Khi tắt, give up task chỉ mất lượt task trong ngày, không ảnh hưởng vườn.
 
 ---
 
@@ -42,7 +42,8 @@ User fill form trước khi bắt đầu:
 |---|---|
 | **Tiêu đề** | Tên task |
 | **Todo List** | Danh sách checkbox, hỗ trợ indent (checkbox con). Tối thiểu 1 item |
-| **Thời lượng** | Chọn trước: 25 / 45 / 60 / 90 / 120 phút (hoặc custom, minimum 25 phút) |
+| **Thời lượng** | Chọn trước: 25 / 30 / 45 / 60 / 90 / 120 phút (hoặc custom, minimum 25 phút, maximum 480 phút) |
+| **Penalty Mode** | Toggle: ON/OFF — snapshot của setting này được lưu per-task |
 
 Sau khi fill xong → bấm **"Create Task"** → task được tạo và đồng hồ tự động bắt đầu → vào màn hình Focus. Ghi chú được thêm/sửa/xóa trong Focus screen (CRUD).
 
@@ -78,9 +79,10 @@ Màn hình cực tối giản, không có gì gây distraction:
 
 **Chi tiết các nút:**
 
-- **Pause/Resume:** Dừng đồng hồ (task vẫn `active`), user có thể tiếp tục sau. Dữ liệu được lưu tự động.
+- **Pause:** Dừng đồng hồ (task vẫn `active`), user có thể tiếp tục sau. Dữ liệu được lưu tự động.
+- **Resume:** Tiếp tục từ trạng thái paused, đồng hồ chạy lại.
 - **+15 min (Extend):** Thêm 15 phút vào thời lượng còn lại. Không giới hạn số lần extend.
-- **Submit Task:** Gửi task để hoàn thành. Có thể submit từ trạng thái active hoặc paused (không cần tất cả todo checked). Submit thành công → trigger reward flow.
+- **Submit Task:** Gửi task để hoàn thành. Có thể submit từ trạng thái active hoặc paused. Tất cả todos sẽ được đánh dấu hoàn thành tự động. Submit thành công → trigger reward flow.
 - **Give Up:** Confirm dialog "Bạn chắc chắn muốn bỏ task này?" → Xác nhận → task về trạng thái `given_up` → trigger penalty flow (nếu penalty mode ON).
 
 ### 3.3 Task States

@@ -244,10 +244,10 @@
   - Scrollable, auto-scroll to latest
 
 - **Controls:**
-  - Pause: stop timer, stay on page
+  - Pause/Resume Toggle: Single button that pauses timer when active, resumes when paused
   - +15 min: extend duration, update display
   - Stop/Leave: confirm dialog, return to dashboard (discards session)
-  - Submit: verify all todos checked, send to server
+  - Submit: send to server, auto-mark all todos as done
   - Give Up: confirm dialog, penalty flow if enabled
 
 **State Management:**
