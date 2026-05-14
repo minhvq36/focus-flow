@@ -4,6 +4,7 @@ create table if not exists public.users (
     bio varchar(255),
     avatar_url text,
     active_frame_id uuid references public.frames(id) on delete set null default null,
+    level int not null default 1 CHECK (level > 0),
     created_at timestamptz not null default now(),
     updated_at timestamptz not null default now()
 );
@@ -36,6 +37,7 @@ create table if not exists public.user_wallets (
     user_id uuid primary key references public.users(id) on delete cascade,
     silver_balance bigint not null default 0 check (silver_balance >= 0),
     gold_balance int not null default 0 check (gold_balance >= 0),
+    total_exp int not null default 0 check (total_exp >= 0),
     updated_at timestamptz not null default now()
 );
 
