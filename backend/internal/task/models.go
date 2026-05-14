@@ -23,7 +23,6 @@ type TodoItem struct {
 	Children []TodoItem `json:"children,omitempty"` // indent (checkbox con)
 }
 
-// Task — mapping với bảng tasks trong DB
 type Task struct {
 	ID                    string     `json:"id"`
 	UserID                string     `json:"user_id"`
@@ -33,7 +32,7 @@ type Task struct {
 	Status                TaskStatus `json:"status"`
 	RegisteredDurationMin int        `json:"registered_duration_min"`
 	ActualDurationSec     int        `json:"actual_duration_sec"`
-	StartedAt             *time.Time `json:"started_at"` // NULL = paused
+	StartedAt             *time.Time `json:"started_at"` // NULL = paused, submitted, or given up
 	CreatedAt             time.Time  `json:"created_at"`
 	UpdatedAt             time.Time  `json:"updated_at"`
 	CompletedAt           *time.Time `json:"completed_at"` // NULL = not completed
@@ -56,9 +55,6 @@ func validateTodosRecursive(todos []TodoItem, depth int) error {
 	for _, todo := range todos {
 		if !isValidUUID(todo.ID) {
 			return fmt.Errorf("Invalid todo ID: %s", todo.ID)
-		}
-		if strings.TrimSpace(todo.Text) == "" {
-			return fmt.Errorf("Todo text cannot be empty")
 		}
 		if len(todo.Children) > 0 {
 			if err := validateTodosRecursive(todo.Children, depth+1); err != nil {
@@ -105,12 +101,31 @@ func ValidateTodosAllDone(todos []TodoItem) error {
 	return nil
 }
 
+func markAllTodosDone(todos []TodoItem) []TodoItem {
+	result := make([]TodoItem, len(todos))
+	for i, todo := range todos {
+		todo.Done = true
+		if len(todo.Children) > 0 {
+			todo.Children = markAllTodosDone(todo.Children)
+		}
+		result[i] = todo
+	}
+	return result
+}
+
+// TaskFilter — parsed from query params by handler, passed down to repository
+type TaskFilter struct {
+	DateRange string   // "today" | "yesterday" | "7days" | "30days"
+	Statuses  []string // empty = all 4 statuses
+}
+
 // TaskSummary — Used for list view (Dashboard)
 // Does not load full todos, only count
 type TaskSummary struct {
 	ID                    string     `json:"id"`
 	Title                 string     `json:"title"`
 	Status                TaskStatus `json:"status"`
+	PenaltyMode           bool       `json:"penalty_mode"`
 	RegisteredDurationMin int        `json:"registered_duration_min"`
 	ActualDurationSec     int        `json:"actual_duration_sec"`
 	StartedAt             *time.Time `json:"started_at"`
@@ -140,13 +155,8 @@ type QuotaToday struct {
 type CreateTaskRequest struct {
 	Title                 string     `json:"title"                validate:"required,min=1,max=255"`
 	Todos                 []TodoItem `json:"todos"                validate:"required,min=1"`
-	RegisteredDurationMin int        `json:"registered_duration_min" validate:"required,min=25"` // TODO: Check if all these config should add to contract or spec
+	RegisteredDurationMin int        `json:"registered_duration_min" validate:"required,min=25,max=480"` // TODO: Check if all these config should add to contract or spec
 	PenaltyMode           bool       `json:"penalty_mode"`
-}
-
-// AddNoteRequest — Sent from FE when adding a note
-type AddNoteRequest struct {
-	Content string `json:"content" validate:"required,min=1,max=22000"`
 }
 
 // UpdateTodosRequest — Sent from FE when autosaving todos
@@ -154,19 +164,19 @@ type UpdateTodosRequest struct {
 	Todos []TodoItem `json:"todos" validate:"required,min=1,max=50"`
 }
 
-type SubmitTaskRequest struct {
-	Todos []TodoItem `json:"todos" validate:"required,min=1,max=50"`
-}
-
 // ExtendRequest — Sent from FE when extending time
 type ExtendRequest struct {
-	AddMinutes int `json:"add_minutes" validate:"required,min=1"`
+	AddMinutes int `json:"add_minutes" validate:"required,min=1,max=480"`
+}
+
+type EditTaskTitleRequest struct {
+	Title string `json:"title" validate:"required,min=1,max=255"`
 }
 
 type CreateTaskNoteRequest struct {
-	Content string `json:"content" validate:"required,min=1,max=22000"`
+	Content string `json:"content" validate:"required,min=1,max=12000"`
 }
 
 type UpdateTaskNoteRequest struct {
-	Content string `json:"content" validate:"required,min=1,max=22000"`
+	Content string `json:"content" validate:"required,min=1,max=12000"`
 }

@@ -25,37 +25,73 @@ func NewRepository(db *pgxpool.Pool, log *logger.Logger) *Repository {
 	}
 }
 
-// TODO: Add filter by date, status, pagination, etc.
-// GetAllByUser — list view, does not load full todos
-func (r *Repository) GetAllByUser(ctx context.Context, userID string) ([]TaskSummary, error) {
-	// TODO: Need to contract todos with FE
-	r.log.Info("GetAllByUser", "user_id", userID)
+// TODO: Add filter pagination
+/*
+	GET /api/tasks?date=today&status=active,paused
+	date: today | yesterday | 7days | 30days — default today, BE tự resolve từ CURRENT_DATE, không nhận date string từ FE
+	status: comma-separated, optional — nếu vắng mặt = all 4 status
+	Không có pagination params (TODO sau)
+*/
+// resolveDateRange — BE resolves date range from CURRENT_DATE (never trusts FE date)
+// Returns (fromExpr, toExpr) as PostgreSQL date expressions
+func resolveDateRange(dateRange string) (string, string) {
+	switch dateRange {
+	case "yesterday":
+		return "1 day", "1 day"
+	case "7days":
+		return "6 days", "0 days"
+	case "30days":
+		return "29 days", "0 days"
+	default: // today
+		return "0 days", "0 days"
+	}
+}
+func (r *Repository) GetAllByUser(ctx context.Context, userID string, filter TaskFilter) ([]TaskSummary, error) {
+	r.log.Info("GetAllByUser", "user_id", userID, "filter", filter)
 
-	rows, err := r.db.Query(ctx, `
-		SELECT id, title, status,
+	fromOffset, toOffset := resolveDateRange(filter.DateRange)
+
+	// $1=userID, $2=fromOffset, $3=toOffset
+	args := []any{userID, fromOffset, toOffset}
+
+	// Status filter — empty = all statuses
+	statusClause := ""
+	if len(filter.Statuses) > 0 {
+		args = append(args, filter.Statuses)
+		statusClause = fmt.Sprintf("AND status = ANY($%d)", len(args))
+	}
+
+	query := fmt.Sprintf(`
+		SELECT id, title, status, penalty_mode,
 		       registered_duration_min, actual_duration_sec,
 		       started_at, created_at, completed_at,
-		       jsonb_array_length(todos) as todo_count,
+		       jsonb_array_length(todos) AS todo_count,
 		       (
 		           SELECT COUNT(*)
 		           FROM jsonb_array_elements(todos) t
 		           WHERE (t->>'done')::boolean = true
-		       ) as todo_done_count
+		       ) AS todo_done_count
 		FROM tasks
 		WHERE user_id = $1
 		  AND deleted_at IS NULL
+		  AND created_at >= date_trunc('day', CURRENT_TIMESTAMP) - $2::interval
+		  AND created_at <  date_trunc('day', CURRENT_TIMESTAMP) - $3::interval + INTERVAL '1 day'
+		  %s
 		ORDER BY created_at DESC
-	`, userID)
+	`, statusClause)
+
+	rows, err := r.db.Query(ctx, query, args...)
 	if err != nil {
 		r.log.Error("GetAllByUser failed", "user_id", userID, "error", err.Error())
 		return nil, fmt.Errorf("GetAllByUser: %w", err)
 	}
 	defer rows.Close()
-	var tasks []TaskSummary
+
+	tasks := make([]TaskSummary, 0)
 	for rows.Next() {
 		var t TaskSummary
 		err := rows.Scan(
-			&t.ID, &t.Title, &t.Status,
+			&t.ID, &t.Title, &t.Status, &t.PenaltyMode,
 			&t.RegisteredDurationMin, &t.ActualDurationSec,
 			&t.StartedAt, &t.CreatedAt, &t.CompletedAt,
 			&t.TodoCount, &t.TodoDoneCount,
@@ -150,8 +186,7 @@ func (r *Repository) UpdateTodos(ctx context.Context, taskID, userID string, req
 		SET todos = $1
 		WHERE id = $2
 		  AND user_id = $3
-		  AND status = 'active'
-		  AND deleted_at IS NULL
+		  AND status in ('active', 'paused')
 	`, todosJSON, taskID, userID)
 	if err != nil {
 		return fmt.Errorf("UpdateTodos: %w", err)
@@ -166,15 +201,47 @@ func (r *Repository) UpdateTodos(ctx context.Context, taskID, userID string, req
 // Extend time
 func (r *Repository) Extend(ctx context.Context, taskID, userID string, req ExtendRequest) error {
 	result, err := r.db.Exec(ctx, `
-		UPDATE tasks
-		SET registered_duration_min = registered_duration_min + $1
-		WHERE id = $2
-		  AND user_id = $3
-		  AND status = 'active'
-		  AND deleted_at IS NULL
-	`, req.AddMinutes, taskID, userID)
+        UPDATE tasks
+        SET
+            registered_duration_min = registered_duration_min + $1,
+            actual_duration_sec = LEAST(
+				actual_duration_sec + COALESCE(
+					EXTRACT(EPOCH FROM (now() - started_at))::int,
+					0
+				),
+				registered_duration_min * 60
+			),
+			started_at = CASE
+				WHEN status = 'active' THEN now()
+				ELSE started_at
+			END,
+            updated_at = now()
+        WHERE id = $2
+          AND user_id = $3
+          AND status in ('active', 'paused')
+          AND deleted_at IS NULL
+    `, req.AddMinutes, taskID, userID)
 	if err != nil {
 		return fmt.Errorf("Extend: %w", err)
+	}
+	if result.RowsAffected() == 0 {
+		return &apperr.NotFoundError{Resource: "Task"}
+	}
+	return nil
+}
+
+// Update task title
+func (r *Repository) UpdateTitle(ctx context.Context, taskID, userID string, req EditTaskTitleRequest) error {
+	result, err := r.db.Exec(ctx, `
+		UPDATE tasks
+		SET title = $1
+		WHERE id = $2
+		  AND user_id = $3
+		  AND status in ('active', 'paused')
+		  AND deleted_at IS NULL
+	`, req.Title, taskID, userID)
+	if err != nil {
+		return fmt.Errorf("UpdateTitle: %w", err)
 	}
 	if result.RowsAffected() == 0 {
 		return &apperr.NotFoundError{Resource: "Task"}
@@ -208,11 +275,17 @@ func (r *Repository) PauseTask(ctx context.Context, taskID, userID string) (int,
 	return newDuration, nil
 }
 
-func (r *Repository) Submit(ctx context.Context, taskID, userID string) error {
+func (r *Repository) Submit(ctx context.Context, taskID, userID string, todos []TodoItem) error {
 	// Allow paused submission
+	todosJSON, err := json.Marshal(todos)
+	if err != nil {
+		return fmt.Errorf("Submit marshal todos: %w", err)
+	}
+
 	result, err := r.db.Exec(ctx, `
         UPDATE tasks
         SET status = 'submitted',
+			todos = $3,
             actual_duration_sec = LEAST(
                 actual_duration_sec + COALESCE(EXTRACT(EPOCH FROM (NOW() - started_at))::int, 0),
                 registered_duration_min * 60
@@ -223,7 +296,7 @@ func (r *Repository) Submit(ctx context.Context, taskID, userID string) error {
           AND user_id = $2
           AND status in ('active', 'paused')
           AND deleted_at IS NULL
-    `, taskID, userID)
+    `, taskID, userID, todosJSON)
 	if err != nil {
 		return fmt.Errorf("Submit: %w", err)
 	}
@@ -312,7 +385,7 @@ func (r *Repository) GetNotes(ctx context.Context, taskID, userID string) ([]*Ta
 	}
 	defer rows.Close()
 
-	var notes []*TaskNote
+	notes := make([]*TaskNote, 0)
 	for rows.Next() {
 		var n TaskNote
 		if err := rows.Scan(&n.ID, &n.TaskID, &n.UserID, &n.Content, &n.CreatedAt, &n.UpdatedAt); err != nil {

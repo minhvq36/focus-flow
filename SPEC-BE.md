@@ -223,30 +223,37 @@ wire ./cmd/server
 ### 3.4 Implementation Status
 
 **✅ Completed:**
-- [x] `cmd/server/main.go` - Basic HTTP server setup with Chi router
-- [x] `cmd/server/routes.go` - Router initialization with health endpoint
-- [x] `pkg/config/config.go` - Environment variable loading (Env, Port, DatabaseURL, SupabaseURL)
+- [x] `cmd/server/main.go` - HTTP server with Chi router
+- [x] `cmd/server/routes.go` - Router setup with health endpoint
+- [x] `pkg/config/config.go` - Env loading (Env, Port, DatabaseURL, SupabaseURL)
 - [x] `pkg/db/postgres.go` - PostgreSQL connection pool with pgxpool
-- [x] `internal/auth/` - JWT middleware integration with Supabase JWKS
+- [x] `internal/auth/` - JWT middleware + Supabase JWKS
+- [x] `internal/task/` - **Full Task CRUD implementation**:
+  - [x] handler.go - All task endpoints (list, create, pause, submit, give-up, resume, notes CRUD)
+  - [x] service.go - Business logic with state machine
+  - [x] repository.go - DB queries with nested todos (JSONB), quota enforcement
+  - [x] models.go - Types and validation
+  - [x] routes.go - All routes registered
+- [x] `pkg/apperr/` - Custom error types with DB error codes (Z0001-Z0008)
+- [x] `pkg/response/` - Standardized response wrapper
+- [x] `pkg/logger/` - Logger setup
 
-**⏳ In Progress / Needs Extension:**
-- [ ] `pkg/config/config.go` - Add Redis, Elasticsearch, Anthropic, Stripe, Prometheus config fields
-- [ ] `cmd/server/wire.go` - Implement Wire DI setup
-- [ ] `pkg/config/loader.go` - Implement extended config loader
-- [ ] `pkg/db/postgres.go` - Make MaxConns configurable from env (currently hardcoded to 10)
+**⏳ Partial / Needs Work:**
+- [ ] `pkg/config/config.go` - Redis, Elasticsearch, Anthropic, Stripe config added but not used yet
+- [ ] `cmd/server/wire.go` - Not implemented (services created directly in routes for now)
+- [ ] CORS - Hardcoded to localhost:5173 (needs .env for prod)
 
-**⚠️ Known TODOs (in code):**
-1. postgres.go: "Chuyển tất cả comment, log sang tiếng Anh, thêm tag [] để debug"
-2. postgres.go: "Tune or tối ưu hóa code để xử lý tải lớn, đọc từ .env or .yml"
-3. config.go: "Determine for Backend Port" - PORT should be configurable
-4. config.go: "Consider to upgrade to Asymmetric Key JWKS" - May need key rotation mechanism
-5. routes.go: "Task routes — thêm vào đây sau" - Need to add task endpoints
-
-**Not Yet Started:**
-- [ ] `pkg/cache/redis.go` - Redis client wrapper
-- [ ] `pkg/realtime/supabase.go` - Supabase Realtime client
-- [ ] Service layer implementations (Task, Reward, Garden, etc.)
-- [ ] Handler layer implementations
+**❌ Not Yet Started (Stubs only):**
+- [ ] `internal/garden/` - Models exist, service/handlers empty
+- [ ] `internal/reward/` - Models exist, logic empty
+- [ ] `internal/shop/` - Models exist, logic empty
+- [ ] `internal/marketplace/` - Models exist, logic empty
+- [ ] `internal/social/` - Models exist, logic empty
+- [ ] `internal/leaderboard/` - Models exist, logic empty
+- [ ] `internal/search/` - Elasticsearch integration
+- [ ] `internal/ai/` - Anthropic integration
+- [ ] `pkg/cache/redis.go` - Redis client (not wired)
+- [ ] `pkg/realtime/supabase.go` - Supabase Realtime (not wired)
 
 ---
 
@@ -256,79 +263,91 @@ wire ./cmd/server
 
 **State Machine:**
 ```
-[Created] → [Active] ──┬─→ Paused → Resume → [Active]
-                       ├─→ [Submitted] (reward flow)
-                       └─→ [Given Up] (penalty flow, if penalty mode ON)
+[Active] (created & timer running) ──┬─→ Paused ─→ Active (resume)
+                                     ├─→ [Submitted] (reward flow)
+                                     └─→ [Given Up] (penalty flow, if penalty mode ON)
 ```
 
 **Key Operations:**
 
 #### CreateTask
-- **Input:** user_id, title, todos[], duration_min
+- **Input:** user_id, title, todos[], duration_min (no penalty_mode from client)
 - **Logic:**
   1. Validate todos non-empty
   2. Create task with status='active', started_at=NOW() (auto-starts immediately)
-  3. Insert into DB (status='active')
-  4. Increment task_daily_quotas (via trigger)
-  5. If quota exceeded → transaction rolls back, return 409 Conflict
+  3. penalty_mode captured from user_private at creation (not sent by client)
+  4. Insert into DB (status='active')
+  5. Increment task_daily_quotas (via trigger)
+  6. If quota exceeded → transaction rolls back, return 409 Conflict
 - **Output:** task_id, redirect to Focus screen
 - **Note:** Migration 004 automatically sets started_at=NOW() on task creation (timer auto-starts)
 
-#### PauseTask (Toggle)
+#### PauseTask
 - **Input:** task_id
 - **Logic:**
   1. Fetch task, validate status='active'
-  2. If started_at IS NOT NULL:
-     - Calculate delta = NOW() - started_at
-     - Accumulate: actual_duration_sec += delta
-     - Set started_at = NULL (timer paused)
-  3. Else (already paused):
-     - Set started_at = NOW() (resume)
+  2. Calculate delta = NOW() - started_at
+  3. Accumulate: actual_duration_sec += delta
+  4. Set started_at = NULL (timer paused)
+  5. Set status = 'paused'
+  6. Update DB
+- **Output:** updated task, 200 OK
+- **Note:** Separate endpoint from ResumeTask. Only pauses active tasks.
+
+#### ResumeTask
+- **Input:** task_id
+- **Logic:**
+  1. Fetch task, validate status='paused'
+  2. Set started_at = NOW() (resume timer)
+  3. Set status = 'active'
   4. Update DB
 - **Output:** updated task, 200 OK
-- **Note:** Single endpoint toggles pause/resume state
+- **Note:** Only resumes paused tasks.
 
 #### SubmitTask
 - **Input:** task_id
 - **Logic:**
   1. Fetch task, validate status='active' or 'paused' (can submit anytime)
-  2. Finalize actual_duration_sec:
+  2. Auto-mark all todos as done (regardless of current state)
+  3. Finalize actual_duration_sec:
      - If started_at IS NOT NULL: actual_duration_sec += (NOW() - started_at)
      - Set started_at = NULL
-  3. Set completed_at = NOW(), status='submitted'
-  4. Update DB, clear Redis timer state
-  5. Trigger reward flow (→ RewardService.RollReward)
+  4. Set completed_at = NOW(), status='submitted'
+  5. Update DB, clear Redis timer state
+  6. Trigger reward flow (→ RewardService.RollReward)
 - **Output:** reward modal data (item dropped, silver earned, 200 OK)
-- **Note:** Submit allowed from active or paused state. Todos are not validated at submit time (only checked during Focus session for UX feedback, not backend validation).
+- **Note:** Submit allowed from active or paused state. All todos auto-marked done on submission (no validation for checked status).
 
 #### GiveUpTask
 - **Input:** task_id, confirm=true
 - **Logic:**
-  1. Fetch task, validate status='active'
-  2. Check user.penalty_mode from user_private
+  1. Fetch task, validate status='active' (and started_at IS NOT NULL)
+  2. task.penalty_mode is already captured from user_private at task creation time
   3. Set status='given_up', completed_at=NOW()
-  4. If penalty_mode=true:
+  4. If task.penalty_mode=true:
      - Trigger PenaltyService.ApplyPenalty (remove/wilt items)
   5. Update DB, clear Redis state
 - **Output:** penalty modal data (items affected)
+- **Note:** penalty_mode is snapshot at task creation, used at give-up time (not user's current setting)
 
 #### ExtendTask
-- **Input:** task_id, extend_min=15
+- **Input:** task_id, add_minutes (min 1, max 480)
 - **Logic:**
-  1. Fetch task
-  2. Validate no hard limit (just allow any times)
-  3. registered_duration_min += extend_min
+  1. Fetch task, validate status='active' or 'paused'
+  2. registered_duration_min += add_minutes
+  3. Validate total registered_duration_min does not exceed 480 minutes
   4. Update DB
-- **Output:** updated task
+- **Output:** success message
+- **Note:** Each extend must be 1-480 minutes. Total cannot exceed 480 minutes.
 
 #### UpdateTodos (Debounced Autosave)
 - **Input:** task_id, todos[]
 - **Logic:**
-  1. Fetch task, validate status='active'
+  1. Fetch task, validate status='active' or 'paused'
   2. Update task.todos = new todos[] in DB
-  3. Return updated todos (confirmation)
-- **Output:** todos[], 200 OK
-- **Note:** Called from frontend on ~1 sec idle (debounced). No need to validate all-checked at this point — that's done on Submit. This is just persistence.
+  3. Return success message
+- **Output:** success message, 200 OK
+- **Note:** Called from frontend on ~1 sec idle (debounced). No validation of todos state. This is just persistence.
 
 #### AddTaskNote
 - **Input:** task_id, content

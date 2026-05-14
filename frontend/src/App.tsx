@@ -1,12 +1,43 @@
-import React from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import Login from './pages/login'
+import ProtectedRoute from './components/auth/protected-route'
+import AppLayout from './components/layout/app-layout'
+import AuthLayout from './components/layout/auth-layout'
+import Garden from './pages/garden'
+import Tasks from './pages/tasks'
+import Focus from './pages/focus'
+import { Toaster } from '@/components/ui/sonner'
+import { TooltipProvider } from '@/components/ui/tooltip'
 
-/**
- * Main App component
- */
-export default function App() {
+const queryClient = new QueryClient()
+function App() {
+
   return (
-    <div className="app">
-      {/* Routes and main layout */}
-    </div>
-  );
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <TooltipProvider>
+          <Routes>
+            <Route element={<AuthLayout />}>
+              <Route path="/login" element={<Login />} />
+            </Route>
+            <Route element={<ProtectedRoute />}>
+              <Route element={<AppLayout />}>
+                {/* TODO: Set Routes */}
+                <Route path="/" element={<Navigate to="/garden" replace />} />
+                <Route path="/garden" element={<Garden />} />
+                <Route path="/tasks" element={<Tasks />} />
+              </Route>
+              {/* Focus DONOT have sidebar/header — full screen */}
+              <Route path="/focus/:taskId" element={<Focus />} />
+            </Route>
+          </Routes>
+
+          <Toaster richColors/>
+        </TooltipProvider>
+      </BrowserRouter>
+    </QueryClientProvider>
+  )
 }
+
+export default App
