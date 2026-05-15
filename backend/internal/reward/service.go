@@ -79,5 +79,10 @@ func (rw *Rewarder) Grant(ctx context.Context, tx pgx.Tx, userID, taskID string,
 		return nil, fmt.Errorf("Grant insert silver: %w", err)
 	}
 
+	// 7. Log roll
+	if err := rw.repo.InsertRoll(ctx, tx, taskID, userID, result); err != nil {
+		return nil, fmt.Errorf("Grant insert roll: %w", err)
+	}
+
 	return result, nil
 }

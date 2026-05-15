@@ -113,3 +113,18 @@ func (r *Repository) GetRandomItemByRarity(ctx context.Context, tx pgx.Tx, rarit
 		ItemID:     itemID,
 	}, nil
 }
+
+func (r *Repository) InsertRoll(ctx context.Context, tx pgx.Tx, taskID, userID string, result *RollResult) error {
+	var itemID *string
+	if result.ItemID != "" {
+		itemID = &result.ItemID
+	}
+	_, err := tx.Exec(ctx, `
+        INSERT INTO reward_rolls (task_id, user_id, item_id, silver_amount)
+        VALUES ($1, $2, $3, $4)
+    `, taskID, userID, itemID, result.Silver)
+	if err != nil {
+		return fmt.Errorf("InsertRoll: %w", err)
+	}
+	return nil
+}

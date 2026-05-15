@@ -35,12 +35,12 @@ type rarityWeight struct {
 
 // RollResult is the result of a reward roll.
 type RollResult struct {
-	RolledRarity Rarity // trước fallback — để log/debug
-	ItemRarity   Rarity // sau fallback — rarity thực tế
-	ItemID       string // id item trong DB, "" nếu không có
-	Silver       int
-	Exp          int
-	Seed         string
+	RolledRarity Rarity `json:"rolled_rarity"`
+	ItemRarity   Rarity `json:"item_rarity"`
+	ItemID       string `json:"item_id"`
+	Silver       int    `json:"silver"`
+	Exp          int    `json:"exp"`
+	Seed         string `json:"-"` // audit only, không expose
 }
 
 // PenaltyResult is the result of a penalty roll.
