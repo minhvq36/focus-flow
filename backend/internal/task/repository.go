@@ -329,7 +329,6 @@ func (r *Repository) GiveUp(ctx context.Context, tx pgx.Tx, taskID, userID strin
 		WHERE id = $1
 		  AND user_id = $2
 		  AND status IN ('active', 'paused')
-		  AND started_at IS NOT NULL
 		  AND deleted_at IS NULL
 	`, taskID, userID)
 	if err != nil {
