@@ -1,10 +1,6 @@
 package reward
 
 import (
-	"crypto/hmac"
-	"crypto/rand"
-	"crypto/sha256"
-	"encoding/binary"
 	"fmt"
 	"time"
 )
@@ -125,41 +121,6 @@ func silverRange(level int) (min, max int) {
 }
 
 // ── Public API ───────────────────────────────────────────────────────────────
-// TODO: increase performance in hmac and gc
-// cryptoRandN returns a random int in [0, n) using crypto/rand, bias-free.
-func cryptoRandN(n int) (int, error) {
-	limit := ^uint64(0) - (^uint64(0) % uint64(n))
-	for {
-		b := make([]byte, 8)
-		_, err := rand.Read(b)
-		if err != nil {
-			return 0, err
-		}
-		v := binary.BigEndian.Uint64(b)
-		if v < limit {
-			return int(v % uint64(n)), nil
-		}
-	}
-}
-
-// cryptoRandNWithSeed returns a random int in [0, n) mixed with user seed, bias-free.
-func cryptoRandNWithSeed(n int, seed []byte) (int, error) {
-	limit := ^uint64(0) - (^uint64(0) % uint64(n))
-	for {
-		b := make([]byte, 8)
-		_, err := rand.Read(b)
-		if err != nil {
-			return 0, err
-		}
-		mac := hmac.New(sha256.New, seed)
-		mac.Write(b)
-		sum := mac.Sum(nil)
-		v := binary.BigEndian.Uint64(sum[:8])
-		if v < limit {
-			return int(v % uint64(n)), nil
-		}
-	}
-}
 
 // RollRarity rolls a rarity based on tier table, mixed with user seed.
 func RollRarity(level int, taskID, userID string) (Rarity, error) {

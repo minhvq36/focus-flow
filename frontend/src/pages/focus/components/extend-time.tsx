@@ -83,7 +83,7 @@ export function ExtendTime({ onExtend }: ExtendTimeProps) {
           onKeyDown={handleKeyDown}
           onBlur={dismiss}
           className={cn(
-            'w-5.5 bg-transparent text-left text-sm outline-none tabular-nums',
+            'w-8 bg-transparent text-left text-sm outline-none tabular-nums',
             hasInput && error ? 'text-destructive' : 'text-foreground'
           )}
           style={{ fontFamily: "'DM Mono', monospace" }}
