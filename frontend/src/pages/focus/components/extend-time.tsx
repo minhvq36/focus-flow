@@ -2,7 +2,7 @@ import { useState, useRef, useCallback } from 'react'
 import { cn } from '@/lib/utils'
 
 const MIN = 1
-const MAX = 30
+const MAX = 120
 
 interface ExtendTimeProps {
   onExtend: (addMinutes: number) => Promise<void>
@@ -11,9 +11,9 @@ interface ExtendTimeProps {
 function validate(raw: string): { value: number | null; error: string | null } {
   if (raw === '') return { value: null, error: null }
   const parsed = parseInt(raw, 10)
-  if (isNaN(parsed) || parsed === 0) return { value: null, error: 'Enter a number between 1–30' }
+  if (isNaN(parsed) || parsed === 0) return { value: null, error: 'Enter a number between 1–120' }
   if (parsed < MIN) return { value: null, error: 'Minimum is 1 min' }
-  if (parsed > MAX) return { value: null, error: 'Maximum is 30 min' }
+  if (parsed > MAX) return { value: null, error: 'Maximum is 120 min' }
   return { value: parsed, error: null }
 }
 
