@@ -5,6 +5,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/minhvq36/focus-flow/backend/pkg/apperr"
 	"github.com/minhvq36/focus-flow/backend/pkg/logger"
 )
@@ -17,7 +18,7 @@ type RepositoryInterface interface {
 	UpdateTitle(ctx context.Context, taskID, userID string, req EditTaskTitleRequest) error
 	Extend(ctx context.Context, taskID, userID string, req ExtendRequest) error
 	PauseTask(ctx context.Context, taskID, userID string) (int, error)
-	Submit(ctx context.Context, taskID, userID string, todos []TodoItem) error
+	Submit(ctx context.Context, tx pgx.Tx, taskID, userID string, todos []TodoItem) error
 	GiveUp(ctx context.Context, taskID, userID string) error
 	ResumeTask(ctx context.Context, taskID, userID string) error
 	CreateNote(ctx context.Context, taskID, userID string, req CreateTaskNoteRequest) (*TaskNote, error)

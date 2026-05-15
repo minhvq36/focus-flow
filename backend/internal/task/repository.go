@@ -275,17 +275,16 @@ func (r *Repository) PauseTask(ctx context.Context, taskID, userID string) (int,
 	return newDuration, nil
 }
 
-func (r *Repository) Submit(ctx context.Context, taskID, userID string, todos []TodoItem) error {
-	// Allow paused submission
+func (r *Repository) Submit(ctx context.Context, tx pgx.Tx, taskID, userID string, todos []TodoItem) error {
 	todosJSON, err := json.Marshal(todos)
 	if err != nil {
 		return fmt.Errorf("Submit marshal todos: %w", err)
 	}
 
-	result, err := r.db.Exec(ctx, `
+	result, err := tx.Exec(ctx, `
         UPDATE tasks
         SET status = 'submitted',
-			todos = $3,
+            todos = $3,
             actual_duration_sec = LEAST(
                 actual_duration_sec + COALESCE(EXTRACT(EPOCH FROM (NOW() - started_at))::int, 0),
                 registered_duration_min * 60
