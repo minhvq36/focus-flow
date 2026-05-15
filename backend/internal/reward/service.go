@@ -21,6 +21,11 @@ func NewRewarder(db *pgxpool.Pool, repo *Repository, log *logger.Logger) *Reward
 
 // Grant rolls and inserts reward within the caller's tx.
 // userLevel dùng để chọn tier và tính exp/silver.
+
+func (rw *Rewarder) GetUserLevel(ctx context.Context, tx pgx.Tx, userID string) (int, error) {
+	return rw.repo.GetUserLevel(ctx, tx, userID)
+}
+
 func (rw *Rewarder) Grant(ctx context.Context, tx pgx.Tx, userID, taskID string, userLevel int) (*RollResult, error) {
 	// 1. Roll rarity
 	rolledRarity, err := RollRarity(userLevel, taskID, userID)

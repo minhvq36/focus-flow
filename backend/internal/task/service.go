@@ -2,10 +2,13 @@ package task
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"unicode/utf8"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/minhvq36/focus-flow/backend/internal/reward"
 	"github.com/minhvq36/focus-flow/backend/pkg/apperr"
 	"github.com/minhvq36/focus-flow/backend/pkg/logger"
 )
@@ -29,14 +32,18 @@ type RepositoryInterface interface {
 }
 
 type Service struct {
-	repo RepositoryInterface
-	log  *logger.Logger
+	db       *pgxpool.Pool
+	repo     RepositoryInterface
+	rewarder *reward.Rewarder
+	log      *logger.Logger
 }
 
-func NewService(repo RepositoryInterface, log *logger.Logger) *Service {
+func NewService(db *pgxpool.Pool, repo RepositoryInterface, rewarder *reward.Rewarder, log *logger.Logger) *Service {
 	return &Service{
-		repo: repo,
-		log:  log,
+		db:       db,
+		repo:     repo,
+		rewarder: rewarder,
+		log:      log,
 	}
 }
 
@@ -150,21 +157,49 @@ func (s *Service) PauseTask(ctx context.Context, taskID, userID string) error {
 	return err
 }
 
-// TODO: Use Tx to mark all todos as done
-func (s *Service) SubmitTask(ctx context.Context, taskID, userID string) error {
+// DONE: Use Tx to mark all todos as done
+func (s *Service) SubmitTask(ctx context.Context, taskID, userID string) (*SubmitResult, error) {
+	// 1. Validate state trước khi mở tx
 	task, err := s.repo.GetByID(ctx, taskID, userID)
 	if err != nil {
-		return err
+		return nil, err
 	}
-
 	if task.Status != TaskStatusActive && task.Status != TaskStatusPaused {
-		return &apperr.InvalidStateError{Current: string(task.Status), Expected: "active|paused"}
+		return nil, &apperr.InvalidStateError{
+			Current:  string(task.Status),
+			Expected: "active|paused",
+		}
 	}
 
-	doneTodos := markAllTodosDone(task.Todos)
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("SubmitTask begin tx: %w", err)
+	}
+	defer tx.Rollback(ctx)
 
-	return s.repo.Submit(ctx, taskID, userID, doneTodos)
-	// TODO: trigger reward flow (phase 2)
+	// 2. Submit task
+	doneTodos := markAllTodosDone(task.Todos)
+	if err := s.repo.Submit(ctx, tx, taskID, userID, doneTodos); err != nil {
+		return nil, err
+	}
+
+	// 3. Lấy level từ total_exp
+	level, err := s.rewarder.GetUserLevel(ctx, tx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	// 4. Grant reward
+	reward, err := s.rewarder.Grant(ctx, tx, userID, taskID, level)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("SubmitTask commit: %w", err)
+	}
+
+	return &SubmitResult{Reward: reward}, nil
 }
 
 func (s *Service) GiveUpTask(ctx context.Context, taskID, userID string) error {

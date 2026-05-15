@@ -22,7 +22,7 @@ type ServiceInterface interface {
 	EditTaskTitle(ctx context.Context, taskID, userID string, req EditTaskTitleRequest) error
 	ExtendTask(ctx context.Context, taskID, userID string, req ExtendRequest) error
 	PauseTask(ctx context.Context, taskID, userID string) error
-	SubmitTask(ctx context.Context, taskID, userID string) error
+	SubmitTask(ctx context.Context, taskID, userID string) (*SubmitResult, error)
 	GiveUpTask(ctx context.Context, taskID, userID string) error
 	ResumeTask(ctx context.Context, taskID, userID string) error
 	CreateNote(ctx context.Context, taskID, userID string, req CreateTaskNoteRequest) (*TaskNote, error)
@@ -315,7 +315,7 @@ func (h *Handler) SubmitTask(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.log.Info("SubmitTask", "user_id", userID, "task_id", taskID)
-	err := h.service.SubmitTask(r.Context(), taskID, userID)
+	result, err := h.service.SubmitTask(r.Context(), taskID, userID)
 	if err != nil {
 		switch {
 		case errors.Is(err, apperr.ErrNotFound):
@@ -329,7 +329,7 @@ func (h *Handler) SubmitTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.Success(w, map[string]string{"message": "Task submitted successfully"})
+	response.Success(w, result)
 }
 
 func (h *Handler) GiveUpTask(w http.ResponseWriter, r *http.Request) {

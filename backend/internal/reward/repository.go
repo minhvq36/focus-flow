@@ -23,6 +23,20 @@ func NewRepository(db *pgxpool.Pool, log *logger.Logger) *Repository {
 	}
 }
 
+func (r *Repository) GetUserLevel(ctx context.Context, tx pgx.Tx, userID string) (int, error) {
+	var totalExp int
+	err := tx.QueryRow(ctx, `
+		SELECT total_exp FROM user_wallets WHERE user_id = $1
+	`, userID).Scan(&totalExp)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return 1, nil // user mới, default level 1
+		}
+		return 0, fmt.Errorf("GetUserLevel: %w", err)
+	}
+	return LevelFromExp(totalExp), nil
+}
+
 func (r *Repository) InsertExp(ctx context.Context, tx pgx.Tx, userID string, exp int) error {
 	var totalExp int
 	err := tx.QueryRow(ctx, `

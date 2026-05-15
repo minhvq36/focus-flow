@@ -5,6 +5,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/minhvq36/focus-flow/backend/internal/reward"
 )
 
 type TaskStatus string
@@ -87,6 +89,7 @@ func ValidateTodos(todos []TodoItem) error {
 	return validateTodosRecursive(todos, 1) // start from level 1
 }
 
+// TODO: To Remove because no more need?
 func ValidateTodosAllDone(todos []TodoItem) error {
 	for _, todo := range todos {
 		if !todo.Done {
@@ -179,4 +182,8 @@ type CreateTaskNoteRequest struct {
 
 type UpdateTaskNoteRequest struct {
 	Content string `json:"content" validate:"required,min=1,max=12000"`
+}
+
+type SubmitResult struct {
+	Reward *reward.RollResult
 }
