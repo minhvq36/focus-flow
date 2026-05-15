@@ -45,9 +45,8 @@ type RollResult struct {
 
 // PenaltyResult is the result of a penalty roll.
 type PenaltyResult struct {
-	InventoryID string
-	ItemID      string
-	ItemRarity  Rarity
+	InventoryID string `json:"-"`
+	ItemID      string `json:"item_id"`
 }
 
 // TODO: increase performance in hmac and gc

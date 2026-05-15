@@ -128,3 +128,45 @@ func (r *Repository) InsertRoll(ctx context.Context, tx pgx.Tx, taskID, userID s
 	}
 	return nil
 }
+
+func (r *Repository) GetAndDeletePenaltyItem(ctx context.Context, tx pgx.Tx, userID string) (*PenaltyResult, error) {
+	var result PenaltyResult
+
+	err := tx.QueryRow(ctx, `
+		DELETE FROM inventory
+		WHERE id = (
+			SELECT inv.id
+			FROM inventory inv
+			JOIN items i ON i.id = inv.item_id
+			WHERE inv.user_id = $1
+			  AND inv.status != 'on_market'
+			  AND i.rarity in ('common', 'uncommon', 'rare', 'epic')
+			ORDER BY RANDOM()
+			LIMIT 1
+		)
+		RETURNING id, item_id
+	`, userID).Scan(&result.InventoryID, &result.ItemID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil // inventory trống hoặc không có item eligible
+		}
+		return nil, fmt.Errorf("GetAndDeletePenaltyItem: %w", err)
+	}
+
+	return &result, nil
+}
+
+func (r *Repository) InsertPenaltyRoll(ctx context.Context, tx pgx.Tx, taskID, userID string, result *PenaltyResult) error {
+	var itemID *string
+	if result != nil && result.ItemID != "" {
+		itemID = &result.ItemID
+	}
+	_, err := tx.Exec(ctx, `
+		INSERT INTO reward_rolls (task_id, user_id, roll_type, item_id)
+		VALUES ($1, $2, 'penalty', $3)
+	`, taskID, userID, itemID)
+	if err != nil {
+		return fmt.Errorf("InsertPenaltyRoll: %w", err)
+	}
+	return nil
+}

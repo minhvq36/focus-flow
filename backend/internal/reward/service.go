@@ -86,3 +86,32 @@ func (rw *Rewarder) Grant(ctx context.Context, tx pgx.Tx, userID, taskID string,
 
 	return result, nil
 }
+
+func (rw *Rewarder) Penalty(ctx context.Context, tx pgx.Tx, userID, taskID string) (*PenaltyResult, error) {
+	item, err := rw.repo.GetAndDeletePenaltyItem(ctx, tx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("Penalty: %w", err)
+	}
+	if item == nil {
+		rw.log.Warn("no eligible item for penalty, skipping",
+			"userID", userID,
+			"taskID", taskID,
+		)
+	}
+
+	// Log penalty dù có item hay không
+	if err := rw.repo.InsertPenaltyRoll(ctx, tx, taskID, userID, item); err != nil {
+		return nil, fmt.Errorf("Penalty insert roll: %w", err)
+	}
+
+	if item != nil {
+		rw.log.Info("penalty applied",
+			"userID", userID,
+			"taskID", taskID,
+			"inventoryID", item.InventoryID,
+			"itemID", item.ItemID,
+		)
+	}
+
+	return item, nil
+}

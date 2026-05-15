@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/minhvq36/focus-flow/backend/pkg/apperr"
 	dbpkg "github.com/minhvq36/focus-flow/backend/pkg/db"
@@ -305,22 +306,32 @@ func (r *Repository) Submit(ctx context.Context, tx pgx.Tx, taskID, userID strin
 	return nil
 }
 
-func (r *Repository) GiveUp(ctx context.Context, taskID, userID string) error {
-	result, err := r.db.Exec(ctx, `
-        UPDATE tasks
-        SET status = 'given_up',
-            actual_duration_sec = LEAST(
-                actual_duration_sec + EXTRACT(EPOCH FROM (NOW() - started_at))::int,
-                registered_duration_min * 60
-            ),
-            started_at = NULL,
-            completed_at = NOW()
-        WHERE id = $1
-          AND user_id = $2
-          AND status = 'active'
+// querier trả về db hoặc tx tùy nil
+func querier(db *pgxpool.Pool, tx pgx.Tx) interface {
+	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
+} {
+	if tx != nil {
+		return tx
+	}
+	return db
+}
+func (r *Repository) GiveUp(ctx context.Context, tx pgx.Tx, taskID, userID string) error {
+	q := querier(r.db, tx) // helper nhỏ
+	result, err := q.Exec(ctx, `
+		UPDATE tasks
+		SET status = 'given_up',
+		    actual_duration_sec = LEAST(
+		        actual_duration_sec + EXTRACT(EPOCH FROM (NOW() - started_at))::int,
+		        registered_duration_min * 60
+		    ),
+		    started_at = NULL,
+		    completed_at = NOW()
+		WHERE id = $1
+		  AND user_id = $2
+		  AND status IN ('active', 'paused')
 		  AND started_at IS NOT NULL
-          AND deleted_at IS NULL
-    `, taskID, userID)
+		  AND deleted_at IS NULL
+	`, taskID, userID)
 	if err != nil {
 		return fmt.Errorf("GiveUp: %w", err)
 	}

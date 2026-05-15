@@ -22,7 +22,7 @@ type RepositoryInterface interface {
 	Extend(ctx context.Context, taskID, userID string, req ExtendRequest) error
 	PauseTask(ctx context.Context, taskID, userID string) (int, error)
 	Submit(ctx context.Context, tx pgx.Tx, taskID, userID string, todos []TodoItem) error
-	GiveUp(ctx context.Context, taskID, userID string) error
+	GiveUp(ctx context.Context, tx pgx.Tx, taskID, userID string) error
 	ResumeTask(ctx context.Context, taskID, userID string) error
 	CreateNote(ctx context.Context, taskID, userID string, req CreateTaskNoteRequest) (*TaskNote, error)
 	GetNotes(ctx context.Context, taskID, userID string) ([]*TaskNote, error)
@@ -202,18 +202,45 @@ func (s *Service) SubmitTask(ctx context.Context, taskID, userID string) (*Submi
 	return &SubmitResult{Reward: reward}, nil
 }
 
-func (s *Service) GiveUpTask(ctx context.Context, taskID, userID string) error {
+func (s *Service) GiveUpTask(ctx context.Context, taskID, userID string) (*reward.PenaltyResult, error) {
+	// 1. Đã có task, validate state
 	task, err := s.repo.GetByID(ctx, taskID, userID)
 	if err != nil {
-		return err
+		return nil, err
+	}
+	if task.Status != TaskStatusActive && task.Status != TaskStatusPaused {
+		return nil, &apperr.InvalidStateError{
+			Current:  string(task.Status),
+			Expected: "active|paused",
+		}
 	}
 
-	if task.Status != TaskStatusActive {
-		return &apperr.InvalidStateError{Current: string(task.Status), Expected: string(TaskStatusActive)}
+	// 2. Không penalty mode — không cần tx
+	if !task.PenaltyMode {
+		return nil, s.repo.GiveUp(ctx, nil, taskID, userID)
 	}
 
-	return s.repo.GiveUp(ctx, taskID, userID)
-	// TODO: trigger penalty flow (phase 2)
+	// 3. Penalty mode — cần tx
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("GiveUpTask begin tx: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	if err := s.repo.GiveUp(ctx, tx, taskID, userID); err != nil {
+		return nil, err
+	}
+
+	penalty, err := s.rewarder.Penalty(ctx, tx, userID, taskID)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("GiveUpTask commit: %w", err)
+	}
+
+	return penalty, nil
 }
 
 func (s *Service) ResumeTask(ctx context.Context, taskID, userID string) error {
