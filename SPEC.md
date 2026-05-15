@@ -196,7 +196,7 @@ Task submitted
     │
     ▼
 Roll reward:
-  - Bạc: random(10, 50) × difficulty_multiplier
+  - Bạc: dựa trên garden level hiện tại (xem bảng dưới)
   - Hoa drop: 70% Common, 20% Uncommon, 7% Rare, 2.5% Epic, 0.5% Legendary
     │
     ▼
@@ -206,13 +206,24 @@ Reward animation (confetti nếu Legendary 🎉)
 User chọn: đặt item vào vườn ngay / lưu vào inventory
 ```
 
-**Difficulty multiplier** dựa trên thời lượng task:
+**Silver Reward by Garden Level:**
+
+| Garden Level | Silver Reward Range |
+|---|---|
+| 1–4 | 60–120 |
+| 5–9 | 150–250 |
+| 10–14 | 280–420 |
+| 15–19 | 450–650 |
+| 20+ | 700–1,200 |
+
+**Difficulty multiplier (optional)** dựa trên thời lượng task:
 ```
 < 30 phút:  ×1.0
 30–60 phút: ×1.5
 60–90 phút: ×2.0
 > 90 phút:  ×2.5
 ```
+Nhập: silver reward được nhân thêm (hoặc thay thế) nếu task duration dài hơn.
 
 **Pity system:** Sau 200 task liên tiếp không có legendary drop → lần submit kế tiếp guaranteed legendary. Counter reset sau khi drop.
 
@@ -260,8 +271,18 @@ Server-side cronjob chạy hàng ngày:
 
 ### 5.2 Shop
 
+**Giá Item Shop (Bán dùng bạc):**
+
+| Rarity | Giá Mua | Giá Bán Lại (50%) |
+|---|---|---|
+| **Common** | ~200 🪙 | ~100 🪙 |
+| **Uncommon** | ~600 🪙 | ~300 🪙 |
+| **Rare** | ~1,500 🪙 | ~750 🪙 |
+| **Epic** | ~4,000 🪙 | ~2,000 🪙 |
+| **Nước tưới** | 50 🪙 | — |
+
 **Bán (dùng bạc):**
-- Hoa Common, Uncommon, Rare (không bán Epic, không bán Legendary).
+- Hoa Common, Uncommon, Rare, Epic (không bán Legendary).
 - Cổng, hàng rào, đường đi.
 - Đài phun nước (nhiều loại).
 - Vật trang trí: ghế đá, đèn lồng, biển tên vườn, cầu nhỏ...
