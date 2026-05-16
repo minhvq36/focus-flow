@@ -2,9 +2,11 @@ create table if not exists public.user_gardens (
     id uuid primary key default gen_random_uuid(),
     user_id uuid not null references public.users(id) on delete cascade,
     garden_id uuid not null references public.gardens(id) on delete cascade,
-    expansion_level int not null default 0 check (expansion_level >= 0), -- tracks how many times user has expanded this garden, validate logic in backend
+    expansion_level int not null default 0 check (expansion_level >= 0 and expansion_level <= 5), -- tracks how many times user has expanded this garden, validate logic in backend
     created_at timestamptz default now(),
     updated_at timestamptz default now(),
+    last_watered_at timestamptz default null,
+    auto_water_until timestamptz default null,
     unique (user_id, garden_id)
 );
 

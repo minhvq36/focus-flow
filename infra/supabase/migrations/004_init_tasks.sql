@@ -25,7 +25,7 @@ create trigger trg_update_tasks_modtime
     execute procedure fn_set_updated_at();
 
 
--- TODO: hard test
+-- DONE: hard test
 create or replace function tasks_insert_sanitize()
 returns trigger
 set search_path = public

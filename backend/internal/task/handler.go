@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/minhvq36/focus-flow/backend/internal/auth"
+	"github.com/minhvq36/focus-flow/backend/internal/reward"
 	"github.com/minhvq36/focus-flow/backend/pkg/apperr"
 	"github.com/minhvq36/focus-flow/backend/pkg/logger"
 	"github.com/minhvq36/focus-flow/backend/pkg/response"
@@ -22,8 +23,8 @@ type ServiceInterface interface {
 	EditTaskTitle(ctx context.Context, taskID, userID string, req EditTaskTitleRequest) error
 	ExtendTask(ctx context.Context, taskID, userID string, req ExtendRequest) error
 	PauseTask(ctx context.Context, taskID, userID string) error
-	SubmitTask(ctx context.Context, taskID, userID string) error
-	GiveUpTask(ctx context.Context, taskID, userID string) error
+	SubmitTask(ctx context.Context, taskID, userID string) (*SubmitResult, error)
+	GiveUpTask(ctx context.Context, taskID, userID string) (*reward.PenaltyResult, error)
 	ResumeTask(ctx context.Context, taskID, userID string) error
 	CreateNote(ctx context.Context, taskID, userID string, req CreateTaskNoteRequest) (*TaskNote, error)
 	GetNotes(ctx context.Context, taskID, userID string) ([]*TaskNote, error)
@@ -315,7 +316,7 @@ func (h *Handler) SubmitTask(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.log.Info("SubmitTask", "user_id", userID, "task_id", taskID)
-	err := h.service.SubmitTask(r.Context(), taskID, userID)
+	result, err := h.service.SubmitTask(r.Context(), taskID, userID)
 	if err != nil {
 		switch {
 		case errors.Is(err, apperr.ErrNotFound):
@@ -329,7 +330,7 @@ func (h *Handler) SubmitTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.Success(w, map[string]string{"message": "Task submitted successfully"})
+	response.Success(w, result)
 }
 
 func (h *Handler) GiveUpTask(w http.ResponseWriter, r *http.Request) {
@@ -346,7 +347,7 @@ func (h *Handler) GiveUpTask(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.log.Info("GiveUpTask", "user_id", userID, "task_id", taskID)
-	err := h.service.GiveUpTask(r.Context(), taskID, userID)
+	result, err := h.service.GiveUpTask(r.Context(), taskID, userID)
 	if err != nil {
 		switch {
 		case errors.Is(err, apperr.ErrNotFound):
@@ -360,7 +361,7 @@ func (h *Handler) GiveUpTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.Success(w, map[string]string{"message": "Task given up successfully"})
+	response.Success(w, result)
 }
 
 func (h *Handler) ResumeTask(w http.ResponseWriter, r *http.Request) {
