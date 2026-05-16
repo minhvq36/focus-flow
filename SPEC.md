@@ -858,7 +858,7 @@ GET    /api/tasks/quota/today    → { used, limit }
 ### Garden
 ```
 GET    /api/garden/list          ← chỉ trả list gardens (meta, không có placements)
-GET    /api/garden/@:username    ← public view
+GET    /api/garden/@:username    ← public view // TODO: Dont use username, userid instead?
 POST   /api/garden/place         { inventory_id, grid_x, grid_y }
 DELETE /api/garden/place/:id
 PATCH  /api/garden/place/:id     { grid_x, grid_y }

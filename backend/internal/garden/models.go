@@ -17,6 +17,15 @@ type UserGarden struct {
 	AutoWaterUntil *time.Time `db:"auto_water_until"`
 }
 
+type GardenListItem struct {
+	ID             string `json:"id"`
+	GardenID       string `json:"garden_id"`
+	GardenIndex    int    `json:"garden_index"`
+	ExpansionLevel int    `json:"expansion_level"`
+	IsExpandable   bool   `json:"is_expandable"`
+	CanExpand      bool   `json:"can_expand"`
+}
+
 type Placement struct {
 	ID           string     `db:"id"`
 	UserGardenID string     `db:"user_garden_id"`

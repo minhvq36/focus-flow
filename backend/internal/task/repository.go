@@ -14,6 +14,7 @@ import (
 	"github.com/minhvq36/focus-flow/backend/pkg/logger"
 )
 
+// TODO: Sync the way use no row err, should use pxg instead of dbpkg error
 type Repository struct {
 	db  *pgxpool.Pool
 	log *logger.Logger
