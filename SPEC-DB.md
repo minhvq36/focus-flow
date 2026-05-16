@@ -14,11 +14,12 @@
 
 #### `users` (public profile)
 ```sql
-id                  uuid PK
+id                  uuid PK → auth.users(id) [CASCADE delete]
 display_name        varchar(50) NOT NULL CHECK (char_length(trim(display_name)) >= 1)
 bio                 varchar(255)
 avatar_url          text
 active_frame_id     uuid FK → frames(id) [SET NULL on delete]
+level               int DEFAULT 1 CHECK (level > 0)  -- calculated from user_wallets.total_exp
 created_at          timestamptz
 updated_at          timestamptz
 ```
@@ -41,11 +42,12 @@ updated_at          timestamptz
 **Triggers:**
 - `trg_update_user_private_modtime` — auto-update `updated_at`
 
-#### `user_wallets` (currency balances)
+#### `user_wallets` (currency & experience balances)
 ```sql
 user_id             uuid PK → users(id) [CASCADE delete]
 silver_balance      bigint DEFAULT 0 CHECK >= 0
 gold_balance        int DEFAULT 0 CHECK >= 0
+total_exp           int DEFAULT 0 CHECK >= 0  -- cumulative EXP, used to calculate user.level
 updated_at          timestamptz
 ```
 
@@ -53,6 +55,7 @@ updated_at          timestamptz
 - Silver earned only from task completion (cannot buy with real money)
 - Gold earned from IAP only
 - 1 gold = 10,000 silver (one-way conversion)
+- total_exp increases per task submission, level calculated via LevelFromExp(total_exp)
 
 **Triggers:**
 - `trg_update_user_wallets_modtime`
@@ -211,13 +214,13 @@ UNIQUE              (user_garden_id, grid_x, grid_y)
 - `inventory_id` UNIQUE globally prevents item placed twice across all gardens
 - `health_status`: 
   - `healthy` (default) — item displays normally, counts toward garden value
-  - `wilted` — item lost luster (from penalty or inactive 7 days), doesn't count toward value
-- `wilted_at` tracks when item was wilted
-- Legendary items can only be wilted (never removed)
-- Common→Epic items removed permanently when penalized
+  - `wilted` — item lost luster (from inactive 7+ days), doesn't count toward value
+- `wilted_at` tracks when item was wilted (only for inactive penalty, not from give-up)
+- Give up task with penalty mode ON deletes placement (inventory moves back to 'in_bag')
+- Inactive penalty (7+ days) wilts items (never deletes)
 
 **Triggers:**
-- `trg_after_garden_placement_change` — syncs `inventory.is_placed` when placement inserted/deleted
+- `trg_after_garden_placement_change` — syncs `inventory.status` when placement inserted/deleted
 - `trg_update_garden_placements_modtime`
 
 ---
@@ -258,14 +261,17 @@ created_at          timestamptz
 id                  uuid PK
 user_id             uuid NOT NULL → users(id) [CASCADE delete]
 item_id             uuid NOT NULL → items(id) [RESTRICT delete]
-is_placed           boolean DEFAULT false      -- optimization for UI filtering
+status              varchar(20) DEFAULT 'in_bag'  -- 'in_bag' | 'placed' | 'on_market'
 acquired_at         timestamptz DEFAULT now()
 ```
 
 **Logic:**
-- `is_placed` is optimized column (prevents SELECT JOIN for filtering)
-- Synced automatically via trigger when `garden_placements` changed
+- `status` tracks item location:
+  - `in_bag` — item in user's inventory (not placed in garden)
+  - `placed` — item currently placed in a garden
+  - `on_market` — item listed on marketplace (Legendary P2P only)
 - User can have multiple copies of same item
+- Synced automatically via trigger when `garden_placements` changed
 
 ---
 

@@ -26,9 +26,9 @@ FocusFlow là công cụ **hành động**, không phải quản lý dự án. M
 Vườn hoa là bản đồ nỗ lực của người dùng. Mỗi hoa, cổng, đường đi trong vườn là kết quả của công việc thực sự. Vườn không thể mua hoàn toàn bằng tiền — phần lớn phải earn qua task.
 
 ### 2.3 Reward/Penalty System (optional penalty)
-- **Thưởng:** Hoàn thành task → nhận hoa (random) + bạc.
-- **Phạt (optional, user chọn bật/tắt per-task):** Give up task → hoa trong vườn bị ảnh hưởng.
-- Penalty mode được chọn lúc tạo task. User có thể enable/disable nó cho từng task riêng lẻ. Khi tắt, give up task chỉ mất lượt task trong ngày, không ảnh hưởng vườn.
+- **Thưởng:** Hoàn thành task → nhận hoa (random) + bạc + EXP (nâng level).
+- **Phạt (optional, user chọn bật/tắt per-task):** Give up task → hoa trong vườn bị ảnh hưởng (héo hoặc mất).
+- Penalty mode được chọn lúc tạo task. User có thể enable/disable nó cho từng task riêng lẻ. Khi tắt, give up task chỉ mất lượt task trong ngày, không ảnh hưởng vườn. Khi bật, give up task sẽ trigger penalty flow — random 1 item trong vườn bị héo (Legendary/Eternal) hoặc bị mất (Common-Epic).
 
 ---
 
@@ -180,12 +180,15 @@ Grid size tại level 20: (25 + 5*expansion_level) × (25 + 5*expansion_level)
 | Uncommon | Xanh dương | ✓ | ✓ | Mất item |
 | Rare | Tím | ✓ (thấp) | ✓ | Mất item |
 | Epic | Cam | ✓ (rất thấp) | ✗ (không bán) | Mất item |
-| **Legendary** | Vàng ✨ | ✓ (jackpot) | ✗ | **Chỉ héo, không mất** |
+| **Legendary** | Vàng ✨ | ✓ (jackpot) | ✗ | Mất item |
+| **Eternal** | Đỏ ✨ | ✓ (cực hiếm) | ✗ | Mất item |
 
 **Trạng thái item:**
 - `healthy` → item đang hiển thị đẹp, tính đủ điểm vườn.
-- `wilted` → item héo/hư (do penalty hoặc inactive 7 ngày), vẫn chiếm ô nhưng xỉn màu, **không tính vào garden value**. Dùng **nước tưới** để hồi phục.
-- `gone` → item bị xóa khỏi vườn (chỉ xảy ra với Common→Epic khi penalty, hoặc user tự xóa).
+- `wilted` → item héo/hư (do inactive 7+ ngày), vẫn chiếm ô nhưng xỉn màu, **không tính vào garden value**. Dùng **nước tưới** để hồi phục.
+- `gone` → item bị xóa khỏi vườn (chỉ xảy ra khi user tự xóa hoặc give up task bị penalty).
+
+> **Chú ý:** Give up task (penalty mode ON) chỉ mất 1 item (không héo), không có tác động đến Legendary/Eternal như cơ chế inactive.
 
 > **Legendary bất tử:** Khi bị penalty, legendary chỉ chuyển sang `wilted`. Không bao giờ bị `gone`. Dùng 1 nước tưới để recover.
 
@@ -195,20 +198,34 @@ Grid size tại level 20: (25 + 5*expansion_level) × (25 + 5*expansion_level)
 Task submitted
     │
     ▼
-Roll reward:
-  - Bạc: dựa trên garden level hiện tại (xem bảng dưới)
-  - Hoa drop: 70% Common, 20% Uncommon, 7% Rare, 2.5% Epic, 0.5% Legendary
+Roll reward (dựa trên user experience level):
+  - Roll rarity theo tier table (phân cấp theo user level)
+  - Roll bạc dựa trên user level
+  - Roll EXP dựa trên user level
     │
     ▼
-Reward animation (confetti nếu Legendary 🎉)
+Grant item vào inventory, update wallet + EXP
+    │
+    ▼
+Reward animation (confetti nếu Legendary hoặc Eternal 🎉)
     │
     ▼
 User chọn: đặt item vào vườn ngay / lưu vào inventory
 ```
 
-**Silver Reward by Garden Level:**
+**Tier-Based Drop Rates (by user level):**
 
-| Garden Level | Silver Reward Range |
+| User Level | Common | Uncommon | Rare | Epic | Legendary | Eternal |
+|---|---|---|---|---|---|---|
+| 1–4 | 69.99% | 20% | 7% | 2.5% | 0.5% | 0.01% |
+| 5–9 | 57.99% | 22% | 12% | 7.5% | 0.5% | 0.01% |
+| 10–14 | 43.99% | 22% | 18% | 15.5% | 0.5% | 0.01% |
+| 15–19 | 27.99% | 22% | 22% | 27.5% | 0.5% | 0.01% |
+| 20+ | 16.49% | 20% | 25% | 38% | 0.5% | 0.01% |
+
+**Silver Reward by User Level:**
+
+| User Level | Silver Reward Range |
 |---|---|
 | 1–4 | 60–120 |
 | 5–9 | 150–250 |
@@ -216,16 +233,13 @@ User chọn: đặt item vào vườn ngay / lưu vào inventory
 | 15–19 | 450–650 |
 | 20+ | 700–1,200 |
 
-**Difficulty multiplier (optional)** dựa trên thời lượng task:
-```
-< 30 phút:  ×1.0
-30–60 phút: ×1.5
-60–90 phút: ×2.0
-> 90 phút:  ×2.5
-```
-Nhập: silver reward được nhân thêm (hoặc thay thế) nếu task duration dài hơn.
-
-**Pity system:** Sau 200 task liên tiếp không có legendary drop → lần submit kế tiếp guaranteed legendary. Counter reset sau khi drop.
+**EXP Per Task (by user level):**
+- Level 1: 10 EXP (1 task to reach level 2)
+- Level 2–3: 20 EXP per task
+- Level 4–7: 35 EXP per task
+- Level 8–11: 55 EXP per task
+- Level 12–16: 75 EXP per task
+- Level 17+: 85 + (level−17)×5 EXP per task
 
 ### 4.4 Penalty Flow (Give Up Task — Penalty Mode ON)
 
@@ -233,15 +247,14 @@ Nhập: silver reward được nhân thêm (hoặc thay thế) nếu task durati
 Give Up confirmed
     │
     ▼
-Random chọn 1–3 item trong vườn (ưu tiên item rarity thấp nhất):
-  - Common/Uncommon/Rare/Epic → item bị removed (gone)
-  - Legendary → item bị wilted
+Random select 1 item từ vườn (ưu tiên item rarity thấp nhất):
+  - All rarities (Common-Eternal) → item bị removed (gone)
     │
     ▼
-Animation: hoa héo/biến mất với hiệu ứng
+Animation: hoa biến mất với hiệu ứng
     │
     ▼
-Thông báo: "Bạn đã bỏ [Task name]. [Tên item] trong vườn đã [héo/mất]."
+Thông báo: "Bạn đã bỏ [Task name]. [Tên item] trong vườn đã mất."
 ```
 
 > Nếu vườn chưa có item nào → penalty không có effect.

@@ -271,14 +271,15 @@ wire ./cmd/server
 **Key Operations:**
 
 #### CreateTask
-- **Input:** user_id, title, todos[], duration_min (no penalty_mode from client)
+- **Input:** user_id, title, todos[], registered_duration_min, penalty_mode (boolean: enable/disable per-task penalty)
 - **Logic:**
-  1. Validate todos non-empty
-  2. Create task with status='active', started_at=NOW() (auto-starts immediately)
-  3. penalty_mode captured from user_private at creation (not sent by client)
-  4. Insert into DB (status='active')
-  5. Increment task_daily_quotas (via trigger)
-  6. If quota exceeded → transaction rolls back, return 409 Conflict
+  1. Validate todos non-empty and max 50 items
+  2. Validate title (1-255 chars) and duration_min (25-480 min)
+  3. Create task with status='active', started_at=NOW() (auto-starts immediately)
+  4. penalty_mode is snapshot from client (stored per-task)
+  5. Insert into DB (status='active')
+  6. Trigger auto-increments task_daily_quotas
+  7. If quota exceeded → transaction rolls back, return 409 Conflict
 - **Output:** task_id, redirect to Focus screen
 - **Note:** Migration 004 automatically sets started_at=NOW() on task creation (timer auto-starts)
 
@@ -384,48 +385,49 @@ wire ./cmd/server
 
 ### 4.2 Reward Service
 
-**Drop Table:**
+**Tier-Based Drop Table (by user level):**
 ```
-Common:     70%  ×1.0 multiplier
-Uncommon:   20%  ×1.0 multiplier
-Rare:        7%  ×1.5 multiplier (higher rarity = higher silver)
-Epic:      2.5%  ×2.0 multiplier
-Legendary: 0.5%  ×2.5 multiplier (capped at ×2.5)
-Eternal:  < 0.5% (reserved for future expansion)
-
-Difficulty multiplier (based on task duration):
-< 30 min:   ×1.0
-30-60 min:  ×1.5
-60-90 min:  ×2.0
-> 90 min:   ×2.5
-
-Final Silver = base(10-50) × difficulty × rarity_multiplier
+Tier 1 (level 1-4):   Common 69.99% | Uncommon 20% | Rare 7% | Epic 2.5% | Legendary 0.5% | Eternal 0.01%
+Tier 2 (level 5-9):   Common 57.99% | Uncommon 22% | Rare 12% | Epic 7.5% | Legendary 0.5% | Eternal 0.01%
+Tier 3 (level 10-14): Common 43.99% | Uncommon 22% | Rare 18% | Epic 15.5% | Legendary 0.5% | Eternal 0.01%
+Tier 4 (level 15-19): Common 27.99% | Uncommon 22% | Rare 22% | Epic 27.5% | Legendary 0.5% | Eternal 0.01%
+Tier 5 (level 20+):   Common 16.49% | Uncommon 20% | Rare 25% | Epic 38% | Legendary 0.5% | Eternal 0.01%
 ```
+
+**Silver Reward by User Level:**
+```
+Level 1-4:   60-120 silver
+Level 5-9:   150-250 silver
+Level 10-14: 280-420 silver
+Level 15-19: 450-650 silver
+Level 20+:   700-1,200 silver
+```
+
+**EXP Per Task (by level):**
+- Level 1: 10 EXP (1 task to level 2)
+- Level 2-3: 20 EXP per task
+- Level 4-7: 35 EXP per task
+- Level 8-11: 55 EXP per task
+- Level 12-16: 75 EXP per task
+- Level 17+: 85 + (level-17)×5 EXP per task
 
 **Key Operations:**
 
 #### RollReward
-- **Input:** task_id, user_id, registered_duration_min
+- **Input:** task_id, user_id, user_level
 - **Logic:**
-  1. Get pity_counter from Redis (`pity:{user_id}`)
-  2. Calculate drop rate:
-     - If pity_counter >= 200 → guaranteed Legendary, reset counter to 0
-     - Else → seeded RNG with seed = `${user_id}:${task_id}:${timestamp}`
-  3. Determine rarity from RNG
-  4. Select random item of that rarity (not sold out)
-  5. Calculate silver earned (base × difficulty × rarity)
-  6. Check rarity:
-     - If Legendary: special animation (confetti), show to user
-     - Else: normal animation
-  7. Create reward_rolls audit record
-  8. Credit user.wallet.silver_balance
-  9. Add to inventory with is_placed=false
-  10. Increment pity counter (or reset if Legendary)
-- **Output:** {item_id, rarity, silver_earned, pity_count}
-
-#### GetPityCounter
-- **Input:** user_id
-- **Output:** current pity counter (0-200)
+  1. Get tier from user_level
+  2. Seeded RNG with seed = `${task_id}:${user_id}:${timestamp_ns}` (HMAC-SHA256 mixing)
+  3. Roll rarity from tier table using weighted distribution (basis points = 10000)
+  4. Attempt to select random item at rolled rarity:
+     - If no item at rarity → fallback to lower rarity (loop: Legendary→Epic→Rare→Uncommon→Common)
+  5. Roll silver amount from level-based range
+  6. Calculate EXP from ExpPerTask(level)
+  7. Create reward_rolls audit record (roll_type='reward')
+  8. Insert item into inventory (status='in_bag')
+  9. Update user_wallets: silver_balance += silver, exp += exp
+  10. Trigger level up if total_exp crosses threshold
+- **Output:** {rolled_rarity, item_rarity, item_id, silver, exp, seed}
 
 ---
 
@@ -434,14 +436,12 @@ Final Silver = base(10-50) × difficulty × rarity_multiplier
 **Apply Penalty Logic:**
 - **Input:** task_id, user_id
 - **Logic:**
-  1. Query garden placements for user (healthy items only)
+  1. Query garden placements for user (all items regardless of health)
   2. If no items → no effect
-  3. Random select 1-3 items (weighted toward lower rarity)
-  4. For each item:
-     - If Legendary → set health_status='wilted', wilted_at=NOW()
-     - Else → delete placement, move inventory.is_placed=false, create removal audit record
+  3. Random select 1 item (weighted toward lower rarity)
+  4. Delete placement, update inventory.status='in_bag', create penalty audit record
   5. Publish realtime event (for UI update)
-- **Output:** removed_items[], wilted_items[]
+- **Output:** removed_item (single item or null if no items)
 
 **Inactive Penalty (cronjob, daily):**
 - **Logic:**
