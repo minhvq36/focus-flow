@@ -5,6 +5,8 @@ create table if not exists public.user_gardens (
     expansion_level int not null default 0 check (expansion_level >= 0 and expansion_level <= 5), -- tracks how many times user has expanded this garden, validate logic in backend
     created_at timestamptz default now(),
     updated_at timestamptz default now(),
+    last_watered_at timestamptz default null,
+    auto_water_until timestamptz default null,
     unique (user_id, garden_id)
 );
 

@@ -42,7 +42,7 @@ create table if not exists public.gardens (
     id uuid primary key default gen_random_uuid(),
     garden_index int not null,
     grid_size int not null default 5 check (grid_size > 0), -- always square, NOTE: Only base size no update
-    is_expandable boolean not null default false, -- if false, user cannot expand this garden anymore, logic to set in backend based on max expansion level
+    is_expandable boolean not null default false, -- if false, the map cannot be expanded
     unlock_condition jsonb default null,
     details jsonb default null,
     created_at timestamptz default now()
