@@ -264,7 +264,7 @@ Thông báo: "Bạn đã bỏ [Task name]. [Tên item] trong vườn đã mất.
 Server-side cronjob chạy hàng ngày:
 - Nếu user không login ≥ 7 ngày → random **héo 1/4 số item đang `healthy`** (làm tròn lên).
 - Chỉ chuyển sang `wilted`, không xóa item.
-- Legendary cũng bị ảnh hưởng (wilted, không gone).
+- Legendary cũng bị ảnh hưởng (wilted, không gone). // TODO: Check bỏ trạng thái gone, là xóa thẳng tay db luôn đó
 - Khi user login lại → hiện notification "Bạn vắng mặt 7 ngày, [N] cây đã héo. Hãy tưới vườn!"
 
 ---
@@ -857,7 +857,7 @@ GET    /api/tasks/quota/today    → { used, limit }
 
 ### Garden
 ```
-GET    /api/garden               ← vườn user hiện tại
+GET    /api/garden/list          ← chỉ trả list gardens (meta, không có placements)
 GET    /api/garden/@:username    ← public view
 POST   /api/garden/place         { inventory_id, grid_x, grid_y }
 DELETE /api/garden/place/:id

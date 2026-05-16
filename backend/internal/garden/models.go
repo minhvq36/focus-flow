@@ -17,13 +17,6 @@ type UserGarden struct {
 	AutoWaterUntil *time.Time `db:"auto_water_until"`
 }
 
-type Garden struct {
-	ID           string `db:"id"`
-	GardenIndex  int    `db:"garden_index"`
-	GridSize     int    `db:"grid_size"`
-	IsExpandable bool   `db:"is_expandable"`
-}
-
 type Placement struct {
 	ID           string     `db:"id"`
 	UserGardenID string     `db:"user_garden_id"`
