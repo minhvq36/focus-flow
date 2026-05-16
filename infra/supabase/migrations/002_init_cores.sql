@@ -22,7 +22,7 @@ create table if not exists public.items (
     name varchar(255) not null,
     type varchar(50) not null check (type in ('flower', 'structure', 'decoration', 'path')),
     rarity varchar(50) not null check (rarity in ('common', 'uncommon', 'rare', 'epic', 'legendary', 'eternal')),
-    asset_key varchar(255) not null,
+    asset_key varchar(255) not null unique,
     height int default 1 check (height > 0),
     width int default 1 check (width > 0),
     silver_price int DEFAULT NULL CHECK (silver_price > 0),
@@ -36,10 +36,12 @@ create table if not exists public.items (
     created_at timestamptz default now()
 );
 
+create unique index if not exists items_asset_key_idx on public.items(asset_key);
+
 create table if not exists public.gardens (
     id uuid primary key default gen_random_uuid(),
     garden_index int not null,
-    grid_size int not null default 5 check (grid_size > 0), -- always square
+    grid_size int not null default 5 check (grid_size > 0), -- always square, NOTE: Only base size no update
     is_expandable boolean not null default false, -- if false, user cannot expand this garden anymore, logic to set in backend based on max expansion level
     unlock_condition jsonb default null,
     details jsonb default null,
