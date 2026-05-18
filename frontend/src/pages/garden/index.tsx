@@ -78,7 +78,6 @@ export default function Garden() {
     if (!garden || !gardenGridRef.current || !gardenAppRef.current) return
 
     const app = gardenAppRef.current
-    garden.current_size = 40
     gardenGridRef.current.load(garden)
 
     const size: number = garden.current_size ?? garden.base_size ?? 5
