@@ -78,10 +78,11 @@ export default function Garden() {
     if (!garden || !gardenGridRef.current || !gardenAppRef.current) return
 
     const app = gardenAppRef.current
+    garden.current_size = 40
     gardenGridRef.current.load(garden)
 
     const size: number = garden.current_size ?? garden.base_size ?? 5
-    
+
     setLastGardenId(garden.id)
     setSelectedTile(null)
 
@@ -99,7 +100,7 @@ export default function Garden() {
 
   return (
     // Responsive: Rộng 90vw (mobile) đến 75vw (desktop) để tránh việc min-w bị bung trên thiết bị nhỏ
-    <div className="relative w-[90vw] md:w-[75vw] max-w-6xl min-w-[320px] md:min-w-[500px] h-[75vh] min-h-[500px] mx-auto my-8 border border-border rounded-xl shadow-sm overflow-hidden bg-background">
+    <div className="relative w-[90vw] md:w-[85vw] max-w-6xl min-w-[320px] md:min-w-[500px] h-[85vh] min-h-[500px] mx-auto my-8 border border-border rounded-xl shadow-sm overflow-hidden bg-background">
       
       <div ref={containerRef} className="absolute inset-0" />
 

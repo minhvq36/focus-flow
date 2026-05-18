@@ -1,6 +1,6 @@
 import { Application, Container, Rectangle, FederatedPointerEvent } from 'pixi.js'
 
-export const MIN_ZOOM = 0.05
+export const MIN_ZOOM = 0.2
 export const MAX_ZOOM = 3.0
 
 export interface GardenAppOptions {
@@ -75,8 +75,9 @@ export class GardenApp {
 
     const totalW = gridCols * tileWidth
     const totalH = gridRows * tileHeight
-
-    this._fitZoom = Math.min(vw / totalW, vh / totalH) * 1.04
+    
+    const f = (size: number) => 1.04 + ((size - 5) / 45) * 1.16;
+    this._fitZoom = Math.min(vw / totalW, vh / totalH) * f(gridCols)
     const targetZoom = savedZoom ?? this._fitZoom
 
     this._zoom = targetZoom
@@ -88,7 +89,7 @@ export class GardenApp {
     // VISUAL OFFSET: Nếu bạn thấy đồ vật (cây cối mọc lên trên) làm chóp đảo bị chật đỉnh, 
     // bạn có thể bù trừ bằng cách +30 hoặc +50 px để hòn đảo tụt xuống một tí xíu cho thuận mắt.
     // Nếu không muốn, cứ để nguyên vh/2.
-    this.cameraContainer.y = (vh / 2) + 20 
+    this.cameraContainer.y = (vh / 2)
 
     this.clampCamera()
   }
