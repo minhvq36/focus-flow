@@ -4,6 +4,7 @@ import Login from './pages/login'
 import ProtectedRoute from './components/auth/protected-route'
 import AppLayout from './components/layout/app-layout'
 import AuthLayout from './components/layout/auth-layout'
+import GardenLayout from './components/layout/garden-layout'
 import Garden from './pages/garden'
 import Tasks from './pages/tasks'
 import Focus from './pages/focus'
@@ -11,8 +12,8 @@ import { Toaster } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
 
 const queryClient = new QueryClient()
-function App() {
 
+function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
@@ -21,19 +22,23 @@ function App() {
             <Route element={<AuthLayout />}>
               <Route path="/login" element={<Login />} />
             </Route>
+
             <Route element={<ProtectedRoute />}>
+              {/* Standard pages — có header + layout */}
               <Route element={<AppLayout />}>
-                {/* TODO: Set Routes */}
-                <Route path="/" element={<Navigate to="/garden" replace />} />
-                <Route path="/garden" element={<Garden />} />
+                <Route path="/" element={<Navigate to="/garden" replace />} /> {/* TODO: Nono, here is the starting page, no navigate */}
                 <Route path="/tasks" element={<Tasks />} />
               </Route>
-              {/* Focus DONOT have sidebar/header — full screen */}
+
+              {/* Fullscreen pages — không có AppLayout */}
+              <Route element={<GardenLayout />}>
+                <Route path="/garden" element={<Garden />} />
+              </Route>
               <Route path="/focus/:taskId" element={<Focus />} />
             </Route>
           </Routes>
 
-          <Toaster richColors/>
+          <Toaster richColors />
         </TooltipProvider>
       </BrowserRouter>
     </QueryClientProvider>
