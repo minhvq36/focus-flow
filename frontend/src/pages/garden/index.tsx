@@ -39,7 +39,7 @@ export default function Garden() {
 
   useEffect(() => {
     if (!activeGardenId && gardenList && gardenList.length > 0) {
-      setActiveGardenId(gardenList[0].id)
+      setActiveGardenId(gardenList.at(-1)!.id)
     }
   }, [gardenList, activeGardenId])
 
@@ -143,7 +143,7 @@ export default function Garden() {
                   : 'bg-background/80 backdrop-blur border-border hover:bg-background'
               }`}
             >
-              Garden {g.garden_index + 1}
+              Garden {g.garden_index}
             </button>
           ))}
         </div>
