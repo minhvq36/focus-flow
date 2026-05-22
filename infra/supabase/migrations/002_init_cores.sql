@@ -57,5 +57,12 @@ values
 on conflict (plan_type) do update set daily_task_limit = excluded.daily_task_limit;
 
 insert into public.gardens (id, garden_index, grid_size, is_expandable)
-values ('00000000-0000-0000-0000-000000000001', 1, 5, false)
+values
+    ('00000000-0000-0000-0000-000000000001', 1, 5, false),
+    ('00000000-0000-0000-0000-000000000002', 2, 7, false),
+    ('00000000-0000-0000-0000-000000000003', 3, 9, false),
+    ('00000000-0000-0000-0000-000000000004', 4, 11, false),
+    ('00000000-0000-0000-0000-000000000005', 5, 15, false),
+    ('00000000-0000-0000-0000-000000000006', 6, 20, false),
+    ('00000000-0000-0000-0000-000000000007', 7, 25, true)
 on conflict do nothing;

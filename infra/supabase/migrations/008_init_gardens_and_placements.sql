@@ -28,6 +28,21 @@ create table if not exists public.garden_placements (
     unique (user_garden_id, grid_x, grid_y)
 );
 
+create or replace function fn_reset_inventory_on_placement_delete()
+returns trigger language plpgsql as $$
+begin
+  update public.inventory 
+  set status = 'in_bag' 
+  where id = old.inventory_id;
+  
+  return old;
+end;
+$$;
+
+create trigger trg_reset_inventory_on_placement_delete
+after delete on public.garden_placements
+for each row execute function fn_reset_inventory_on_placement_delete();
+
 create trigger trg_update_user_gardens_modtime
     before update on public.user_gardens
     for each row
