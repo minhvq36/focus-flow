@@ -28,31 +28,6 @@ create table if not exists public.garden_placements (
     unique (user_garden_id, grid_x, grid_y)
 );
 
-create or replace function fn_sync_inventory_placement()
-returns trigger language plpgsql
-security definer
-set search_path = public
-as $$
-begin
-    if (TG_OP = 'INSERT') then
-        update public.inventory set is_placed = true where id = new.inventory_id;
-    elsif (TG_OP = 'DELETE') then
-        update public.inventory set is_placed = false where id = old.inventory_id;
-    elsif (TG_OP = 'UPDATE') then
-        if (new.inventory_id <> old.inventory_id) then
-            update public.inventory set is_placed = true where id = new.inventory_id;
-            update public.inventory set is_placed = false where id = old.inventory_id;
-        end if;
-    
-    end if;
-    return null;
-end;
-$$;
-
-create trigger trg_after_garden_placement_change
-    after insert or update or delete on public.garden_placements
-    for each row execute procedure fn_sync_inventory_placement();
-
 create trigger trg_update_user_gardens_modtime
     before update on public.user_gardens
     for each row
