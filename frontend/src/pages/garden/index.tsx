@@ -34,6 +34,9 @@ export default function Garden() {
   const { data: gardenList } = useGardenList()
   const [activeGardenId, setActiveGardenId] = useState<string | null>(getLastGardenId())
 
+  // 🌟 FIX 1: Thêm state isCanvasReady để theo dõi khi nào Canvas khởi tạo xong
+  const [isCanvasReady, setIsCanvasReady] = useState(false)
+
   useEffect(() => {
     if (!activeGardenId && gardenList && gardenList.length > 0) {
       setActiveGardenId(gardenList[0].id)
@@ -64,6 +67,9 @@ export default function Garden() {
         }
         app.cameraContainer.addChild(grid)
         gardenGridRef.current = grid
+        
+        // 🌟 FIX 2: Cập nhật state báo hiệu Canvas và Grid đã sẵn sàng
+        setIsCanvasReady(true)
       },
     })
 
@@ -71,6 +77,8 @@ export default function Garden() {
       app.destroy()
       gardenAppRef.current = null
       gardenGridRef.current = null
+      // Reset lại state khi unmount
+      setIsCanvasReady(false)
     }
   }, [])
 
@@ -88,17 +96,16 @@ export default function Garden() {
     const savedZoom = getSavedZoom(garden.id)
     app.applyFitZoom(size, size, TILE_WIDTH, TILE_HEIGHT, savedZoom)
 
-    // Bắt event wheel zoom tại đây để lưu lại chuẩn xác gardenId hiện tại
     const handleZoom = ({ zoom }: { zoom: number }) => saveZoom(garden.id, zoom)
     app.app.stage.on('garden:zoom', handleZoom)
     
     return () => {
-      app.app.stage.off('garden:zoom', handleZoom)
+      // 🌟 FIX 3: Thêm Optional Chaining (?.) để tránh lỗi khi Component Unmount
+      app?.app?.stage?.off('garden:zoom', handleZoom)
     }
-  }, [garden])
+  }, [garden, isCanvasReady]) // 🌟 FIX 4: Thêm isCanvasReady vào dependency array
 
   return (
-    // Responsive: Rộng 90vw (mobile) đến 75vw (desktop) để tránh việc min-w bị bung trên thiết bị nhỏ
     <div className="relative w-[90vw] md:w-[85vw] max-w-6xl min-w-[320px] md:min-w-[500px] h-[85vh] min-h-[500px] mx-auto my-8 border border-border rounded-xl shadow-sm overflow-hidden bg-background">
       
       <div ref={containerRef} className="absolute inset-0" />
@@ -110,7 +117,6 @@ export default function Garden() {
             const size = garden.current_size ?? garden.base_size ?? 5
             gardenAppRef.current.applyFitZoom(size, size, TILE_WIDTH, TILE_HEIGHT, null)
             
-            // 🛑 CẬP NHẬT TRẠNG THÁI ZOOM VÀO LOCAL STORAGE SAU KHI RESET
             saveZoom(garden.id, gardenAppRef.current.zoom) 
             
             setSelectedTile(null)
