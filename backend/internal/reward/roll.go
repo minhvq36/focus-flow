@@ -108,15 +108,15 @@ func LevelFromExp(totalExp int) int {
 func silverRange(level int) (min, max int) {
 	switch {
 	case level < 5:
-		return 60, 120
+		return 150, 280 // avg ~215, đủ ~1935 silver/9 tasks ✓
 	case level < 10:
-		return 150, 250
+		return 320, 500
 	case level < 15:
-		return 280, 420
+		return 550, 800
 	case level < 20:
-		return 450, 650
+		return 850, 1200
 	default:
-		return 700, 1200
+		return 1200, 2000
 	}
 }
 
