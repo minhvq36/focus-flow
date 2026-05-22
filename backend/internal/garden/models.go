@@ -31,6 +31,7 @@ type Placement struct {
 	UserGardenID string     `db:"user_garden_id"`
 	InventoryID  string     `db:"inventory_id"`
 	ItemID       string     `db:"item_id"` // joined từ inventory
+	AssetKey     string     `db:"asset_key"`
 	GridX        int        `db:"grid_x"`
 	GridY        int        `db:"grid_y"`
 	Rotation     int        `db:"rotation"`
@@ -45,6 +46,7 @@ type PlacementResponse struct {
 	ID           string     `json:"id"`
 	InventoryID  string     `json:"inventory_id"`
 	ItemID       string     `json:"item_id"`
+	AssetKey     string     `json:"asset_key"`
 	GridX        int        `json:"grid_x"`
 	GridY        int        `json:"grid_y"`
 	Rotation     int        `json:"rotation"`

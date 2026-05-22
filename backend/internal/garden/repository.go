@@ -91,10 +91,12 @@ func (r *Repository) GetPlacementsByUserGardenID(ctx context.Context, userGarden
 		SELECT
 			gp.id, gp.user_garden_id, gp.inventory_id,
 			inv.item_id,
+			i.asset_key,
 			gp.grid_x, gp.grid_y, gp.rotation,
 			gp.health_status, gp.wilted_at, gp.placed_at
 		FROM public.garden_placements gp
 		JOIN public.inventory inv ON inv.id = gp.inventory_id
+		JOIN public.items i ON i.id = inv.item_id
 		WHERE gp.user_garden_id = $1
 	`, userGardenID)
 	if err != nil {
@@ -108,6 +110,7 @@ func (r *Repository) GetPlacementsByUserGardenID(ctx context.Context, userGarden
 		if err := rows.Scan(
 			&p.ID, &p.UserGardenID, &p.InventoryID,
 			&p.ItemID,
+			&p.AssetKey,
 			&p.GridX, &p.GridY, &p.Rotation,
 			&p.HealthStatus, &p.WiltedAt, &p.PlacedAt,
 		); err != nil {
