@@ -7,6 +7,7 @@ export interface PlacementResponse {
   id: string
   inventory_id: string
   item_id: string
+  asset_key: string
   grid_x: number
   grid_y: number
   rotation: number          // 0 | 90 | 180 | 270
