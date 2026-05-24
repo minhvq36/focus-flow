@@ -307,8 +307,13 @@ function EditableTodos({ flat, setFlat }: EditableTodosProps) {
           const textBefore = currentText.slice(0, cursor)
           const textAfter  = currentText.slice(cursor)
 
-          // Update DOM trực tiếp trước — uncontrolled nên React không tự làm
-          if (el) el.value = textBefore
+          if (el) {
+            el.value = textBefore
+            requestAnimationFrame(() => {
+              el.style.height = "auto"
+              el.style.height = `${el.scrollHeight}px`
+            })
+          }
 
           commitText(id, textBefore)
           addAfter(id, item.depth, textBefore, textAfter)
