@@ -1,19 +1,4 @@
-// ============================================================
-// Isometric math — Age of Empires / diamond-tile style
-//
-// Coordinate convention:
-//   grid_x (col) → increases to the right  (→ screen right-down)
-//   grid_y (row) → increases downward      (→ screen left-down)
-//
-// Visual layout (col=x, row=y):
-//
-//          (0,0)
-//        (1,0) (0,1)
-//      (2,0) (1,1) (0,2)
-//
-// All functions are pure — no PixiJS imports.
-// PixiJS layer just reads screenX/screenY and uses them directly.
-// ============================================================
+
 
 export interface TileConfig {
   tileWidth: number   // full width of diamond in pixels  (e.g. 64)
@@ -37,6 +22,28 @@ export function gridToScreen(
   return {
     x: (col - row) * (tileWidth / 2),
     y: (col + row) * (tileHeight / 2),
+  }
+}
+
+// ============================================================
+// Placement center → screen position
+// Tính toán tâm của một item có kích thước width x height
+// ============================================================
+export function placementToScreen(
+  col: number,
+  row: number,
+  width: number,
+  height: number,
+  config: TileConfig,
+): ScreenPoint {
+  // Lấy tọa độ trung tâm của khối placement
+  const centerX = col + width / 2
+  const centerY = row + height / 2
+
+  // Công thức isometric tương tự như gridToScreen nhưng áp dụng cho số thực
+  return {
+    x: (centerX - centerY) * (config.tileWidth / 2),
+    y: (centerX + centerY) * (config.tileHeight / 2),
   }
 }
 
