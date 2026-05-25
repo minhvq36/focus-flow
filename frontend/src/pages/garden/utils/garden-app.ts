@@ -1,6 +1,6 @@
 import { Application, Container, Rectangle, FederatedPointerEvent } from 'pixi.js'
 
-export const MIN_ZOOM = 0.2
+export const MIN_ZOOM = 0.25
 export const MAX_ZOOM = 3.0
 
 export interface GardenAppOptions {
