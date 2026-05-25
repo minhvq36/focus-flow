@@ -34,3 +34,4 @@ go.work.sum
 
 backend/scripts_local/
 frontend/.vite/
+frontend/public/test_assets/
