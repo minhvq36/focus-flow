@@ -8,9 +8,8 @@ import {
   type TileConfig,
 } from './isometric'
 import { ASSET_MAP, DEFAULT_ASSET_CONFIG } from '@/constants/assets'
-
-// IMPORT hàm tính toán bóng
 import { getShadowTransform } from './shadow'
+import { getAssetUrl } from '@/lib/storage' // <-- Added Supabase storage helper
 
 export const TILE_CONFIG: TileConfig = {
   tileWidth: 64,
@@ -23,21 +22,19 @@ const COLOR = {
   TILE_STROKE:      0x5a9e30,
   TILE_HOVER:       0xffd966,
   TILE_SELECTED:    0xff9900,
-  PLACEMENT_FILL:   0x4a90d9, // Đóng vai trò là Fallback color nếu Asset 404
+  PLACEMENT_FILL:   0x4a90d9, 
 } as const
 
 export class GardenGrid extends Container {
   private gridSize: number = 0
   private tiles = new Map<string, Graphics>()
   
-  // Maps quản lý Sprites để dễ dàng xóa
   private placementSprites = new Map<string, Sprite>()
-  private shadowSprites = new Map<string, Sprite>() // Thêm Map quản lý bóng
+  private shadowSprites = new Map<string, Sprite>() 
   
   private hoveredTile: { col: number; row: number } | null = null
   private selectedTile: { col: number; row: number } | null = null
 
-  // Tách thành 3 layer: Đất -> Bóng -> Vật thể (từ dưới lên trên)
   private floorLayer = new Container()
   private shadowLayer = new Container()
   private objectLayer = new Container()
@@ -50,10 +47,8 @@ export class GardenGrid extends Container {
     super()
     this.eventMode = 'static'
     
-    // Y-sorting: Cho phép sắp xếp chiều sâu đè lên nhau trong objectLayer
     this.objectLayer.sortableChildren = true
     
-    // Thứ tự add quyết định z-Index (hiển thị trước sau)
     this.addChild(this.floorLayer)
     this.addChild(this.shadowLayer)
     this.addChild(this.objectLayer)
@@ -71,7 +66,6 @@ export class GardenGrid extends Container {
       placementMap.set(`${p.grid_x}_${p.grid_y}`, p)
     }
 
-    // 1. Vẽ mặt đất (Floor Layer)
     for (let row = 0; row < this.gridSize; row++) {
       for (let col = 0; col < this.gridSize; col++) {
         const key = `${col}_${row}`
@@ -82,7 +76,6 @@ export class GardenGrid extends Container {
       }
     }
 
-    // 2. Render các Placement Objects và Bóng của chúng
     for (const p of garden.placements) {
       this.createPlacementSprite(p)
     }
@@ -94,7 +87,8 @@ export class GardenGrid extends Container {
       fileName: placement.asset_key, 
     }
 
-    const textureUrl = `/test_assets/${config.fileName}.png`
+    // <-- Changed from local path to Supabase URL
+    const textureUrl = getAssetUrl(config.fileName)
     
     console.log(`[DEBUG] Loading Asset: ${placement.asset_key} -> ${textureUrl}`)
 
@@ -104,34 +98,26 @@ export class GardenGrid extends Container {
       const { grid_x: col, grid_y: row, item_width: w, item_height: h } = placement
       const screen = placementToScreen(col, row, w, h, TILE_CONFIG)
       
-      // Tính toán Scale chuẩn
       const targetScreenWidth = (w + h) * (TILE_CONFIG.tileWidth / 2)
       const autoScale = targetScreenWidth / texture.width
       const finalScale = autoScale * config.paddingZoom
 
-      // ==========================================
-      // A. TẠO BÓNG (SHADOW SPRITE)
-      // ==========================================
+      // Shadow sprite
       const shadowSprite = new Sprite(texture)
       shadowSprite.x = screen.x
       shadowSprite.y = screen.y
       shadowSprite.anchor.set(config.anchorX, config.anchorY) 
       
-      // Lấy thông số bóng theo thời gian
       const { skewX, alpha } = getShadowTransform()
       
-      // Bóp dẹp trục Y và nghiêng trục X
       shadowSprite.scale.set(finalScale, finalScale * 0.35)
       shadowSprite.skew.x = skewX
       
-      // Đổi màu đen, giảm độ trong suốt và làm mờ viền
       shadowSprite.tint = 0x000000 
       shadowSprite.alpha = alpha
-      shadowSprite.filters = [new BlurFilter(2)] // Làm mềm bóng
+      shadowSprite.filters = [new BlurFilter(2)]
 
-      // ==========================================
-      // B. TẠO VẬT THỂ CHÍNH (MAIN SPRITE)
-      // ==========================================
+      // Main sprite
       const sprite = new Sprite(texture)
       sprite.x = screen.x
       sprite.y = screen.y
@@ -140,13 +126,10 @@ export class GardenGrid extends Container {
       sprite.zIndex = col + row + w + h
       sprite.eventMode = 'none'
 
-      // Render vào scene nếu layer chưa bị huỷ
       if (!this.objectLayer.destroyed) {
-        // Cập nhật vào map quản lý
         this.shadowSprites.set(`${col}_${row}`, shadowSprite)
         this.placementSprites.set(`${col}_${row}`, sprite)
         
-        // Add vào các layer tương ứng
         this.shadowLayer.addChild(shadowSprite)
         this.objectLayer.addChild(sprite)
       }
@@ -220,17 +203,14 @@ export class GardenGrid extends Container {
   }
 
   private clear(): void {
-    // Clear Tiles
     for (const tile of this.tiles.values()) tile.destroy()
     this.tiles.clear()
     this.floorLayer.removeChildren()
 
-    // Clear Sprites (Vật thể chính)
     for (const sprite of this.placementSprites.values()) sprite.destroy()
     this.placementSprites.clear()
     this.objectLayer.removeChildren()
 
-    // Clear Shadows (Bóng)
     for (const shadow of this.shadowSprites.values()) shadow.destroy()
     this.shadowSprites.clear()
     this.shadowLayer.removeChildren()
