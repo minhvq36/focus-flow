@@ -92,6 +92,7 @@ func (r *Repository) GetPlacementsByUserGardenID(ctx context.Context, userGarden
 			gp.id, gp.user_garden_id, gp.inventory_id,
 			inv.item_id,
 			i.asset_key,
+			i.width, i.height,
 			gp.grid_x, gp.grid_y, gp.rotation,
 			gp.health_status, gp.wilted_at, gp.placed_at
 		FROM public.garden_placements gp
@@ -111,6 +112,7 @@ func (r *Repository) GetPlacementsByUserGardenID(ctx context.Context, userGarden
 			&p.ID, &p.UserGardenID, &p.InventoryID,
 			&p.ItemID,
 			&p.AssetKey,
+			&p.ItemWidth, &p.ItemHeight,
 			&p.GridX, &p.GridY, &p.Rotation,
 			&p.HealthStatus, &p.WiltedAt, &p.PlacedAt,
 		); err != nil {

@@ -62,6 +62,8 @@ func (s *Service) GetUserGardenByID(ctx context.Context, userGardenID, userID st
 			AssetKey:     p.AssetKey,
 			GridX:        p.GridX,
 			GridY:        p.GridY,
+			ItemWidth:    p.ItemWidth,
+			ItemHeight:   p.ItemHeight,
 			Rotation:     p.Rotation,
 			HealthStatus: p.HealthStatus,
 			WiltedAt:     p.WiltedAt,

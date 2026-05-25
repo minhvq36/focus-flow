@@ -10,6 +10,8 @@ export interface PlacementResponse {
   asset_key: string
   grid_x: number
   grid_y: number
+  item_width: number
+  item_height: number
   rotation: number          // 0 | 90 | 180 | 270
   health_status: string     // e.g. "healthy" | "wilted" | "dead"
   wilted_at: string | null  // ISO 8601 or null

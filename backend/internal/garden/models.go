@@ -34,6 +34,8 @@ type Placement struct {
 	AssetKey     string     `db:"asset_key"`
 	GridX        int        `db:"grid_x"`
 	GridY        int        `db:"grid_y"`
+	ItemWidth    int        `db:"item_width"`
+	ItemHeight   int        `db:"item_height"`
 	Rotation     int        `db:"rotation"`
 	HealthStatus string     `db:"health_status"`
 	WiltedAt     *time.Time `db:"wilted_at"`
@@ -49,6 +51,8 @@ type PlacementResponse struct {
 	AssetKey     string     `json:"asset_key"`
 	GridX        int        `json:"grid_x"`
 	GridY        int        `json:"grid_y"`
+	ItemWidth    int        `json:"item_width"`
+	ItemHeight   int        `json:"item_height"`
 	Rotation     int        `json:"rotation"`
 	HealthStatus string     `json:"health_status"`
 	WiltedAt     *time.Time `json:"wilted_at"`
