@@ -22,6 +22,10 @@ export class GardenApp {
 
   private gridCols = 0
 
+  // THÊM: Lưu lại kích thước vật lý gốc của toàn bộ lưới
+  private mapBaseWidth = 0
+  private mapBaseHeight = 0
+
   private dragState = {
     isDown: false,
     startX: 0,
@@ -70,14 +74,15 @@ export class GardenApp {
   ): void {
     this.gridCols = gridCols
 
+    // LƯU LẠI KÍCH THƯỚC GỐC
+    this.mapBaseWidth = gridCols * tileWidth
+    this.mapBaseHeight = gridRows * tileHeight
+
     const vw = this.app.screen.width
     const vh = this.app.screen.height
 
-    const totalW = gridCols * tileWidth
-    const totalH = gridRows * tileHeight
-    
     const f = (size: number) => 1.04 + ((size - 5) / 45) * 1.16;
-    this._fitZoom = Math.min(vw / totalW, vh / totalH) * f(gridCols)
+    this._fitZoom = Math.min(vw / this.mapBaseWidth, vh / this.mapBaseHeight) * f(gridCols)
     const targetZoom = savedZoom ?? this._fitZoom
 
     this._zoom = targetZoom
@@ -94,27 +99,55 @@ export class GardenApp {
     this.clampCamera()
   }
 
-  // ── THUẬT TOÁN KẸP CAMERA (SIÊU ĐƠN GIẢN NHỜ PIVOT) ──
+  // ── THUẬT TOÁN KẸP CAMERA MỚI (DYNAMIC DỰA VÀO ZOOM) ──
   private clampCamera(): void {
     if (this.gridCols === 0) return
 
     const vw = this.app.screen.width
     const vh = this.app.screen.height
 
-    // Tọa độ an toàn: Tâm hòn đảo không được ra khỏi hình chữ nhật an toàn (cách mép 10% màn hình)
+    const currentMapWidth = this.mapBaseWidth * this._zoom
+    const currentMapHeight = this.mapBaseHeight * this._zoom
+
     const padX = vw * 0.1
     const padY = vh * 0.1
 
-    const minX = padX
-    const maxX = vw - padX
-    const minY = padY
-    const maxY = vh - padY
+    // 1. KHÔI PHỤC DRAG CHO MAP NHỎ (Giải quyết Vấn đề 1)
+    // Đảm bảo luôn có một không gian drag tối thiểu bằng với khoảng không màn hình
+    const minDragX = Math.max(0, vw / 2 - padX)
+    const minDragY = Math.max(0, vh / 2 - padY)
 
-    if (minX > maxX) this.cameraContainer.x = vw / 2
-    else this.cameraContainer.x = Math.max(minX, Math.min(maxX, this.cameraContainer.x))
+    // 2. KHÔNG GIAN DRAG MAX KHI MAP TO (Zoom vào)
+    // - Trục X giữ nguyên
+    // - Trục Y: Nhân thêm hệ số 0.85 (bóp bớt 15%) vì với map Isometric, phần "chóp trên/chóp dưới" 
+    //   của hình thoi thường ngắn hơn tổng chiều cao của toàn bộ bounding box (vốn chứa cả chiều cao cây cối v.v.)
+    const maxDragX = Math.max(minDragX, (currentMapWidth - (vw - 2 * padX)) / 2)
+    const maxDragY = Math.max(minDragY, (currentMapHeight * 0.85 - (vh - 2 * padY)) / 2)
 
-    if (minY > maxY) this.cameraContainer.y = vh / 2
-    else this.cameraContainer.y = Math.max(minY, Math.min(maxY, this.cameraContainer.y))
+    const centerX = vw / 2
+    const centerY = vh / 2 
+
+    // Tính khoảng cách mà user đang cố kéo camera ra khỏi tâm màn hình
+    let dx = this.cameraContainer.x - centerX
+    let dy = this.cameraContainer.y - centerY
+
+    // 3. KẸP TỌA ĐỘ BẰNG HÌNH ELIP (Giải quyết Vấn đề 2)
+    // Công thức: (x/a)^2 + (y/b)^2 <= 1
+    // Chặn camera lọt vào 4 góc chết của Bounding Box hình chữ nhật
+    if (maxDragX > 0 && maxDragY > 0) {
+      const distanceSq = (dx * dx) / (maxDragX * maxDragX) + (dy * dy) / (maxDragY * maxDragY)
+      if (distanceSq > 1) {
+        // Nếu camera bị kéo văng ra khỏi Elip an toàn -> kéo giật nó trở lại đúng viền Elip
+        const scale = Math.sqrt(1 / distanceSq)
+        dx *= scale
+        dy *= scale
+      }
+    } else {
+      dx = 0; dy = 0
+    }
+
+    this.cameraContainer.x = centerX + dx
+    this.cameraContainer.y = centerY + dy
   }
 
   async init({ container, onReady }: GardenAppOptions): Promise<void> {
