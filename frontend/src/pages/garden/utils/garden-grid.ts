@@ -9,7 +9,7 @@ import {
 } from './isometric'
 import { ASSET_MAP, DEFAULT_ASSET_CONFIG } from '@/constants/assets'
 import { getShadowTransform } from './shadow'
-import { getAssetUrl } from '@/lib/storage' // <-- Added Supabase storage helper
+import { getAssetUrl } from '@/lib/storage'
 
 export const TILE_CONFIG: TileConfig = {
   tileWidth: 64,
@@ -22,7 +22,7 @@ const COLOR = {
   TILE_STROKE:      0x5a9e30,
   TILE_HOVER:       0xffd966,
   TILE_SELECTED:    0xff9900,
-  PLACEMENT_FILL:   0x4a90d9, 
+  PLACEMENT_FILL:   0x4a90d9,
 } as const
 
 export class GardenGrid extends Container {
@@ -46,7 +46,6 @@ export class GardenGrid extends Container {
   constructor() {
     super()
     this.eventMode = 'static'
-    
     this.objectLayer.sortableChildren = true
     
     this.addChild(this.floorLayer)
@@ -87,10 +86,7 @@ export class GardenGrid extends Container {
       fileName: placement.asset_key, 
     }
 
-    // <-- Changed from local path to Supabase URL
     const textureUrl = getAssetUrl(config.fileName)
-    
-    console.log(`[DEBUG] Loading Asset: ${placement.asset_key} -> ${textureUrl}`)
 
     try {
       const texture = await Assets.load(textureUrl)
@@ -102,22 +98,39 @@ export class GardenGrid extends Container {
       const autoScale = targetScreenWidth / texture.width
       const finalScale = autoScale * config.paddingZoom
 
-      // Shadow sprite
-      const shadowSprite = new Sprite(texture)
-      shadowSprite.x = screen.x
-      shadowSprite.y = screen.y
-      shadowSprite.anchor.set(config.anchorX, config.anchorY) 
-      
-      const { skewX, alpha } = getShadowTransform()
-      
-      shadowSprite.scale.set(finalScale, finalScale * 0.35)
-      shadowSprite.skew.x = skewX
-      
-      shadowSprite.tint = 0x000000 
-      shadowSprite.alpha = alpha
-      shadowSprite.filters = [new BlurFilter(2)]
+      // ==========================================
+      // A. SHADOW SPRITE (Dynamic calculation with visualBaseY)
+      // ==========================================
+      if (config.castShadow) {
+        const shadowSprite = new Sprite(texture)
+        
+        // 1. Set anchor to actual tree base (visualBaseY) instead of grid center
+        const actualPivotY = config.visualBaseY ?? config.anchorY
+        shadowSprite.anchor.set(config.anchorX, actualPivotY) 
+        
+        // 2. Adjust Y coordinate to compensate for the anchor difference
+        const pixelDiffY = (config.anchorY - actualPivotY) * texture.height * finalScale
+        shadowSprite.x = screen.x
+        shadowSprite.y = screen.y - pixelDiffY
+        
+        // 3. Apply shadow transform
+        const { skewX, alpha, scaleYMultiplier } = getShadowTransform()
+        
+        shadowSprite.scale.set(finalScale, finalScale * 0.35 * scaleYMultiplier)
+        shadowSprite.skew.x = skewX
+        shadowSprite.tint = 0x000000 
+        shadowSprite.alpha = alpha
+        shadowSprite.filters = [new BlurFilter(2)]
 
-      // Main sprite
+        if (!this.objectLayer.destroyed) {
+          this.shadowSprites.set(`${col}_${row}`, shadowSprite)
+          this.shadowLayer.addChild(shadowSprite)
+        }
+      }
+
+      // ==========================================
+      // B. MAIN SPRITE
+      // ==========================================
       const sprite = new Sprite(texture)
       sprite.x = screen.x
       sprite.y = screen.y
@@ -127,10 +140,7 @@ export class GardenGrid extends Container {
       sprite.eventMode = 'none'
 
       if (!this.objectLayer.destroyed) {
-        this.shadowSprites.set(`${col}_${row}`, shadowSprite)
         this.placementSprites.set(`${col}_${row}`, sprite)
-        
-        this.shadowLayer.addChild(shadowSprite)
         this.objectLayer.addChild(sprite)
       }
 

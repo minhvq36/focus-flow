@@ -1,4 +1,3 @@
-// Tính toán độ nghiêng (skew) và độ mờ (alpha) của bóng dựa theo giờ local
 export function getShadowTransform(date: Date = new Date()) {
   const hour = date.getHours()
   const minutes = date.getMinutes()
@@ -6,26 +5,30 @@ export function getShadowTransform(date: Date = new Date()) {
 
   let skewX = 0
   let alpha = 0.3
+  let scaleYMultiplier = 1.0 // Hệ số giãn bóng theo chiều Y
 
-  // Giả sử mặt trời mọc lúc 6h sáng, lặn lúc 18h
   if (time >= 6 && time <= 18) {
-    // Progress từ 0 (6h sáng) -> 1 (18h chiều)
     const progress = (time - 6) / 12
     
-    // Sáng (0): bóng ngả dài sang trái (skewX dương)
-    // Trưa (0.5): bóng ở ngay dưới chân (skewX = 0)
-    // Chiều (1): bóng ngả dài sang phải (skewX âm)
-    // Chuyển đổi dải [0, 1] thành [1.5, -1.5] (1.5 là độ nghiêng tối đa)
-    skewX = 1.5 - (progress * 3)
+    // GIẢI QUYẾT 6H SÁNG: 
+    // Giảm Skew tối đa từ 1.5 xuống 0.8 (khoảng 45 độ)
+    skewX = 0.8 - (progress * 1.6)
 
-    // Trưa nắng thì bóng đậm hơn một chút, sáng/chiều thì nhạt hơn
-    // Trưa progress = 0.5 -> abs(0.5 - 0.5) = 0 -> alpha = 0.4
-    // Sáng/chiều progress = 0 hoặc 1 -> abs = 0.5 -> alpha = 0.2
-    alpha = 0.4 - Math.abs(progress - 0.5) * 0.4
+    // Khoảng cách thời gian tới 12h trưa (Trưa = 0, Sáng/Chiều = 0.5)
+    const distFromNoon = Math.abs(progress - 0.5)
+    
+    // GIẢI QUYẾT 12H TRƯA:
+    // Sáng/chiều (0.5): Bóng dài ra -> nhân scaleY lên 1.2
+    // Trưa (0): Bóng tụ lại chân -> nhân scaleY tụt xuống 0.4
+    scaleYMultiplier = 0.4 + (distFromNoon * 1.6)
+
+    // Trưa thì bóng đậm (0.45), Sáng chiều thì nhạt (0.2)
+    alpha = 0.45 - (distFromNoon * 0.5)
   } else {
-    skewX = -0.8 // Trăng cố định ngả sang phải
-    alpha = 0.15 // Bóng trăng rất nhạt
+    skewX = -0.6
+    alpha = 0.15
+    scaleYMultiplier = 0.8
   }
 
-  return { skewX, alpha }
+  return { skewX, alpha, scaleYMultiplier }
 }

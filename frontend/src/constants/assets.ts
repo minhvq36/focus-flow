@@ -2,30 +2,35 @@ export interface AssetConfig {
   fileName: string
   anchorX: number
   anchorY: number
+  visualBaseY: number
   paddingZoom: number
+  castShadow: boolean // <-- THÊM CÁI NÀY
 }
 
-
-// TODO: Need to config all of this, find the way to test efficiently. Need to understand the meaning of anchorX/Y and paddingZoom more clearly
 export const ASSET_MAP: Record<string, AssetConfig> = {
   'path_stone': {
     fileName: 'path_stone',
     anchorX: 0.5,
-    anchorY: 0.91,
+    anchorY: 0.91,     // Item phẳng nên tâm thường ở giữa
+    visualBaseY: 0.8,
     paddingZoom: 1.285,
+    castShadow: true, // TODO: To change this
   },
   'blossom_tree': {
     fileName: 'blossom_tree',
-    anchorX: 0,
-    anchorY: 0,
-    paddingZoom: 0,
+    anchorX: 0.5,
+    anchorY: 0.91,    // Gốc cây chạm đất ở 91% chiều cao ảnh
+    visualBaseY: 0.8,
+    paddingZoom: 1.285,
+    castShadow: true,  // <-- Cây đứng thẳng thì CÓ bóng
   },
 }
 
-// TODO: Chia asset thành các "Design Archetype" (Nhóm thiết kế chuẩn hóa): Flat, Small, Tall
 export const DEFAULT_ASSET_CONFIG: AssetConfig = {
   fileName: 'default',
   anchorX: 0.5,
   anchorY: 0.91,
+  visualBaseY: 0.8,
   paddingZoom: 1.285,
+  castShadow: true, 
 }
