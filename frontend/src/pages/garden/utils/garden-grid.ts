@@ -8,7 +8,7 @@ import {
   type TileConfig,
 } from './isometric'
 import { ASSET_MAP, DEFAULT_ASSET_CONFIG } from '@/constants/assets'
-import { getShadowTransform } from './shadow'
+import { createShadow } from './shadow'
 import { getAssetUrl } from '@/lib/storage'
 
 export const TILE_CONFIG: TileConfig = {
@@ -30,7 +30,7 @@ export class GardenGrid extends Container {
   private tiles = new Map<string, Graphics>()
   
   private placementSprites = new Map<string, Sprite>()
-  private shadowSprites = new Map<string, Sprite>() 
+  private shadowSprites = new Map<string, Container>() // Thay đổi kiểu dữ liệu
   
   private hoveredTile: { col: number; row: number } | null = null
   private selectedTile: { col: number; row: number } | null = null
@@ -99,32 +99,19 @@ export class GardenGrid extends Container {
       const finalScale = autoScale * config.paddingZoom
 
       // ==========================================
-      // A. SHADOW SPRITE (Dynamic calculation with visualBaseY)
+      // A. SHADOW LAYER (Render siêu gọn gàng)
       // ==========================================
       if (config.castShadow) {
-        const shadowSprite = new Sprite(texture)
+        // Chỉ việc gọi hàm từ file shadow.ts
+        const shadowNode = createShadow(texture, config, finalScale)
         
-        // 1. Set anchor to actual tree base (visualBaseY) instead of grid center
-        const actualPivotY = config.visualBaseY ?? config.anchorY
-        shadowSprite.anchor.set(config.anchorX, actualPivotY) 
-        
-        // 2. Adjust Y coordinate to compensate for the anchor difference
-        const pixelDiffY = (config.anchorY - actualPivotY) * texture.height * finalScale
-        shadowSprite.x = screen.x
-        shadowSprite.y = screen.y - pixelDiffY
-        
-        // 3. Apply shadow transform
-        const { skewX, alpha, scaleYMultiplier } = getShadowTransform()
-        
-        shadowSprite.scale.set(finalScale, finalScale * 0.35 * scaleYMultiplier)
-        shadowSprite.skew.x = skewX
-        shadowSprite.tint = 0x000000 
-        shadowSprite.alpha = alpha
-        shadowSprite.filters = [new BlurFilter(2)]
+        shadowNode.x = screen.x
+        shadowNode.y = screen.y
 
         if (!this.objectLayer.destroyed) {
-          this.shadowSprites.set(`${col}_${row}`, shadowSprite)
-          this.shadowLayer.addChild(shadowSprite)
+          // Map giờ lưu được kiểu Container thay vì Sprite riêng lẻ
+          this.shadowSprites.set(`${col}_${row}`, shadowNode) 
+          this.shadowLayer.addChild(shadowNode)
         }
       }
 
