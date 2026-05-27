@@ -59,6 +59,11 @@ export function useTaskDetail(taskId: string) {
     onSuccess: () => invalidate(),
   })
 
+  const resetMutation = useMutation({
+    mutationFn: () => api.post(`/api/tasks/${taskId}/reset`, {}),
+    onSuccess: () => invalidate(),
+  })
+
   function invalidate() {
     queryClient.invalidateQueries({ queryKey: ['task', taskId] })
     queryClient.invalidateQueries({ queryKey: ['tasks'] })
@@ -79,5 +84,6 @@ export function useTaskDetail(taskId: string) {
     isSubmitting: submitMutation.isPending,
     isGivingUp: giveUpMutation.isPending,
     extend: extendMutation.mutateAsync,
+    reset: resetMutation.mutateAsync,
   }
 }

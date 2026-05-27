@@ -17,9 +17,10 @@ interface TimerRingProps {
   elapsedSec: number
   totalSec: number
   isReadOnly: boolean
+  onReset?: () => void
 }
 
-export function TimerRing({ elapsedSec, totalSec, isReadOnly }: TimerRingProps) {
+export function TimerRing({ elapsedSec, totalSec, isReadOnly, onReset }: TimerRingProps) {
   /* 
      Apply cap logic: 
      The displayed elapsed time must not exceed the registered total time.
@@ -101,6 +102,22 @@ export function TimerRing({ elapsedSec, totalSec, isReadOnly }: TimerRingProps) 
             </span>
           )}
         </div>
+        {onReset && (
+          <button
+            type="button"
+            onClick={onReset}
+            className="absolute bottom-8 text-muted-foreground/30 hover:text-muted-foreground/60 transition-colors"
+            aria-label="Reset timer"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
+              fill="none" stroke="currentColor" strokeWidth="2"
+              strokeLinecap="round" strokeLinejoin="round"
+            >
+              <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+              <path d="M3 3v5h5" />
+            </svg>
+          </button>
+        )}
       </div>
     </div>
   )

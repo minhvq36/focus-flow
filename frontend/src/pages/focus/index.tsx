@@ -39,7 +39,7 @@ const STATUS_CONFIG = {
 export default function FocusPage() {
   const { taskId } = useParams<{ taskId: string }>()
   const navigate = useNavigate()
-  const { task, isLoading, isFetching, pause, resume, submit, giveUp, updateTodos, updateTitle, extend } =
+  const { task, isLoading, isFetching, pause, resume, submit, giveUp, updateTodos, updateTitle, extend, reset } =
     useTaskDetail(taskId!)
 
   const [elapsed, setElapsed] = useState(0)
@@ -47,15 +47,8 @@ export default function FocusPage() {
 
   const [showGiveUpConfirm, setShowGiveUpConfirm] = useState(false)
   const [isActioning, setIsActioning] = useState(false)
-
-  // ── Timer seed ────────────────────────────────────────────────────────────
-  // Chỉ theo dõi 2 primitive values từ server thay vì dùng seededRef.
-  // Mỗi khi pause/resume/extend làm actual_duration_sec hoặc started_at thay đổi,
-  // effect này tự snap lại elapsed đúng với DB — không cần ref phức tạp.
-  useEffect(() => {
-    if (!task) return
-    setElapsed(calcElapsed(task.actual_duration_sec, task.started_at))
-  }, [task?.actual_duration_sec, task?.started_at])
+  
+  const isResettingRef = useRef(false)
 
   // ── Timer interval ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -64,7 +57,14 @@ export default function FocusPage() {
       intervalRef.current = null
     }
 
-    if (!task || task.status !== 'active' || !task.started_at) return
+    if (!task) return
+
+    if (task.status !== 'active' || !task.started_at) {
+      if (!isResettingRef.current) {
+        setElapsed(calcElapsed(task.actual_duration_sec, task.started_at))
+      }
+      return
+    }
 
     const startTimeMs = new Date(task.started_at).getTime()
     const baseDurationSec = task.actual_duration_sec
@@ -74,6 +74,7 @@ export default function FocusPage() {
       setElapsed(baseDurationSec + Math.max(0, deltaSec))
     }
 
+    isResettingRef.current = false
     updateTimer()
     intervalRef.current = setInterval(updateTimer, 1000)
 
@@ -186,6 +187,37 @@ export default function FocusPage() {
     })
   }
 
+  async function handleReset() {
+    await withAction(async () => {
+      isResettingRef.current = true
+
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current)
+        intervalRef.current = null
+      }
+
+      setElapsed(0)
+      try {
+        await reset()
+        // KHÔNG finally clear flag ở đây
+      } catch {
+        // Chỉ clear khi fail — rollback hoàn toàn
+        isResettingRef.current = false
+        setElapsed(calcElapsed(task!.actual_duration_sec, task!.started_at))
+        toast.error("Failed to reset timer.")
+
+        if (task!.status === 'active' && task!.started_at) {
+          const startTimeMs = new Date(task!.started_at).getTime()
+          const base = task!.actual_duration_sec
+          intervalRef.current = setInterval(() => {
+            const delta = Math.floor((Date.now() - startTimeMs) / 1000)
+            setElapsed(base + Math.max(0, delta))
+          }, 1000)
+        }
+      }
+    })
+  }
+
   // ── Guards ────────────────────────────────────────────────────────────────
   if (isLoading) return (
     <div className="flex min-h-dvh items-center justify-center text-muted-foreground text-sm">
@@ -283,6 +315,7 @@ export default function FocusPage() {
                 elapsedSec={elapsed}
                 totalSec={totalSec}
                 isReadOnly={isReadOnly}
+                onReset={task.status === 'active' ? handleReset : undefined}
               />
               {task.status === 'active' && (
                 <div className="mt-2 flex justify-center">
