@@ -22,6 +22,7 @@ type ServiceInterface interface {
 	UpdateTodos(ctx context.Context, taskID, userID string, req UpdateTodosRequest) error
 	EditTaskTitle(ctx context.Context, taskID, userID string, req EditTaskTitleRequest) error
 	ExtendTask(ctx context.Context, taskID, userID string, req ExtendRequest) error
+	ResetTask(ctx context.Context, taskID, userID string) error
 	PauseTask(ctx context.Context, taskID, userID string) error
 	SubmitTask(ctx context.Context, taskID, userID string) (*SubmitResult, error)
 	GiveUpTask(ctx context.Context, taskID, userID string) (*reward.PenaltyResult, error)
@@ -268,6 +269,37 @@ func (h *Handler) ExtendTask(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response.Success(w, map[string]string{"message": "Task time extended successfully"})
+}
+
+func (h *Handler) ResetTask(w http.ResponseWriter, r *http.Request) {
+	userID, ok := auth.GetUserID(r.Context())
+	if !ok {
+		response.Unauthorized(w)
+		return
+	}
+
+	taskID := chi.URLParam(r, "id")
+	if taskID == "" {
+		response.BadRequest(w, "INVALID_ID", "Task ID is required")
+		return
+	}
+
+	h.log.Info("ResetTask", "user_id", userID, "task_id", taskID)
+	err := h.service.ResetTask(r.Context(), taskID, userID)
+	if err != nil {
+		switch {
+		case errors.Is(err, apperr.ErrNotFound):
+			response.NotFound(w, "Task")
+		case errors.Is(err, apperr.ErrInvalidState):
+			response.Conflict(w, "INVALID_STATE", err.Error())
+		default:
+			h.log.Error("ResetTask failed", "user_id", userID, "task_id", taskID, "error", err.Error())
+			response.InternalError(w)
+		}
+		return
+	}
+
+	response.Success(w, map[string]string{"message": "Task time reset successfully"})
 }
 
 // TODO: Check SSE to redirect all active task open when task stopped

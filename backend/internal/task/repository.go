@@ -251,6 +251,27 @@ func (r *Repository) UpdateTitle(ctx context.Context, taskID, userID string, req
 	return nil
 }
 
+// Reset time — reset started_at and actual_duration_sec from the beginning
+func (r *Repository) ResetTime(ctx context.Context, taskID, userID string) error {
+	result, err := r.db.Exec(ctx, `
+        UPDATE tasks
+        SET
+            started_at = NOW(),
+            actual_duration_sec = 0
+        WHERE id = $1
+          AND user_id = $2
+          AND status = 'active'
+          AND deleted_at IS NULL
+    `, taskID, userID)
+	if err != nil {
+		return fmt.Errorf("Reset: %w", err)
+	}
+	if result.RowsAffected() == 0 {
+		return &apperr.NotFoundError{Resource: "Task"}
+	}
+	return nil
+}
+
 func (r *Repository) PauseTask(ctx context.Context, taskID, userID string) (int, error) {
 	var newDuration int
 	err := r.db.QueryRow(ctx, `

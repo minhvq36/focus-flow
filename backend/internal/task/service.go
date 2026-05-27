@@ -20,6 +20,7 @@ type RepositoryInterface interface {
 	UpdateTodos(ctx context.Context, taskID, userID string, req UpdateTodosRequest) error
 	UpdateTitle(ctx context.Context, taskID, userID string, req EditTaskTitleRequest) error
 	Extend(ctx context.Context, taskID, userID string, req ExtendRequest) error
+	ResetTime(ctx context.Context, taskID, userID string) error
 	PauseTask(ctx context.Context, taskID, userID string) (int, error)
 	Submit(ctx context.Context, tx pgx.Tx, taskID, userID string, todos []TodoItem) error
 	GiveUp(ctx context.Context, tx pgx.Tx, taskID, userID string) error
@@ -137,6 +138,20 @@ func (s *Service) ExtendTask(ctx context.Context, taskID, userID string, req Ext
 
 	s.log.Info("ExtendTask", "user_id", userID, "task_id", taskID)
 	return s.repo.Extend(ctx, taskID, userID, req)
+}
+
+func (s *Service) ResetTask(ctx context.Context, taskID, userID string) error {
+	task, err := s.repo.GetByID(ctx, taskID, userID)
+	if err != nil {
+		return err
+	}
+
+	if task.Status != TaskStatusActive {
+		return &apperr.InvalidStateError{Current: string(task.Status), Expected: string(TaskStatusActive)}
+	}
+
+	s.log.Info("ResetTask", "user_id", userID, "task_id", taskID)
+	return s.repo.ResetTime(ctx, taskID, userID)
 }
 
 func (s *Service) PauseTask(ctx context.Context, taskID, userID string) error {
