@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useEffect, useState, useRef } from 'react'
 import { useTaskDetail } from '@/pages/tasks/hooks/use-task-detail'
 import { EditableTitle } from './components/editable-title'
@@ -213,10 +213,11 @@ export default function FocusPage() {
               variant="ghost"
               size="icon"
               className="h-8 w-8 text-muted-foreground hover:text-foreground"
-              onClick={() => navigate('/tasks')}
-              aria-label="Back to tasks"
+              asChild
             >
-              <ArrowLeft className="h-4 w-4" />
+              <Link to="/tasks" aria-label="Back to tasks">
+                <ArrowLeft className="h-4 w-4" />
+              </Link>
             </Button>
 
             <div className="flex items-center gap-2">

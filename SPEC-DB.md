@@ -491,20 +491,20 @@ daily_recaps (
 
 ## 9. Migration Status
 
-### ✅ Migrated
-- `000_utils.sql` — utility functions (fn_set_updated_at)
-- `20260419132646_init_tasks.sql` — tasks table
-- `20260419174325_init_task_notes.sql` — task_notes table
-- `20260419174401_init_quotas.sql` — plan_quotas, task_daily_quotas, fn_enforce_task_quota
-- `20260419191228_init_users.sql` — users, user_private, user_wallets, frames, user_frames
-- `20260420044947_init_items_and_inventory.sql` — items, inventory
-- `20260420113443_init_gardens_and_placements.sql` — gardens, garden_placements
+### ✅ Completed Migrations
+- `001_utils.sql` — utility functions (fn_set_updated_at)
+- `002_init_cores.sql` — items, frames, gardens, plan_quotas lookup tables
+- `003_init_users.sql` — users, user_private, user_wallets tables with triggers
+- `004_init_tasks.sql` — tasks table with state machine and protection triggers
+- `005_init_quotas.sql` — task_daily_quotas table and quota enforcement trigger
+- `006_init_task_notes.sql` — task_notes table (append-only audit trail)
+- `007_init_inventory.sql` — inventory table with item tracking
+- `008_init_gardens_and_placements.sql` — user_gardens and garden_placements tables
+- `009_init_reward_rolls.sql` — reward_rolls table for drop history and pity counter tracking
+- `999_rls.sql` — Row-Level Security policies (status: **not verified** — needs testing)
 
-### ⏳ Planned
-- `add_penalty_mode_to_user_private.sql` — penalty_mode column
-- `init_friendships.sql`
-- `init_marketplace.sql`
-- `init_economy_transactions.sql`
-- `init_reward_rolls.sql`
-- `init_daily_recaps.sql`
-- `init_feed_events.sql`
+### ⏳ Seed Data (Not Yet Implemented)
+- Items catalog (flowers, structures, decorations)
+- Frame cosmetics
+- 20 garden level templates
+- Placeholder user accounts for testing

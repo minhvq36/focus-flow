@@ -243,17 +243,21 @@ wire ./cmd/server
 - [ ] `cmd/server/wire.go` - Not implemented (services created directly in routes for now)
 - [ ] CORS - Hardcoded to localhost:5173 (needs .env for prod)
 
+**✅ Completed (Full Implementation):**
+- [x] `internal/garden/` - handler.go, service.go (GetUserGardenList, GetUserGardenByID), repository.go
+- [x] `internal/reward/` - roll.go (tier-based RNG, exp calculation), models.go, penalty.go (SelectPenaltyItem)
+
 **❌ Not Yet Started (Stubs only):**
-- [ ] `internal/garden/` - Models exist, service/handlers empty
-- [ ] `internal/reward/` - Models exist, logic empty
+- [ ] `internal/session/` - Skeleton only, no Redis integration for timer state
 - [ ] `internal/shop/` - Models exist, logic empty
 - [ ] `internal/marketplace/` - Models exist, logic empty
-- [ ] `internal/social/` - Models exist, logic empty
-- [ ] `internal/leaderboard/` - Models exist, logic empty
-- [ ] `internal/search/` - Elasticsearch integration
-- [ ] `internal/ai/` - Anthropic integration
+- [ ] `internal/social/` - Models exist (feed.go, friends.go, leaderboard.go), logic empty
+- [ ] `internal/search/` - Elasticsearch integration not started
+- [ ] `internal/ai/` - Anthropic integration not started
+- [ ] `cmd/cronjob/` - Skeleton structure, not implemented (see Section 8)
 - [ ] `pkg/cache/redis.go` - Redis client (not wired)
 - [ ] `pkg/realtime/supabase.go` - Supabase Realtime (not wired)
+- [ ] `pkg/metrics/` - Prometheus integration
 
 ---
 
@@ -950,9 +954,9 @@ Backend translates DB errors to user-friendly messages with original `errcode` i
 
 ---
 
-## 8. Background Jobs (Cronjob Service)
+## 8. Background Jobs (Cronjob Service) — ❌ NOT YET IMPLEMENTED
 
-**Run every 24 hours (midnight UTC):**
+**Planned to run every 24 hours (midnight UTC):**
 1. **Inactive Penalty**
    - Query users WHERE last_login < 7 days ago
    - Wilt 1/4 of their healthy garden items
@@ -966,6 +970,8 @@ Backend translates DB errors to user-friendly messages with original `errcode` i
 3. **Daily Recap Generation** (optional, on-demand)
    - Generate recap for users who log in today
    - Store in daily_recaps table
+
+**Status:** Skeleton structure exists at `cmd/cronjob/main.go` but implementation not started.
 
 ---
 
