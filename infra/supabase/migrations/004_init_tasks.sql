@@ -6,7 +6,7 @@ create table if not exists public.tasks (
     penalty_mode boolean not null default false,
     status text not null default 'active' 
         check (status in ('active', 'paused', 'submitted', 'given_up')),
-    registered_duration_min int not null check (registered_duration_min >= 25),
+    registered_duration_min int not null check (registered_duration_min >= 25 and registered_duration_min <= 999),
     started_at timestamptz,
     actual_duration_sec int default 0 check (actual_duration_sec >= 0),
     created_at timestamptz not null default now(),

@@ -1,4 +1,4 @@
-import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useParams, Link } from 'react-router-dom'
 import { useEffect, useState, useRef } from 'react'
 import { useTaskDetail } from '@/pages/tasks/hooks/use-task-detail'
 import { EditableTitle } from './components/editable-title'
@@ -38,7 +38,6 @@ const STATUS_CONFIG = {
 
 export default function FocusPage() {
   const { taskId } = useParams<{ taskId: string }>()
-  const navigate = useNavigate()
   const { task, isLoading, isFetching, pause, resume, submit, giveUp, updateTodos, updateTitle, extend, reset } =
     useTaskDetail(taskId!)
 
