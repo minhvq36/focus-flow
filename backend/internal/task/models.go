@@ -169,7 +169,7 @@ type UpdateTodosRequest struct {
 
 // ExtendRequest — Sent from FE when extending time
 type ExtendRequest struct {
-	AddMinutes int `json:"add_minutes" validate:"required,min=1,max=480"`
+	AddMinutes int `json:"add_minutes" validate:"required,min=1,max=120"`
 }
 
 type EditTaskTitleRequest struct {
