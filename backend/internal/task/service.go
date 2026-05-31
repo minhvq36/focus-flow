@@ -131,9 +131,9 @@ func (s *Service) ExtendTask(ctx context.Context, taskID, userID string, req Ext
 		return &apperr.InvalidStateError{Current: string(task.Status), Expected: "active|paused"}
 	}
 
-	// Check total registered duration does not exceed 480 minutes
-	if task.RegisteredDurationMin+req.AddMinutes > 480 {
-		return &apperr.ValidationError{Message: "Total registered duration cannot exceed 480 minutes"}
+	// Check total registered duration does not exceed 999 minutes
+	if task.RegisteredDurationMin+req.AddMinutes > 999 {
+		return &apperr.ValidationError{Message: "Total registered duration cannot exceed 999 minutes"}
 	}
 
 	s.log.Info("ExtendTask", "user_id", userID, "task_id", taskID)
@@ -172,7 +172,6 @@ func (s *Service) PauseTask(ctx context.Context, taskID, userID string) error {
 	return err
 }
 
-// DONE: Use Tx to mark all todos as done
 func (s *Service) SubmitTask(ctx context.Context, taskID, userID string) (*SubmitResult, error) {
 	// 1. Validate state trước khi mở tx
 	task, err := s.repo.GetByID(ctx, taskID, userID)

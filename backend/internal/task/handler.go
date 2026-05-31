@@ -12,6 +12,7 @@ import (
 	"github.com/minhvq36/focus-flow/backend/internal/reward"
 	"github.com/minhvq36/focus-flow/backend/pkg/apperr"
 	"github.com/minhvq36/focus-flow/backend/pkg/logger"
+	"github.com/minhvq36/focus-flow/backend/pkg/request"
 	"github.com/minhvq36/focus-flow/backend/pkg/response"
 )
 
@@ -246,8 +247,7 @@ func (h *Handler) ExtendTask(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req ExtendRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.BadRequest(w, "INVALID_REQUEST", "Invalid request body")
+	if ok := request.BindAndValidate(w, r, &req); !ok {
 		return
 	}
 
