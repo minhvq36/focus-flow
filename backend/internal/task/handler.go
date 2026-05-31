@@ -2,7 +2,6 @@ package task
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"net/http"
 	"strings"
@@ -170,8 +169,7 @@ func (h *Handler) UpdateTodos(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req UpdateTodosRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.BadRequest(w, "INVALID_REQUEST", "Invalid request body")
+	if ok := request.BindAndValidate(w, r, &req); !ok {
 		return
 	}
 
@@ -207,8 +205,7 @@ func (h *Handler) EditTaskTitle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req EditTaskTitleRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.BadRequest(w, "INVALID_REQUEST", "Invalid request body")
+	if ok := request.BindAndValidate(w, r, &req); !ok {
 		return
 	}
 
@@ -469,8 +466,7 @@ func (h *Handler) CreateNote(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req CreateTaskNoteRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.BadRequest(w, "INVALID_REQUEST", "Invalid request body")
+	if ok := request.BindAndValidate(w, r, &req); !ok {
 		return
 	}
 
@@ -512,8 +508,7 @@ func (h *Handler) UpdateNote(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req UpdateTaskNoteRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.BadRequest(w, "INVALID_REQUEST", "Invalid request body")
+	if ok := request.BindAndValidate(w, r, &req); !ok {
 		return
 	}
 
