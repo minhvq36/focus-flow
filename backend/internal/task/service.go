@@ -25,6 +25,7 @@ type RepositoryInterface interface {
 	Submit(ctx context.Context, tx pgx.Tx, taskID, userID string, todos []TodoItem) error
 	GiveUp(ctx context.Context, tx pgx.Tx, taskID, userID string) error
 	ResumeTask(ctx context.Context, taskID, userID string) error
+	ToggleStar(ctx context.Context, taskID, userID string) (bool, error)
 	CreateNote(ctx context.Context, taskID, userID string, req CreateTaskNoteRequest) (*TaskNote, error)
 	GetNotes(ctx context.Context, taskID, userID string) ([]*TaskNote, error)
 	UpdateNote(ctx context.Context, noteID, userID, taskID string, req UpdateTaskNoteRequest) (*TaskNote, error)
@@ -269,6 +270,17 @@ func (s *Service) ResumeTask(ctx context.Context, taskID, userID string) error {
 	}
 
 	return s.repo.ResumeTask(ctx, taskID, userID)
+}
+
+func (s *Service) ToggleStar(ctx context.Context, taskID, userID string) (bool, error) {
+	// Verify task exists
+	_, err := s.repo.GetByID(ctx, taskID, userID)
+	if err != nil {
+		return false, err
+	}
+
+	s.log.Info("ToggleStar", "user_id", userID, "task_id", taskID)
+	return s.repo.ToggleStar(ctx, taskID, userID)
 }
 
 func (s *Service) CreateNote(ctx context.Context, taskID, userID string, req CreateTaskNoteRequest) (*TaskNote, error) {

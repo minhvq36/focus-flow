@@ -27,6 +27,7 @@ type ServiceInterface interface {
 	SubmitTask(ctx context.Context, taskID, userID string) (*SubmitResult, error)
 	GiveUpTask(ctx context.Context, taskID, userID string) (*reward.PenaltyResult, error)
 	ResumeTask(ctx context.Context, taskID, userID string) error
+	ToggleStar(ctx context.Context, taskID, userID string) (bool, error)
 	CreateNote(ctx context.Context, taskID, userID string, req CreateTaskNoteRequest) (*TaskNote, error)
 	GetNotes(ctx context.Context, taskID, userID string) ([]*TaskNote, error)
 	UpdateNote(ctx context.Context, noteID, userID, taskID string, req UpdateTaskNoteRequest) (*TaskNote, error)
@@ -421,6 +422,35 @@ func (h *Handler) ResumeTask(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response.Success(w, map[string]string{"message": "Task resumed successfully"})
+}
+
+func (h *Handler) ToggleStar(w http.ResponseWriter, r *http.Request) {
+	userID, ok := auth.GetUserID(r.Context())
+	if !ok {
+		response.Unauthorized(w)
+		return
+	}
+
+	taskID := chi.URLParam(r, "id")
+	if taskID == "" {
+		response.BadRequest(w, "INVALID_ID", "Task ID is required")
+		return
+	}
+
+	h.log.Info("ToggleStar", "user_id", userID, "task_id", taskID)
+	isStarred, err := h.service.ToggleStar(r.Context(), taskID, userID)
+	if err != nil {
+		switch {
+		case errors.Is(err, apperr.ErrNotFound):
+			response.NotFound(w, "Task")
+		default:
+			h.log.Error("ToggleStar failed", "user_id", userID, "task_id", taskID, "error", err.Error())
+			response.InternalError(w)
+		}
+		return
+	}
+
+	response.Success(w, map[string]bool{"is_starred": isStarred})
 }
 
 func (h *Handler) GetNotes(w http.ResponseWriter, r *http.Request) {

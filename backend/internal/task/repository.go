@@ -143,6 +143,25 @@ func (r *Repository) GetByID(ctx context.Context, taskID, userID string) (*Task,
 	return &t, nil
 }
 
+func (r *Repository) ToggleStar(ctx context.Context, taskID, userID string) (bool, error) {
+	var isStarred bool
+	err := r.db.QueryRow(ctx, `
+        UPDATE tasks
+        SET is_starred = NOT is_starred
+        WHERE id = $1
+          AND user_id = $2
+          AND deleted_at IS NULL
+        RETURNING is_starred
+    `, taskID, userID).Scan(&isStarred)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, &apperr.NotFoundError{Resource: "Task"}
+	}
+	if err != nil {
+		return false, fmt.Errorf("ToggleStar: %w", err)
+	}
+	return isStarred, nil
+}
+
 // TODO: quota exceed trigger db single source of truth, REPO to convert error
 func (r *Repository) Create(ctx context.Context, userID string, req CreateTaskRequest) (*Task, error) {
 	todosJSON, err := json.Marshal(req.Todos)

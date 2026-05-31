@@ -31,6 +31,7 @@ func Routes(db *pgxpool.Pool, log *logger.Logger) func(r chi.Router) {
 		r.Post("/{id}/submit", handler.SubmitTask)
 		r.Post("/{id}/giveup", handler.GiveUpTask)
 		r.Post("/{id}/resume", handler.ResumeTask)
+		r.Post("/{id}/star", handler.ToggleStar)
 		// Notes endpoints
 		r.Get("/{id}/notes", handler.GetNotes)
 		r.Post("/{id}/notes", handler.CreateNote)
