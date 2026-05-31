@@ -11,7 +11,7 @@ import type { FilterState } from '@/types/task'
 
 export default function TasksPage() {
   const [filter, setFilter] = useState<FilterState>(DEFAULT_FILTER)
-  const { tasks, quota, loading, error, reload, submitTask, submittingTaskId } = useTasks(filter)
+  const { tasks, quota, loading, error, reload, submitTask, submittingTaskId, toggleStar, isTogglingStarId } = useTasks(filter)
   const[modalOpen, setModalOpen] = useState(false)
 
   return (
@@ -50,6 +50,8 @@ export default function TasksPage() {
               onNewTask={() => setModalOpen(true)}
               onSubmit={submitTask}
               submittingTaskId={submittingTaskId}
+              onToggleStar={toggleStar}
+              isTogglingStarId={isTogglingStarId}
             />
           )}
         </section>

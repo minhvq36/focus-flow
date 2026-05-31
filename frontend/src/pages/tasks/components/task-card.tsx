@@ -1,9 +1,7 @@
 import { Link } from 'react-router-dom'
-import { Play, Eye, Send, Clock, Sprout, Pause, CheckSquare, Calendar } from 'lucide-react'
+import { Play, Eye, Send, Clock, Sprout, Pause, CheckSquare, Calendar, Star } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { TaskSummary, TaskStatus } from '@/types/task'
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function formatDuration(min: number) {
   if (min < 60) return `${min}m`
@@ -19,14 +17,12 @@ function formatDateUTC(iso: string) {
     timeZone: 'UTC',
   })
 }
+
 function isTodayUTC(iso: string) {
   const todayUTC = new Date().toISOString().slice(0, 10)
   const dateUTC = new Date(iso).toISOString().slice(0, 10)
-
   return dateUTC === todayUTC
 }
-
-// ─── Status config ────────────────────────────────────────────────────────────
 
 type StatusCfg = {
   border: string
@@ -52,9 +48,9 @@ const STATUS_CFG: Record<TaskStatus, StatusCfg> = {
     icon:   <Pause className="h-3 w-3" aria-hidden />,
   },
   submitted: {
-  border: 'border-l-blue-300',
-  badge:  'border-blue-100 bg-blue-50 text-blue-400',
-  dot:    'bg-blue-400',
+    border: 'border-l-blue-300',
+    badge:  'border-blue-100 bg-blue-50 text-blue-400',
+    dot:    'bg-blue-400',
     label:  'Submitted',
     icon:   <CheckSquare className="h-3 w-3" aria-hidden />,
   },
@@ -67,17 +63,21 @@ const STATUS_CFG: Record<TaskStatus, StatusCfg> = {
   },
 }
 
-// ─── Props ────────────────────────────────────────────────────────────────────
-
 interface TaskCardProps {
   task: TaskSummary
   onSubmit?: (taskId: string) => void
   isSubmitting?: boolean
+  onToggleStar?: (taskId: string) => void
+  isTogglingStarId?: string | null
 }
 
-// ─── Component ────────────────────────────────────────────────────────────────
-
-export function TaskCard({ task, onSubmit, isSubmitting = false }: TaskCardProps) {
+export function TaskCard({
+  task,
+  onSubmit,
+  isSubmitting = false,
+  onToggleStar,
+  isTogglingStarId,
+}: TaskCardProps) {
   const cfg = STATUS_CFG[task.status]
 
   const isActive    = task.status === 'active'
@@ -100,8 +100,7 @@ export function TaskCard({ task, onSubmit, isSubmitting = false }: TaskCardProps
           {/* Title + status badge */}
           <div className="flex items-center gap-2 min-w-0">
             <span className={`
-              text-[15px] font-semibold leading-snug
-              truncate max-w-full
+              text-[15px] font-semibold leading-snug truncate max-w-full
               ${isSubmitted ? 'line-through decoration-muted-foreground text-foreground' : ''}
               ${isGivenUp   ? 'text-muted-foreground' : 'text-foreground'}
             `}>
@@ -150,56 +149,79 @@ export function TaskCard({ task, onSubmit, isSubmitting = false }: TaskCardProps
           </div>
         </div>
 
-        {/* ── Actions ── */}
-        <div className="flex shrink-0 items-center gap-2">
-          {isActive && (
-            <Link
-              to={`/focus/${task.id}`}
-              className="inline-flex items-center gap-1.5 rounded-md px-3 h-8 text-xs font-medium bg-emerald-100 text-emerald-800 hover:bg-emerald-200 border-0 shadow-none transition-colors"
-            >
-              <Play className="h-3 w-3" />
-              Resume
-            </Link>
-          )}
+        {/* ── Actions column ── */}
+        <div className="flex shrink-0 flex-col items-end justify-between gap-2 self-stretch">
 
-          {isPaused && (
-            <>
+          {/* Top: action buttons */}
+          <div className="flex items-center gap-2">
+            {isActive && (
               <Link
                 to={`/focus/${task.id}`}
-                className={cn(
-                  "inline-flex items-center gap-1.5 rounded-md px-3 h-8 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors",
-                  isSubmitting && "opacity-50 pointer-events-none"
-                )}
+                className="inline-flex items-center gap-1.5 rounded-md px-3 h-8 text-xs font-medium bg-emerald-100 text-emerald-800 hover:bg-emerald-200 border-0 shadow-none transition-colors"
               >
                 <Play className="h-3 w-3" />
                 Resume
               </Link>
+            )}
 
-              {/* Nút Submit giữ nguyên là button vì nó gọi hàm xử lý chứ không chuyển trang */}
-              <button
-                type="button"
-                onClick={() => onSubmit?.(task.id)}
-                className={cn(
-                  "inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 h-8 text-xs font-medium text-muted-foreground hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200 transition-colors",
-                  isSubmitting && "opacity-50 pointer-events-none"
-                )}
+            {isPaused && (
+              <>
+                <Link
+                  to={`/focus/${task.id}`}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-md px-3 h-8 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors",
+                    isSubmitting && "opacity-50 pointer-events-none"
+                  )}
+                >
+                  <Play className="h-3 w-3" />
+                  Resume
+                </Link>
+
+                <button
+                  type="button"
+                  onClick={() => onSubmit?.(task.id)}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 h-8 text-xs font-medium text-muted-foreground hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200 transition-colors",
+                    isSubmitting && "opacity-50 pointer-events-none"
+                  )}
+                >
+                  <Send className="h-3 w-3" />
+                  Submit
+                </button>
+              </>
+            )}
+
+            {isTerminal && (
+              <Link
+                to={`/focus/${task.id}`}
+                aria-label="View details"
+                className="inline-flex items-center justify-center rounded-md h-8 w-8 text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
               >
-                <Send className="h-3 w-3" />
-                {isSubmitting ? 'Submit' : 'Submit'}
-              </button>
-            </>
-          )}
+                <Eye className="h-3.5 w-3.5" />
+              </Link>
+            )}
+          </div>
 
-          {isTerminal && (
-            <Link
-              to={`/focus/${task.id}`}
-              aria-label="View details"
-              className="inline-flex items-center justify-center rounded-md h-8 w-8 text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+          {/* Bottom: star — align mép phải với buttons */}
+          {!isTerminal && (
+            <button
+              type="button"
+              onClick={() => onToggleStar?.(task.id)}
+              disabled={isTogglingStarId === task.id}
+              aria-label={task.is_starred ? 'Unstar task' : 'Star task'}
+              className={cn(
+                'shrink-0 transition-colors',
+                task.is_starred
+                  ? 'text-amber-400 hover:text-amber-300'
+                  : 'text-muted-foreground/30 hover:text-amber-400',
+                isTogglingStarId === task.id && 'opacity-50 cursor-not-allowed'
+              )}
             >
-              <Eye className="h-3.5 w-3.5" />
-            </Link>
+              <Star className={cn('h-3 w-3', task.is_starred && 'fill-amber-400')} />
+            </button>
           )}
         </div>
+
       </div>
     </li>
   )

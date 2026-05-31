@@ -118,6 +118,16 @@ export function useTasks(filter: FilterState = DEFAULT_FILTER) {
     },
   })
 
+  const toggleStarMutation = useMutation({
+  mutationFn: (taskId: string) =>
+    api.post(`/api/tasks/${taskId}/star`, {}),
+  onSuccess: () => {
+    queryClient.invalidateQueries({
+      queryKey: ['tasks', filter.dateRange, statusKey, user?.id],
+    })
+  },
+})
+
   return {
     tasks,
     quota,
@@ -131,5 +141,8 @@ export function useTasks(filter: FilterState = DEFAULT_FILTER) {
 
     submitTask: submitTaskMutation.mutateAsync,
     submittingTaskId: submitTaskMutation.isPending ? submitTaskMutation.variables : null,
+
+    toggleStar: toggleStarMutation.mutateAsync,
+    isTogglingStarId: toggleStarMutation.isPending ? toggleStarMutation.variables : null,
   }
 }
