@@ -316,9 +316,13 @@ export default function FocusPage() {
                 isReadOnly={isReadOnly}
                 onReset={task.status === 'active' ? handleReset : undefined}
               />
-              {task.status === 'active' && (
+              {(task.status === 'active' || task.status === 'paused') && (
                 <div className="mt-2 flex justify-center">
-                  <ExtendTime onExtend={handleExtend} />
+                  <ExtendTime
+                    registeredDurationMin={task.registered_duration_min}
+                    disabled={isActioning}
+                    onExtend={handleExtend}
+                  />
                 </div>
               )}
             </div>
