@@ -64,6 +64,11 @@ export function useTaskDetail(taskId: string) {
     onSuccess: () => invalidate(),
   })
 
+  const toggleStarMutation = useMutation({
+    mutationFn: () => api.post(`/api/tasks/${taskId}/star`, {}),
+    onSuccess: () => invalidate(),
+  })
+
   function invalidate() {
     queryClient.invalidateQueries({ queryKey: ['task', taskId] })
     queryClient.invalidateQueries({ queryKey: ['tasks'] })
@@ -85,5 +90,7 @@ export function useTaskDetail(taskId: string) {
     isGivingUp: giveUpMutation.isPending,
     extend: extendMutation.mutateAsync,
     reset: resetMutation.mutateAsync,
+    toggleStar: toggleStarMutation.mutateAsync,
+    isTogglingStar: toggleStarMutation.isPending,
   }
 }

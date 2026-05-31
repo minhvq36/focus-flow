@@ -7,9 +7,10 @@ import { ExtendTime } from './components/extend-time'
 import { TodosPanel } from './components/todos-panel'
 import { NotesBar } from './components/notes-bar'
 import { ActionBar } from './components/action-bar'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Star } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { TodoItem } from '@/types/task'
+import { cn } from '@/lib/utils'
 
 import { toast } from "sonner"
 import {
@@ -38,7 +39,7 @@ const STATUS_CONFIG = {
 
 export default function FocusPage() {
   const { taskId } = useParams<{ taskId: string }>()
-  const { task, isLoading, isFetching, pause, resume, submit, giveUp, updateTodos, updateTitle, extend, reset } =
+  const { task, isLoading, isFetching, pause, resume, submit, giveUp, updateTodos, updateTitle, extend, reset, toggleStar, isTogglingStar } =
     useTaskDetail(taskId!)
 
   const [elapsed, setElapsed] = useState(0)
@@ -274,7 +275,25 @@ export default function FocusPage() {
 
           {/* ── Left column ── */}
           <div className="flex min-h-0 w-full flex-col gap-6 lg:w-0 lg:flex-1 lg:h-full">
-            <div className="shrink-0">
+            <div className="shrink-0 flex items-start gap-3">
+              {/* Star — chỉ active/paused, to hơn task card 1 chút */}
+              {!isReadOnly && (
+                <button
+                  type="button"
+                  onClick={() => toggleStar()}
+                  disabled={isTogglingStar || isReadOnly}
+                  aria-label={task.is_starred ? 'Unstar task' : 'Star task'}
+                  className={cn(
+                    'mt-2 shrink-0 transition-colors',
+                    task.is_starred
+                      ? 'text-amber-400 hover:text-amber-300'
+                      : 'text-muted-foreground/30 hover:text-amber-400',
+                    isTogglingStar && 'opacity-50 cursor-not-allowed'
+                  )}
+                >
+                  <Star className={cn('h-4 w-4', task.is_starred && 'fill-amber-400')} />
+                </button>
+              )}
               <EditableTitle
                 value={task.title}
                 isReadOnly={isReadOnly}

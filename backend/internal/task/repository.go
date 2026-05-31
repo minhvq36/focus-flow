@@ -119,7 +119,7 @@ func (r *Repository) GetByID(ctx context.Context, taskID, userID string) (*Task,
 
 	err := r.db.QueryRow(ctx, `
 		SELECT id, user_id, title, todos, penalty_mode, status,
-		       registered_duration_min, actual_duration_sec,
+		       registered_duration_min, actual_duration_sec, is_starred,
 		       started_at, created_at, updated_at, completed_at
 		FROM tasks
 		WHERE id = $1
@@ -127,7 +127,7 @@ func (r *Repository) GetByID(ctx context.Context, taskID, userID string) (*Task,
 		  AND deleted_at IS NULL
 	`, taskID, userID).Scan(
 		&t.ID, &t.UserID, &t.Title, &todosJSON, &t.PenaltyMode,
-		&t.Status, &t.RegisteredDurationMin, &t.ActualDurationSec,
+		&t.Status, &t.RegisteredDurationMin, &t.ActualDurationSec, &t.IsStarred,
 		&t.StartedAt, &t.CreatedAt, &t.UpdatedAt, &t.CompletedAt,
 	)
 	if err != nil {
