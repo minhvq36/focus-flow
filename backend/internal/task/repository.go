@@ -53,10 +53,8 @@ func (r *Repository) GetAllByUser(ctx context.Context, userID string, filter Tas
 
 	fromOffset, toOffset := resolveDateRange(filter.DateRange)
 
-	// $1=userID, $2=fromOffset, $3=toOffset
 	args := []any{userID, fromOffset, toOffset}
 
-	// Status filter — empty = all statuses
 	statusClause := ""
 	if len(filter.Statuses) > 0 {
 		args = append(args, filter.Statuses)
@@ -64,7 +62,7 @@ func (r *Repository) GetAllByUser(ctx context.Context, userID string, filter Tas
 	}
 
 	query := fmt.Sprintf(`
-		SELECT id, title, status, penalty_mode,
+		SELECT id, title, status, penalty_mode, is_starred,
 		       registered_duration_min, actual_duration_sec,
 		       started_at, created_at, completed_at,
 		       jsonb_array_length(todos) AS todo_count,
@@ -76,10 +74,17 @@ func (r *Repository) GetAllByUser(ctx context.Context, userID string, filter Tas
 		FROM tasks
 		WHERE user_id = $1
 		  AND deleted_at IS NULL
-		  AND created_at >= date_trunc('day', CURRENT_TIMESTAMP) - $2::interval
-		  AND created_at <  date_trunc('day', CURRENT_TIMESTAMP) - $3::interval + INTERVAL '1 day'
+		  AND (
+		      (
+		          created_at >= date_trunc('day', CURRENT_TIMESTAMP) - $2::interval
+		          AND created_at <  date_trunc('day', CURRENT_TIMESTAMP) - $3::interval + INTERVAL '1 day'
+		      )
+		      OR (is_starred AND status IN ('active', 'paused'))
+		  )
 		  %s
-		ORDER BY created_at DESC
+		ORDER BY
+		  CASE WHEN is_starred AND status IN ('active', 'paused') THEN 0 ELSE 1 END,
+		  created_at DESC
 	`, statusClause)
 
 	rows, err := r.db.Query(ctx, query, args...)
@@ -93,7 +98,7 @@ func (r *Repository) GetAllByUser(ctx context.Context, userID string, filter Tas
 	for rows.Next() {
 		var t TaskSummary
 		err := rows.Scan(
-			&t.ID, &t.Title, &t.Status, &t.PenaltyMode,
+			&t.ID, &t.Title, &t.Status, &t.PenaltyMode, &t.IsStarred,
 			&t.RegisteredDurationMin, &t.ActualDurationSec,
 			&t.StartedAt, &t.CreatedAt, &t.CompletedAt,
 			&t.TodoCount, &t.TodoDoneCount,
