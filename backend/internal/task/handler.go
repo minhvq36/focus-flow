@@ -134,8 +134,7 @@ func (h *Handler) CreateTask(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req CreateTaskRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.BadRequest(w, "INVALID_REQUEST", "Invalid request body")
+	if ok := request.BindAndValidate(w, r, &req); !ok {
 		return
 	}
 

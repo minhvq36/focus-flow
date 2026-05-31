@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"reflect"
 	"strings"
 
 	"github.com/go-playground/validator/v10"
@@ -13,6 +14,19 @@ import (
 
 // Khởi tạo một instance duy nhất cho toàn bộ app để tiết kiệm bộ nhớ
 var validate = validator.New()
+
+func init() {
+	validate = validator.New()
+
+	// Dạy validator: Hãy dùng tag `json` làm tên field báo lỗi thay vì tên Struct Go
+	validate.RegisterTagNameFunc(func(fld reflect.StructField) string {
+		name := strings.SplitN(fld.Tag.Get("json"), ",", 2)[0]
+		if name == "-" || name == "" {
+			return fld.Name
+		}
+		return name
+	})
+}
 
 // BindAndValidate đọc JSON từ request, map vào struct và chạy kiểm tra tag validate
 // Trả về true nếu thành công, false nếu có lỗi (đã tự động trả HTTP error)
