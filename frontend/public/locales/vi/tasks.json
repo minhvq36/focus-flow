@@ -1,0 +1,25 @@
+{
+  "title": "Việc Hôm Nay",
+  "quota_summary": "{{used}}/{{limit}} việc hôm nay",
+  "quota_remaining": "· còn {{remaining}}",
+  "quota_exceeded": "Đã đạt giới hạn ngày ({{used}}/{{limit}}). Làm mới vào ngày mai.",
+  "new_task": "Việc Mới",
+  "empty_title": "Chưa có nhiệm vụ nào",
+  "empty_subtitle": "Bắt đầu một phiên tập trung để trồng cây nào.",
+  "retry": "Thử lại",
+  "status": {
+    "active": "Đang chạy",
+    "paused": "Tạm dừng",
+    "submitted": "Đã nộp",
+    "given_up": "Bỏ cuộc"
+  },
+  "action": {
+    "resume": "Tiếp tục",
+    "submit": "Nộp",
+    "view": "Xem chi tiết"
+  },
+  "star": "Đánh dấu",
+  "unstar": "Bỏ đánh dấu",
+  "penalty_mode": "Chế độ phạt — bỏ cuộc sẽ ảnh hưởng khu vườn",
+  "todos": "{{done}}/{{total}} việc nhỏ"
+}

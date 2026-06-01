@@ -1,0 +1,25 @@
+{
+  "title": "Today's Tasks",
+  "quota_summary": "{{used}}/{{limit}} tasks today",
+  "quota_remaining": "· {{remaining}} remaining",
+  "quota_exceeded": "Daily limit reached ({{used}}/{{limit}}). Resets tomorrow.",
+  "new_task": "New Task",
+  "empty_title": "No tasks yet",
+  "empty_subtitle": "Start a focus session to grow your garden.",
+  "retry": "Retry",
+  "status": {
+    "active": "Active",
+    "paused": "Paused",
+    "submitted": "Submitted",
+    "given_up": "Given up"
+  },
+  "action": {
+    "resume": "Resume",
+    "submit": "Submit",
+    "view": "View details"
+  },
+  "star": "Star task",
+  "unstar": "Unstar task",
+  "penalty_mode": "Penalty mode — give up affects your garden",
+  "todos": "{{done}}/{{total}} todos"
+}
