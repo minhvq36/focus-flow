@@ -42,7 +42,7 @@ User fill form trước khi bắt đầu:
 |---|---|
 | **Tiêu đề** | Tên task |
 | **Todo List** | Danh sách checkbox, hỗ trợ indent (checkbox con). Tối thiểu 1 item |
-| **Thời lượng** | Chọn trước: 25 / 30 / 45 / 60 / 90 / 120 phút (hoặc custom, minimum 25 phút, maximum 480 phút) |
+| **Thời lượng** | Chọn trước: 25 / 30 / 45 / 60 / 90 / 120 phút (hoặc custom, minimum 25 phút, maximum 480 phút). Có thể extend lên 999 phút tổng cộng |  
 | **Penalty Mode** | Toggle: ON/OFF — snapshot của setting này được lưu per-task |
 
 Sau khi fill xong → bấm **"Create Task"** → task được tạo và đồng hồ tự động bắt đầu → vào màn hình Focus. Ghi chú được thêm/sửa/xóa trong Focus screen (CRUD).
@@ -53,7 +53,7 @@ Màn hình cực tối giản, không có gì gây distraction:
 
 ```
 ┌─────────────────────────────────────┐
-│  [Tên task]                          │
+│  [Tên task]  [⭐]                    │
 │                                      │
 │         ⏱  0:00 → 45:00             │  ← Đồng hồ đếm tiến từ 0, có thanh progress
 │                                      │
@@ -63,8 +63,7 @@ Màn hình cực tối giản, không có gì gây distraction:
 │  [ ] Todo item 3                     │
 │  [+ Add todo]  [🗑 xóa todo đang chọn]│  ← Thêm/xóa todo (min 1 item)
 │                                      │
-│  � Notes:                           │  ← Append-only audit trail (scrollable)
-│  📝 Notes:                           │
+│  📝 Notes:                           │  ← Append-only audit trail (scrollable)
 │  ┌──────────────────────────────────┐│
 │  │ 14:32 Research logic...  [✏️] [🗑] ││
 │  │ 15:15 Race condition bug [✏️] [🗑] ││
@@ -72,6 +71,7 @@ Màn hình cực tối giản, không có gì gây distraction:
 │  └──────────────────────────────────┘│
 │                                      │
 │  [⏸ Pause/Resume]  [⏩ +15 min]     │
+│  [🔄 Reset]                          │
 │                                      │
 │  [✅ Submit]  [🏳 Give Up]           │
 └─────────────────────────────────────┘
@@ -81,7 +81,9 @@ Màn hình cực tối giản, không có gì gây distraction:
 
 - **Pause:** Dừng đồng hồ (task vẫn `active`), user có thể tiếp tục sau. Dữ liệu được lưu tự động.
 - **Resume:** Tiếp tục từ trạng thái paused, đồng hồ chạy lại.
-- **+15 min (Extend):** Thêm 15 phút vào thời lượng còn lại. Không giới hạn số lần extend.
+- **+15 min (Extend):** Thêm 15 phút vào thời lượng còn lại. Total không vượt quá 999 phút.
+- **Reset:** Reset timer về 0. Chỉ khả dụng khi task ở trạng thái `active`. Set `started_at = NOW()` và `actual_duration_sec = 0`.
+- **Star:** Ghim task lên đầu danh sách. Toggle giữa starred/unstarred. Starred tasks hiển thị trước những task không starred.
 - **Submit Task:** Gửi task để hoàn thành. Có thể submit từ trạng thái active hoặc paused. Tất cả todos sẽ được đánh dấu hoàn thành tự động. Submit thành công → trigger reward flow.
 - **Give Up:** Confirm dialog "Bạn chắc chắn muốn bỏ task này?" → Xác nhận → task về trạng thái `given_up` → trigger penalty flow (nếu penalty mode ON).
 
@@ -124,9 +126,10 @@ active (created & running timer) ──┬─→ paused → active (resume)
 | **Create/Start** | = NOW() | = 0 | Task chuyển active, bắt đầu đếm |
 | **Pause** | = NULL | += delta (NOW() - started_at) | Tạm dừng đồng hồ, task vẫn active |
 | **Resume** | = NOW() | không đổi | Tiếp tục từ lúc dừng |
+| **Reset** | = NOW() | = 0 | Reset timer về 0, task vẫn active |
 | **Submit** | = NULL | += delta (nếu started_at còn) | Lưu lại thời gian cuối, task → submitted |
 | **Given Up** | = NULL | không đổi | Không tính thời gian cuối, task → given_up |
-| **Extend +N min** | không đổi | không đổi | Tăng `registered_duration_min += N` |
+| **Extend +N min** | không đổi | không đổi | Tăng `registered_duration_min += N`, total ≤ 999 |
 
 **Recovery (tab close / mất mạng):**
 - Frontend query lại task: nếu `status = active` + `started_at` còn → tự tính `actual_duration_sec + (NOW() - started_at)` và đếm tiếp. Không cần DB update.

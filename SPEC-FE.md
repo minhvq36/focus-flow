@@ -195,7 +195,7 @@
 │ Minimal: just task timer, todos, notes              │
 ├─────────────────────────────────────────────────────┤
 │                                                     │
-│         [Task Title: Reading Chapter 5]             │
+│         [Task Title: Reading Chapter 5] [⭐]        │
 │                                                     │
 │              ⏱ 14:32 / 45:00                        │
 │              [=========>................]            │
@@ -214,7 +214,7 @@
 │         │ [+ Add note]                        │   │
 │         └─────────────────────────────────────┘   │
 │                                                     │
-│    [⏸ Pause]  [⏩ +15 min]  [Stop]                │
+│    [⏸ Pause]  [⏩ +15 min]  [🔄 Reset]            │
 │    [✅ Submit]        [🏳 Give Up]                 │
 │                                                     │
 │    (All buttons at bottom, spaced)                 │
@@ -244,9 +244,10 @@
   - Scrollable, auto-scroll to latest
 
 - **Controls:**
+  - Star: Toggle to pin task at top of list (⭐ button in title)
   - Pause/Resume Toggle: Single button that pauses timer when active, resumes when paused
-  - +15 min: extend duration, update display
-  - Stop/Leave: confirm dialog, return to dashboard (discards session)
+  - +15 min: extend duration, update display. Total cannot exceed 999 minutes
+  - Reset: Clear elapsed time back to 0. Only works in `active` state. Resets `started_at` to NOW() and `actual_duration_sec` to 0
   - Submit: send to server, auto-mark all todos as done
   - Give Up: confirm dialog, penalty flow if enabled
 

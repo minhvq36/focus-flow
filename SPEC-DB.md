@@ -90,11 +90,12 @@ todos               jsonb NOT NULL DEFAULT []  -- array of {id, text, done, chil
                                                    -- nested structure: max depth 5, max 50 total items
                                                    -- synced via PATCH /api/tasks/:id/todos (debounced)
 penalty_mode        boolean DEFAULT false      -- snapshot of user.penalty_mode at creation
+is_starred          boolean NOT NULL DEFAULT false  -- user can pin task to top of list
 status              text DEFAULT 'active'
                     CHECK (status IN ('active', 'paused', 'submitted', 'given_up'))
-registered_duration_min  int NOT NULL CHECK > 0
+registered_duration_min  int NOT NULL CHECK (BETWEEN 25 AND 999)  -- create: max 480, can extend to 999
 actual_duration_sec int DEFAULT 0 CHECK >= 0
-started_at          timestamptz                -- NULL when paused/submitted
+started_at          timestamptz                -- NULL when paused/submitted/reset
 created_at          timestamptz
 updated_at          timestamptz
 completed_at        timestamptz                -- set when submitted
@@ -114,8 +115,10 @@ deleted_at          timestamptz                -- soft delete, not restored in c
 **Logic Notes:**
 - Task created with status='active' and `started_at` = NOW() (timer auto-starts immediately)
 - When paused, `actual_duration_sec` += (NOW() - started_at), then `started_at` = NULL
+- When reset, `actual_duration_sec` = 0 and `started_at` = NOW() (timer restarts from 0)
 - When submitted/given_up, finalize `actual_duration_sec` and set `completed_at`
 - `penalty_mode` is a per-task snapshot sent by client during task creation (can differ from user's default preference)
+- `is_starred` allows user to pin tasks to top of list in task list view
 - `deleted_at` used for soft delete; restore feature not implemented in current phase
 - **Todo Structure:**
   - Nested array format: `{id, text, done, children: [{id, text, done, children}, ...]}`

@@ -278,7 +278,7 @@ wire ./cmd/server
 - **Input:** user_id, title, todos[], registered_duration_min, penalty_mode (boolean: enable/disable per-task penalty)
 - **Logic:**
   1. Validate todos non-empty and max 50 items
-  2. Validate title (1-255 chars) and duration_min (25-480 min)
+  2. Validate title (1-255 chars) and duration_min (25-480 min, cannot exceed 480 at creation)
   3. Create task with status='active', started_at=NOW() (auto-starts immediately)
   4. penalty_mode is snapshot from client (stored per-task)
   5. Insert into DB (status='active')
@@ -309,6 +309,26 @@ wire ./cmd/server
 - **Output:** updated task, 200 OK
 - **Note:** Only resumes paused tasks.
 
+#### ResetTask
+- **Input:** task_id
+- **Logic:**
+  1. Fetch task, validate status='active'
+  2. Set started_at = NOW() (reset timer to current time)
+  3. Set actual_duration_sec = 0 (clear accumulated time)
+  4. Keep status='active'
+  5. Update DB
+- **Output:** success message, 200 OK
+- **Note:** Clears elapsed time back to 0. Only works in active state. Timer restarts from 0.
+
+#### ToggleStar
+- **Input:** task_id
+- **Logic:**
+  1. Fetch task, validate user_id ownership
+  2. Toggle is_starred: is_starred = NOT is_starred
+  3. Update DB
+- **Output:** new is_starred value (boolean), 200 OK
+- **Note:** Starred tasks appear at top of task list. Toggle-able anytime (active, paused, or completed).
+
 #### SubmitTask
 - **Input:** task_id
 - **Logic:**
@@ -336,14 +356,14 @@ wire ./cmd/server
 - **Note:** penalty_mode is snapshot at task creation, used at give-up time (not user's current setting)
 
 #### ExtendTask
-- **Input:** task_id, add_minutes (min 1, max 480)
+- **Input:** task_id, add_minutes (min 1, max 120 per extend)
 - **Logic:**
   1. Fetch task, validate status='active' or 'paused'
   2. registered_duration_min += add_minutes
-  3. Validate total registered_duration_min does not exceed 480 minutes
+  3. Validate total registered_duration_min does not exceed 999 minutes
   4. Update DB
 - **Output:** success message
-- **Note:** Each extend must be 1-480 minutes. Total cannot exceed 480 minutes.
+- **Note:** Each extend must be 1-120 minutes. Total cannot exceed 999 minutes.
 
 #### UpdateTodos (Debounced Autosave)
 - **Input:** task_id, todos[]
