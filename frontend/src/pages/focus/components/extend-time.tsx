@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 
 const INPUT_MAX = 120
@@ -10,7 +11,7 @@ interface ExtendTimeProps {
   onExtend: (addMinutes: number) => Promise<void>
 }
 
-function validate(raw: string, registeredDurationMin: number): {
+function validate(raw: string, registeredDurationMin: number, t: any): {
   value: number | null
   error: string | null
   hint: string | null
@@ -18,27 +19,28 @@ function validate(raw: string, registeredDurationMin: number): {
   if (raw === '') return { value: null, error: null, hint: null }
 
   const parsed = parseInt(raw, 10)
-  if (isNaN(parsed) || parsed === 0) return { value: null, error: 'Enter a number between 1–120', hint: null }
-  if (parsed < 1) return { value: null, error: 'Minimum is 1 min', hint: null }
-  if (parsed > INPUT_MAX) return { value: null, error: 'Maximum is 120 min', hint: null }
+  if (isNaN(parsed) || parsed === 0) return { value: null, error: t('extend_time.error_invalid'), hint: null }
+  if (parsed < 1) return { value: null, error: t('extend_time.error_min'), hint: null }
+  if (parsed > INPUT_MAX) return { value: null, error: t('extend_time.error_max'), hint: null }
 
   const remaining = TASK_MAX - registeredDurationMin
   const clamped = Math.min(parsed, INPUT_MAX, remaining)
   const hint = clamped < parsed
-    ? `Will add ${clamped} min (${TASK_MAX} min max total)`
+    ? t('extend_time.hint_clamped', { clamped, max: TASK_MAX })
     : null
 
   return { value: clamped, error: null, hint }
 }
 
 export function ExtendTime({ registeredDurationMin, disabled, onExtend }: ExtendTimeProps) {
+  const { t } = useTranslation('focus')
   const [editing, setEditing] = useState(false)
   const [raw, setRaw] = useState('')
   const [showMaxed, setShowMaxed] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const isMaxed = registeredDurationMin >= TASK_MAX
-  const { value, error, hint } = validate(raw, registeredDurationMin)
+  const { value, error, hint } = validate(raw, registeredDurationMin, t)
   const hasInput = raw !== ''
   const canCommit = value != null && value > 0
 
@@ -87,14 +89,14 @@ export function ExtendTime({ registeredDurationMin, disabled, onExtend }: Extend
           )}
           style={{ fontFamily: "'DM Mono', monospace" }}
         >
-          + Extend time
+          {t('extend_time.trigger')}
         </button>
 
         <p className={cn(
           'text-[11px] text-destructive transition-opacity select-none',
           showMaxed ? 'opacity-100' : 'opacity-0 pointer-events-none'
         )}>
-          Max duration reached ({TASK_MAX} min)
+          {t('extend_time.max_reached', { max: TASK_MAX })}
         </p>
       </div>
     )
@@ -115,7 +117,7 @@ export function ExtendTime({ registeredDurationMin, disabled, onExtend }: Extend
           inputMode="numeric"
           pattern="[0-9]*"
           value={raw}
-          placeholder="5"
+          placeholder={t('extend_time.placeholder')}
           onChange={e => setRaw(e.target.value.replace(/[^0-9]/g, ''))}
           onKeyDown={handleKeyDown}
           onBlur={dismiss}
@@ -125,7 +127,7 @@ export function ExtendTime({ registeredDurationMin, disabled, onExtend }: Extend
           )}
           style={{ fontFamily: "'DM Mono', monospace" }}
         />
-        <span className="text-xs text-muted-foreground select-none">min</span>
+        <span className="text-xs text-muted-foreground select-none">{t('extend_time.unit')}</span>
 
         {canCommit && (
           <button
@@ -134,7 +136,7 @@ export function ExtendTime({ registeredDurationMin, disabled, onExtend }: Extend
             onClick={commit}
             className="text-xs text-primary hover:text-primary/80 transition-colors pl-1"
           >
-            ✓
+            {t('extend_time.confirm')}
           </button>
         )}
       </div>

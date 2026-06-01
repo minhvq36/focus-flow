@@ -1,0 +1,80 @@
+{
+  "status": {
+    "active": "Đang chạy",
+    "paused": "Tạm dừng",
+    "submitted": "Đã nộp",
+    "given_up": "Bỏ cuộc"
+  },
+  "loading_message": "Đang tải…",
+  "task_not_found": "Không tìm thấy nhiệm vụ.",
+  "min_session": "Phiên {{duration}} phút",
+  "back_to_tasks": "Quay lại nhiệm vụ",
+  "toast": {
+    "task_incomplete_title": "Nhiệm vụ chưa hoàn thành",
+    "task_incomplete_desc": "Vui lòng hoàn thành tất cả việc nhỏ trước khi nộp.",
+    "failed_reset_timer": "Không thể đặt lại bộ đếm thời gian."
+  },
+  "todos": {
+    "mark_incomplete": "Đánh dấu chưa hoàn thành",
+    "mark_complete": "Đánh dấu hoàn thành",
+    "placeholder": "Việc nhỏ…",
+    "remove": "Xóa việc nhỏ",
+    "max_reached": "Đã đạt tối đa {{max}} việc nhỏ",
+    "max_depth_reached": "Độ sâu lồng tối đa là {{max}} cấp"
+  },
+  "timer": {
+    "actual_time_used": "thời gian đã dùng",
+    "reset_button": "Đặt lại bộ đếm"
+  },
+  "notes": {
+    "notes_label": "Ghi chú",
+    "expand": "Mở rộng ghi chú",
+    "collapse": "Thu gọn ghi chú",
+    "loading": "Đang tải…",
+    "empty_readonly": "Chưa có ghi chú nào.",
+    "empty_editable": "Thêm ghi chú để giữ bối cảnh khi tập trung.",
+    "placeholder": "Thêm ghi chú… (Enter để lưu)",
+    "saving": "Đang lưu…",
+    "save": "Lưu ghi chú",
+    "max_notes_error": "Chỉ có thể thêm tối đa 5 ghi chú cho mỗi nhiệm vụ",
+    "delete": "Xóa ghi chú"
+  },
+  "note_dialog": {
+    "title_readonly": "Ghi chú",
+    "title_edit": "Chỉnh sửa ghi chú",
+    "placeholder": "Viết ghi chú của bạn…",
+    "cancel": "Hủy",
+    "saving": "Đang lưu…",
+    "save": "Lưu",
+    "discard_confirm_title": "Hủy thay đổi?",
+    "discard_confirm_desc": "Bạn có những thay đổi chưa được lưu. Nếu bạn rời đi bây giờ, chúng sẽ bị mất.",
+    "keep_editing": "Tiếp tục chỉnh sửa",
+    "discard": "Hủy"
+  },
+  "extend_time": {
+    "trigger": "+ Kéo dài thời gian",
+    "error_invalid": "Nhập số từ 1–120",
+    "error_min": "Tối thiểu là 1 phút",
+    "error_max": "Tối đa là 120 phút",
+    "hint_clamped": "Sẽ thêm {{clamped}} phút ({{max}} phút tối đa tổng)",
+    "max_reached": "Đã đạt thời gian tối đa ({{max}} phút)",
+    "placeholder": "5",
+    "unit": "phút",
+    "confirm": "✓"
+  },
+  "actions": {
+    "my_tasks": "Nhiệm Vụ Của Tôi",
+    "pause": "Tạm dừng",
+    "resume": "Tiếp tục",
+    "submit": "Nộp",
+    "give_up": "Bỏ cuộc",
+    "submit_task": "Nộp nhiệm vụ",
+    "give_up_menu": "Bỏ cuộc"
+  },
+  "confirm_give_up": {
+    "title": "Bỏ cuộc nhiệm vụ này?",
+    "description": "Hành động này không thể hoàn tác. Nhiệm vụ sẽ được đánh dấu là bỏ cuộc.",
+    "cancel": "Không",
+    "confirm": "Có"
+  }
+}

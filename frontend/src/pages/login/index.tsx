@@ -1,7 +1,10 @@
+import { useTranslation } from 'react-i18next'
 import { Sprout } from 'lucide-react'
 import { LoginForm } from '@/components/auth/login-form'
 
 export default function Login() {
+  const { t } = useTranslation('auth')
+
   return (
     <div className="w-full max-w-md mx-auto">
       
@@ -13,10 +16,10 @@ export default function Login() {
 
         <div className="text-center">
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-            Welcome back to FocusFlow
+            {t('welcome_title')}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Your garden is waiting. Sign in to keep growing.
+            {t('welcome_subtitle')}
           </p>
         </div>
       </div>
@@ -24,13 +27,13 @@ export default function Login() {
       <LoginForm />
 
       <p className="mt-6 text-center text-xs text-muted-foreground">
-        By signing in, you agree to our{' '}
+        {t('terms_prefix')}{' '}
         <a href="#" className="underline underline-offset-2 hover:text-foreground transition-colors">
-          Terms of Service
+          {t('terms_of_service')}
         </a>{' '}
-        and{' '}
+        {t('terms_and')}{' '}
         <a href="#" className="underline underline-offset-2 hover:text-foreground transition-colors">
-          Privacy Policy
+          {t('privacy_policy')}
         </a>.
       </p>
 

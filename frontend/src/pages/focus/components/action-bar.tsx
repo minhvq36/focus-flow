@@ -1,6 +1,7 @@
 import { useState } from "react"
+import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router-dom"
-import { ArrowLeft, Pause, Play, CheckCircle2, XCircle, ChevronDown, Loader2 } from "lucide-react"
+import { ArrowLeft, Pause, Play, CheckCircle2, XCircle, ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {
@@ -24,6 +25,7 @@ interface ActionBarProps {
 type PrimaryAction = "submit" | "give_up"
 
 export function ActionBar({ status, onPause, onResume, onSubmit, onGiveUp, isLoading = false }: ActionBarProps) {
+  const { t } = useTranslation('focus')
   const navigate = useNavigate()
   const [primaryAction, setPrimaryAction] = useState<PrimaryAction>("submit")
 
@@ -38,7 +40,7 @@ export function ActionBar({ status, onPause, onResume, onSubmit, onGiveUp, isLoa
           onClick={() => navigate("/tasks")}
         >
           <ArrowLeft className="h-4 w-4" />
-          My Tasks
+          {t('actions.my_tasks')}
         </Button>
       </div>
     )
@@ -69,7 +71,7 @@ export function ActionBar({ status, onPause, onResume, onSubmit, onGiveUp, isLoa
         ) : (
           <Play className="h-4 w-4" />
         )}
-        {isActive ? "Pause" : "Resume"}
+        {isActive ? t('actions.pause') : t('actions.resume')}
       </Button>
 
       {/* Split Button: Submit / Give up */}
@@ -87,7 +89,7 @@ export function ActionBar({ status, onPause, onResume, onSubmit, onGiveUp, isLoa
           ) : (
             <XCircle className="h-4 w-4" />
           )}
-          {isSubmit ? "Submit" : "Give up"}
+          {isSubmit ? t('actions.submit') : t('actions.give_up')}
         </Button>
 
         <DropdownMenu>
@@ -106,7 +108,7 @@ export function ActionBar({ status, onPause, onResume, onSubmit, onGiveUp, isLoa
               className="gap-2 focus:bg-green-50 focus:text-green-700"
             >
               <CheckCircle2 className="h-4 w-4 text-green-600" />
-              Submit task
+              {t('actions.submit_task')}
             </DropdownMenuItem>
 
             <DropdownMenuSeparator />
@@ -116,7 +118,7 @@ export function ActionBar({ status, onPause, onResume, onSubmit, onGiveUp, isLoa
               className="gap-2 focus:bg-red-50 focus:text-red-700"
             >
               <XCircle className="h-4 w-4 text-red-600" />
-              Give up
+              {t('actions.give_up_menu')}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

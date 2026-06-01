@@ -1,0 +1,8 @@
+{
+  "loading_message": "Đang tải khu vườn…",
+  "garden_tab": "Khu vườn {{index}}",
+  "tile_info": "Ô ({{col}}, {{row}})",
+  "empty_tile": "Trống",
+  "close_button": "✕",
+  "recenter_tooltip": "Căn giữa Camera"
+}

@@ -1,4 +1,5 @@
 import { TimerIcon } from "lucide-react"
+import { useTranslation } from "react-i18next"
 import { cn } from "@/lib/utils"
 
 /**
@@ -21,6 +22,8 @@ interface TimerRingProps {
 }
 
 export function TimerRing({ elapsedSec, totalSec, isReadOnly, onReset }: TimerRingProps) {
+  const { t } = useTranslation('focus')
+  
   /* 
      Apply cap logic: 
      The displayed elapsed time must not exceed the registered total time.
@@ -98,7 +101,7 @@ export function TimerRing({ elapsedSec, totalSec, isReadOnly, onReset }: TimerRi
           {isReadOnly && (
             <span className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground">
               <TimerIcon className="h-3 w-3" />
-              actual time used
+              {t('timer.actual_time_used')}
             </span>
           )}
         </div>
@@ -107,7 +110,7 @@ export function TimerRing({ elapsedSec, totalSec, isReadOnly, onReset }: TimerRi
             type="button"
             onClick={onReset}
             className="absolute bottom-8 text-muted-foreground/30 hover:text-muted-foreground/60 transition-colors"
-            aria-label="Reset timer"
+            aria-label={t('timer.reset_button')}
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
               fill="none" stroke="currentColor" strokeWidth="2"

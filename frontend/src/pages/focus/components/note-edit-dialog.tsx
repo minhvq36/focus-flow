@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Dialog,
   DialogContent,
@@ -41,6 +42,7 @@ export function NoteEditDialog({
   isSaving = false,
   isReadOnly = false,
 }: NoteEditDialogProps) {
+  const { t } = useTranslation('focus')
   const [text, setText] = useState('')
   const [showConfirm, setShowConfirm] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -90,7 +92,7 @@ export function NoteEditDialog({
       <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle className="text-sm font-semibold pt-3">Note</DialogTitle>
+            <DialogTitle className="text-sm font-semibold pt-3">{t('note_dialog.title_readonly')}</DialogTitle>
           </DialogHeader>
           <div className="px-1.5">
             <div className="h-72 overflow-y-auto rounded-lg border border-border bg-white/70 px-3 py-2.5">
@@ -113,7 +115,7 @@ export function NoteEditDialog({
       <Dialog open={open && !showConfirm} onOpenChange={handleOpenChange}>
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle className="text-sm font-semibold pt-3">Edit note</DialogTitle>
+            <DialogTitle className="text-sm font-semibold pt-3">{t('note_dialog.title_edit')}</DialogTitle>
           </DialogHeader>
 
           <div className="flex flex-col gap-1.5 px-1.5">
@@ -129,7 +131,7 @@ export function NoteEditDialog({
                   ? 'border-destructive focus:border-destructive'
                   : 'border-border focus:border-primary/50'
               )}
-              placeholder="Write your note…"
+              placeholder={t('note_dialog.placeholder')}
               {...noteConstraints}
             />
             <div className="flex items-center justify-end">
@@ -150,7 +152,7 @@ export function NoteEditDialog({
 
           <DialogFooter className="gap-2 sm:gap-2">
             <Button variant="ghost" size="sm" onClick={handleClose}>
-              Cancel
+              {t('note_dialog.cancel')}
             </Button>
             <Button
               className="hover:opacity-80"
@@ -158,7 +160,7 @@ export function NoteEditDialog({
               onClick={handleSave}
               disabled={!canSave || isSaving}
             >
-              {isSaving ? 'Saving…' : 'Save'}
+              {isSaving ? t('note_dialog.saving') : t('note_dialog.save')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -169,10 +171,10 @@ export function NoteEditDialog({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="text-sm font-semibold">
-              Discard changes?
+              {t('note_dialog.discard_confirm_title')}
             </AlertDialogTitle>
             <AlertDialogDescription className="text-xs">
-              You have unsaved changes. If you leave now, they will be lost.
+              {t('note_dialog.discard_confirm_desc')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -180,13 +182,13 @@ export function NoteEditDialog({
               className="text-xs"
               onClick={handleCancelDiscard}
             >
-              Keep editing
+              {t('note_dialog.keep_editing')}
             </AlertDialogCancel>
             <AlertDialogAction
               className="text-xs hover:opacity-90"
               onClick={handleConfirmDiscard}
             >
-              Discard
+              {t('note_dialog.discard')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

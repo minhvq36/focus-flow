@@ -1,13 +1,14 @@
 import { Link, useLocation } from 'react-router-dom'
 import { useEffect, useState, useRef } from "react"
+import { useTranslation } from 'react-i18next'
 import { Sprout } from 'lucide-react'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { cn } from '@/lib/utils'
 import { useLanguage } from '@/hooks/use-language'
 
-const tabs = [
-  { path: '/garden', label: 'My Garden' },
-  { path: '/tasks',  label: 'My Tasks'  },
+const tabs = (t: any) => [
+  { path: '/garden', label: t('nav.garden') },
+  { path: '/tasks',  label: t('nav.tasks')  },
 ]
 
 // 1. TỐI ƯU BỘ NHỚ: Khởi tạo formatter ở ngoài Component.
@@ -131,6 +132,8 @@ function LanguageSwitcher() {
 
 export default function Header() {
   const { pathname } = useLocation()
+  const { t } = useTranslation('common')
+  const tabsConfig = tabs(t)
 
   return (
     <header className="sticky top-0 z-30 border-b border-border/60 bg-[var(--header-bg)] backdrop-blur-lg backdrop-saturate-150">
@@ -141,12 +144,12 @@ export default function Header() {
           <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
             <Sprout className="h-4 w-4" aria-hidden="true" />
           </div>
-          <span className="text-lg font-semibold tracking-tight text-foreground">FocusFlow</span>
+          <span className="text-lg font-semibold tracking-tight text-foreground">{t('app_name')}</span>
         </div>
 
         {/* Tab navigation */}
         <nav className="items-center gap-1 md:flex">
-          {tabs.map(({ path, label }) => (
+          {tabsConfig.map(({ path, label }) => (
             <Link
               key={path}
               to={path}

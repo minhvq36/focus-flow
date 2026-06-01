@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { Eye, EyeOff, Loader2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
@@ -20,6 +21,7 @@ function GoogleIcon() {
 
 export function LoginForm() {
   const navigate = useNavigate()
+  const { t } = useTranslation('auth')
   const [showPassword, setShowPassword] = useState(false)
   const [loadingGoogle, setLoadingGoogle] = useState(false)
   const [loadingEmail, setLoadingEmail] = useState(false)
@@ -58,14 +60,14 @@ export function LoginForm() {
 
       <div className="flex items-center gap-3">
         <Separator className="flex-1" />
-        <span className="text-xs text-muted-foreground shrink-0">Sign in with email</span>
+        <span className="text-xs text-muted-foreground shrink-0">{t('sign_in_with_email')}</span>
         <Separator className="flex-1" />
       </div>
 
       <form onSubmit={handleEmailSignIn} className="flex flex-col gap-4">
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="email" className="text-sm font-medium">Email</label>
-          <Input id="email" type="email" placeholder="you@example.com"
+          <label htmlFor="email" className="text-sm font-medium">{t('email')}</label>
+          <Input id="email" type="email" placeholder={t('email_placeholder')}
             autoComplete="email" required value={email}
             onChange={e => setEmail(e.target.value)}
             disabled={loadingEmail || loadingGoogle} 
@@ -75,12 +77,12 @@ export function LoginForm() {
 
         <div className="flex flex-col gap-1.5">
           <div className="flex items-center justify-between">
-            <label htmlFor="password" className="text-sm font-medium">Password</label>
+            <label htmlFor="password" className="text-sm font-medium">{t('password')}</label>
             <a href="#" 
               className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors"
               tabIndex={6} /* 6. Forgot Password */
             >
-              Forgot password?
+              {t('forgot_password')}
             </a>
           </div>
           <div className="relative">
@@ -91,9 +93,9 @@ export function LoginForm() {
               tabIndex={2} /* 2. Password */
             />
             <button type="button"
-              aria-label={showPassword ? 'Hide password' : 'Show password'}
+              aria-label={showPassword ? t('hide_password') : t('show_password')}
               onClick={() => setShowPassword(v => !v)}
-              tabIndex={5} /* 5. Mắt */
+              tabIndex={5} /* 5. Eye */
               className={cn(
                 'absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground',
                 'hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm'
@@ -110,7 +112,7 @@ export function LoginForm() {
           tabIndex={3} /* 3. Sign In */
         >
           {loadingEmail && <Loader2 className="h-4 w-4 animate-spin" />}
-          Sign in
+          {t('sign_in')}
         </Button>
       </form>
 
@@ -119,16 +121,16 @@ export function LoginForm() {
         tabIndex={4} /* 4. Google */
       >
         {loadingGoogle ? <Loader2 className="h-4 w-4 animate-spin" /> : <GoogleIcon />}
-        Continue with Google
+        {t('continue_with_google')}
       </Button>
 
       <p className="text-center text-sm text-muted-foreground">
-        Don't have an account?{' '}
+        {t('no_account')}{' '}
         <a href="#" 
           className="font-medium text-primary underline-offset-2 hover:underline transition-colors"
           tabIndex={7} /* 7. Create account */
         >
-          Create one free
+          {t('create_account')}
         </a>
       </p>
 

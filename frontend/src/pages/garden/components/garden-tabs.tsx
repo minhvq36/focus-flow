@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import type { GardenListItem } from '@/types/garden'
 
 interface GardenTabsProps {
@@ -7,6 +8,8 @@ interface GardenTabsProps {
 }
 
 export function GardenTabs({ gardenList, activeGardenId, onChange }: GardenTabsProps) {
+  const { t } = useTranslation('garden')
+  
   // Giữ nguyên logic: chỉ hiện nếu có từ 2 khu vườn trở lên
   if (!gardenList || gardenList.length <= 1) return null
 
@@ -22,7 +25,7 @@ export function GardenTabs({ gardenList, activeGardenId, onChange }: GardenTabsP
               : 'bg-background/80 backdrop-blur border-border hover:bg-background'
           }`}
         >
-          Garden {g.garden_index}
+          {t('garden_tab', { index: g.garden_index })}
         </button>
       ))}
     </div>

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useForm, Controller } from 'react-hook-form'
 import { ChevronRight, Loader2, HelpCircle } from 'lucide-react'
 import { toast } from 'sonner'
@@ -58,6 +59,7 @@ interface CreateTaskModalProps {
 export function CreateTaskModal({ open, onOpenChange }: CreateTaskModalProps) {
   const navigate    = useNavigate()
   const queryClient = useQueryClient()
+  const { t }       = useTranslation('tasks')
 
   // ── RHF — chỉ cho các field liên quan đến typing (title, todos) ───────────
   const {
@@ -106,7 +108,7 @@ export function CreateTaskModal({ open, onOpenChange }: CreateTaskModalProps) {
       setCustomRaw(String(CUSTOM_MIN))
     } else if (parsed > CUSTOM_MAX) {
       setCustomRaw(String(CUSTOM_MAX))
-      toast.warning(`Maximum session duration is ${CUSTOM_MAX} minutes (8 hours).`)
+      toast.warning(t('create_modal.duration_max_warning', { max: CUSTOM_MAX }))
     }
   }
 
@@ -131,7 +133,7 @@ export function CreateTaskModal({ open, onOpenChange }: CreateTaskModalProps) {
     const nested    = flatToNested(sanitized)
 
     if (nested.length === 0 || !sanitized.some(t => t.text.trim())) {
-      setError('todos', { message: 'Add at least one todo item.' })
+      setError('todos', { message: t('create_modal.todos_error') })
       return
     }
 
@@ -150,9 +152,9 @@ export function CreateTaskModal({ open, onOpenChange }: CreateTaskModalProps) {
     } catch (err: unknown) {
       const e = err as Error & { status?: number }
       if (e.status === 409) {
-        toast.error('Daily task limit reached. Try again tomorrow.')
+        toast.error(t('quota_exceeded'))
       } else {
-        toast.error(e.message ?? 'Failed to create task. Please try again.')
+        toast.error(e.message ?? t('create_modal.submit_error', { defaultValue: 'Failed to create task. Please try again.' }))
       }
     }
   })
@@ -163,7 +165,7 @@ export function CreateTaskModal({ open, onOpenChange }: CreateTaskModalProps) {
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="w-[92vw] sm:max-w-[560px] xl:max-w-[600px] gap-0 overflow-hidden p-0 bg-[#fcfef8]">
         <DialogHeader className="border-b border-border px-6 py-5 bg-[#fcfef8]">
-          <DialogTitle className="text-base font-semibold">New Focus Task</DialogTitle>
+          <DialogTitle className="text-base font-semibold">{t('create_modal.title')}</DialogTitle>
         </DialogHeader>
 
         <div
@@ -173,12 +175,12 @@ export function CreateTaskModal({ open, onOpenChange }: CreateTaskModalProps) {
           {/* Title */}
           <div className="flex flex-col gap-1.5 shrink-0">
             <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-              What will you focus on?
+              {t('create_modal.title_label')}
             </label>
             <Input
               autoFocus
-              placeholder="e.g. Write the product brief"
-              {...register('title', { required: 'Title is required.' })}
+              placeholder={t('create_modal.title_placeholder')}
+              {...register('title', { required: t('create_modal.title_required') })}
               {...titleConstraints}
               onKeyDown={e => { if (e.key === 'Enter') onSubmit() }}
               className={cn(
@@ -194,7 +196,7 @@ export function CreateTaskModal({ open, onOpenChange }: CreateTaskModalProps) {
           {/* Todos */}
           <div className="flex flex-col gap-1.5 shrink min-h-0">
             <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide shrink-0">
-              Todo checklist
+              {t('create_modal.todos_label')}
             </label>
             
             {/* THÊM WRAPPER NÀY: Giới hạn chiều cao và bật scroll cho riêng Todo */}
@@ -223,14 +225,14 @@ export function CreateTaskModal({ open, onOpenChange }: CreateTaskModalProps) {
               <p className="text-xs text-destructive">{errors.todos.message}</p>
             )}
             <p className="text-[11px] text-muted-foreground/70">
-              Enter to add · Tab to indent · Shift+Tab to unindent
+              {t('create_modal.todos_hint')}
             </p>
           </div>
 
           {/* Duration */}
           <div className="flex flex-col gap-2 shrink-0">
             <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-              Session duration
+              {t('create_modal.duration_label')}
             </label>
             <div className="flex flex-wrap gap-2">
               {DURATIONS.map(d => (
@@ -264,7 +266,7 @@ export function CreateTaskModal({ open, onOpenChange }: CreateTaskModalProps) {
                     : 'border-border bg-white text-foreground hover:bg-secondary',
                 )}
               >
-                Custom
+                {t('action.custom_button', { defaultValue: 'Custom' })}
               </button>
             </div>
 
@@ -291,7 +293,7 @@ export function CreateTaskModal({ open, onOpenChange }: CreateTaskModalProps) {
                     autoFocus
                   />
                   <span className="text-sm text-muted-foreground">
-                    minutes
+                    {t('action.duration_unit', { defaultValue: 'minutes' })}
                   </span>
                   {/* Live preview */}
                   {!customOutOfRange && customRaw !== '' && (
@@ -307,7 +309,7 @@ export function CreateTaskModal({ open, onOpenChange }: CreateTaskModalProps) {
                 </div>
                 {customOutOfRange && (
                   <p className="text-xs text-amber-600">
-                    Must be between {CUSTOM_MIN} and {CUSTOM_MAX} minutes. Will be clamped on start.
+                    {t('create_modal.duration_out_of_range', { min: CUSTOM_MIN, max: CUSTOM_MAX })}
                   </p>
                 )}
               </div>
@@ -321,7 +323,7 @@ export function CreateTaskModal({ open, onOpenChange }: CreateTaskModalProps) {
           {/* Penalty mode toggle row */}
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1.5">
-              <span className="text-sm font-medium text-foreground">Penalty mode</span>
+              <span className="text-sm font-medium text-foreground">{t('create_modal.penalty_mode_label')}</span>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button type="button" className="text-muted-foreground hover:text-foreground transition-colors">
@@ -329,7 +331,7 @@ export function CreateTaskModal({ open, onOpenChange }: CreateTaskModalProps) {
                   </button>
                 </TooltipTrigger>
                 <TooltipContent side="top" className="max-w-56 text-xs">
-                  If you give up this task, 1 item in your inventory or garden may disappear permanently, except legendary or above.
+                  {t('action.penalty_tooltip', { defaultValue: 'If you give up this task, 1 item in your inventory or garden may disappear permanently, except legendary or above.' })}
                 </TooltipContent>
               </Tooltip>
             </div>
@@ -348,14 +350,14 @@ export function CreateTaskModal({ open, onOpenChange }: CreateTaskModalProps) {
               disabled={isSubmitting}
               className="bg-white"
             >
-              Cancel
+              {t('create_modal.cancel')}
             </Button>
             <Button
               onClick={onSubmit}
               disabled={isSubmitting}
               className="gap-2"
             >
-              {isSubmitting ? 'Creating…' : 'Create & Start'}
+              {isSubmitting ? t('action.creating', { defaultValue: 'Creating…' }) : t('create_modal.submit')}
               {isSubmitting ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (

@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useState, useRef, useCallback, useEffect } from "react"
+import { useTranslation } from "react-i18next"
 import { XCircle, Plus } from "lucide-react"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
@@ -39,6 +40,8 @@ const TodoRow = React.memo(
     onKeyDown,
     registerRef,
   }: TodoRowProps) => {
+    const { t } = useTranslation('focus')
+    
     // requestAnimationFrame: avoids forced sync layout on every keystroke
     const autoGrow = (el: HTMLTextAreaElement) => {
       requestAnimationFrame(() => {
@@ -61,7 +64,7 @@ const TodoRow = React.memo(
               ? "border-primary bg-primary text-primary-foreground"
               : "border-border bg-transparent hover:border-primary/60"
           )}
-          aria-label={item.done ? "Mark incomplete" : "Mark complete"}
+          aria-label={item.done ? t('todos.mark_incomplete') : t('todos.mark_complete')}
         >
           {item.done && (
             <svg viewBox="0 0 12 12" className="h-3 w-3" fill="none">
@@ -93,7 +96,7 @@ const TodoRow = React.memo(
           onPaste={(e) => clampPaste(e, MAX_TODO_LENGTH)}
           onBlur={(e) => onCommitText(item.id, e.currentTarget.value)}
           onKeyDown={(e) => onKeyDown(e, item.id)}
-          placeholder="Todo item…"
+          placeholder={t('todos.placeholder')}
           className={cn(
             "flex-1 resize-none overflow-hidden bg-transparent py-0.5 text-sm leading-relaxed text-foreground outline-none placeholder:text-muted-foreground/50",
             "border-b border-transparent focus:border-border",
@@ -108,7 +111,7 @@ const TodoRow = React.memo(
           onClick={() => onRemove(item.id)}
           disabled={isOnly}
           className="mt-1 opacity-0 transition-opacity group-hover:opacity-100 text-muted-foreground/50 hover:text-destructive disabled:!opacity-0"
-          aria-label="Remove todo"
+          aria-label={t('todos.remove')}
         >
           <XCircle className="h-4 w-4" />
         </button>
@@ -133,6 +136,7 @@ interface EditableTodosProps {
 }
 
 function EditableTodos({ flat, setFlat }: EditableTodosProps) {
+  const { t } = useTranslation('focus')
   const inputRefs = useRef<Map<string, HTMLTextAreaElement>>(new Map())
 
   // flatRef: read current flat in event handlers without triggering re-renders
@@ -213,7 +217,7 @@ function EditableTodos({ flat, setFlat }: EditableTodosProps) {
     (afterId: string, depth: number, textBefore = '', textAfter = '') => {
       const current = flatRef.current
       if (current.length >= MAX_TODOS) {
-        toast.warning(`Maximum ${MAX_TODOS} todos reached`)
+        toast.warning(t('todos.max_reached', { max: MAX_TODOS }))
         return
       }
 
@@ -276,7 +280,7 @@ function EditableTodos({ flat, setFlat }: EditableTodosProps) {
       if (delta > 0) {
         if (nextDepth > MAX_DEPTH) {
           // Toast giờ nằm NGOÀI setState, sẽ chỉ chạy đúng 1 lần!
-          toast.warning(`Maximum nesting depth is ${MAX_DEPTH} levels`)
+          toast.warning(t('todos.max_depth_reached', { max: MAX_DEPTH }))
           return
         }
         const prevItem = idx > 0 ? current[idx - 1] : null

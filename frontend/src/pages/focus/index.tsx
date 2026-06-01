@@ -1,5 +1,6 @@
 import { useParams, Link } from 'react-router-dom'
 import { useEffect, useState, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useTaskDetail } from '@/pages/tasks/hooks/use-task-detail'
 import { EditableTitle } from './components/editable-title'
 import { TimerRing } from './components/timer-ring'
@@ -31,14 +32,15 @@ function calcElapsed(actualDurationSec: number, startedAt: string | null): numbe
 }
 
 const STATUS_CONFIG = {
-  active:   { label: 'Active',    color: 'text-emerald-600' },
-  paused:   { label: 'Paused',    color: 'text-amber-600'   },
-  submitted:{ label: 'Submitted', color: 'text-primary'     },
-  given_up: { label: 'Given up',  color: 'text-red-500'     },
+  active:   { label: 'active',    color: 'text-emerald-600' },
+  paused:   { label: 'paused',    color: 'text-amber-600'   },
+  submitted:{ label: 'submitted', color: 'text-primary'     },
+  given_up: { label: 'given_up',  color: 'text-red-500'     },
 } as const
 
 export default function FocusPage() {
   const { taskId } = useParams<{ taskId: string }>()
+  const { t } = useTranslation('focus')
   const { task, isLoading, isFetching, pause, resume, submit, giveUp, updateTodos, updateTitle, extend, reset, toggleStar, isTogglingStar } =
     useTaskDetail(taskId!)
 
@@ -156,8 +158,8 @@ export default function FocusPage() {
     if (task?.status === 'active') {
       const isAllDone = todos.every((todo) => todo.done)
       if (!isAllDone) {
-        toast("Task is not yet complete", {
-          description: "Please complete all todos before submitting.",
+        toast(t('toast.task_incomplete_title'), {
+          description: t('toast.task_incomplete_desc'),
           style: {
             border: "1px solid #3b82f6",
             color: "#1e3a8a",
@@ -204,7 +206,7 @@ export default function FocusPage() {
         // Chỉ clear khi fail — rollback hoàn toàn
         isResettingRef.current = false
         setElapsed(calcElapsed(task!.actual_duration_sec, task!.started_at))
-        toast.error("Failed to reset timer.")
+        toast.error(t('toast.failed_reset_timer'))
 
         if (task!.status === 'active' && task!.started_at) {
           const startTimeMs = new Date(task!.started_at).getTime()
@@ -221,13 +223,13 @@ export default function FocusPage() {
   // ── Guards ────────────────────────────────────────────────────────────────
   if (isLoading) return (
     <div className="flex min-h-dvh items-center justify-center text-muted-foreground text-sm">
-      Loading…
+      {t('loading_message')}
     </div>
   )
 
   if (!task) return (
     <div className="flex min-h-dvh items-center justify-center text-muted-foreground text-sm">
-      Task not found.
+      {t('task_not_found')}
     </div>
   )
 
@@ -247,18 +249,18 @@ export default function FocusPage() {
               className="h-8 w-8 text-muted-foreground hover:text-foreground"
               asChild
             >
-              <Link to="/tasks" aria-label="Back to tasks">
+              <Link to="/tasks" aria-label={t('back_to_tasks')}>
                 <ArrowLeft className="h-4 w-4" />
               </Link>
             </Button>
 
             <div className="flex items-center gap-2">
               <span className={`text-sm font-medium ${STATUS_CONFIG[task.status].color}`}>
-                {STATUS_CONFIG[task.status].label}
+                {t(`status.${task.status}`)}
               </span>
               <span className="text-muted-foreground/40">·</span>
               <span className="text-sm text-muted-foreground">
-                {task.registered_duration_min} min session
+                {t('min_session', { duration: task.registered_duration_min })}
               </span>
             </div>
           </div>
@@ -356,18 +358,18 @@ export default function FocusPage() {
       <AlertDialog open={showGiveUpConfirm} onOpenChange={setShowGiveUpConfirm}>
         <AlertDialogContent className="w-[95vw] sm:max-w-2xl pt-8">
           <AlertDialogHeader className="gap-4">
-            <AlertDialogTitle>Give up on this task?</AlertDialogTitle>
+            <AlertDialogTitle>{t('confirm_give_up.title')}</AlertDialogTitle>
             <AlertDialogDescription className="gap-4 pb-3">
-              This action cannot be undone. The task will be marked as given up.
+              {t('confirm_give_up.description')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="flex-row justify-center gap-4 sm:justify-center py-4">
-            <AlertDialogCancel className="w-16 hover:bg-gray">No</AlertDialogCancel>
+            <AlertDialogCancel className="w-16 hover:bg-gray">{t('confirm_give_up.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               className="w-16 bg-red-600 hover:bg-red-700 text-white"
               onClick={confirmGiveUp}
             >
-              Yes
+              {t('confirm_give_up.confirm')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

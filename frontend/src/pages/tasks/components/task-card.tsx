@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { Play, Eye, Send, Clock, Sprout, Pause, CheckSquare, Calendar, Star } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { TaskSummary, TaskStatus } from '@/types/task'
@@ -32,36 +33,36 @@ type StatusCfg = {
   icon: React.ReactNode
 }
 
-const STATUS_CFG: Record<TaskStatus, StatusCfg> = {
+const getStatusCfg = (t: any): Record<TaskStatus, StatusCfg> => ({
   active: {
     border: 'border-l-emerald-400',
     badge:  'border-emerald-200 bg-emerald-50 text-emerald-700',
     dot:    'bg-emerald-500',
-    label:  'Active',
+    label:  t('status.active'),
     icon:   null,
   },
   paused: {
     border: 'border-l-amber-400',
     badge:  'border-amber-200 bg-amber-50 text-amber-700',
     dot:    'bg-amber-500',
-    label:  'Paused',
+    label:  t('status.paused'),
     icon:   <Pause className="h-3 w-3" aria-hidden />,
   },
   submitted: {
     border: 'border-l-blue-300',
     badge:  'border-blue-100 bg-blue-50 text-blue-400',
     dot:    'bg-blue-400',
-    label:  'Submitted',
+    label:  t('status.submitted'),
     icon:   <CheckSquare className="h-3 w-3" aria-hidden />,
   },
   given_up: {
     border: 'border-l-red-300',
     badge:  'border-red-200 bg-red-50 text-red-600',
     dot:    'bg-red-500',
-    label:  'Given up',
+    label:  t('status.given_up'),
     icon:   null,
   },
-}
+})
 
 interface TaskCardProps {
   task: TaskSummary
@@ -78,6 +79,8 @@ export function TaskCard({
   onToggleStar,
   isTogglingStarId,
 }: TaskCardProps) {
+  const { t } = useTranslation('tasks')
+  const STATUS_CFG = getStatusCfg(t)
   const cfg = STATUS_CFG[task.status]
 
   const isActive    = task.status === 'active'
@@ -128,7 +131,7 @@ export function TaskCard({
             {task.todo_count > 0 && (
               <span className="flex items-center gap-1">
                 <Sprout className="h-3 w-3 text-primary" aria-hidden />
-                {task.todo_done_count}/{task.todo_count} todos
+                {t('todos', { done: task.todo_done_count, total: task.todo_count })}
               </span>
             )}
             {!isTodayUTC(task.created_at) && (
@@ -139,9 +142,9 @@ export function TaskCard({
             )}
             {task.penalty_mode && (
               <span
-                title="Penalty mode — give up affects your garden"
+                title={t('penalty_mode')}
                 className="cursor-default select-none text-[0.65rem]"
-                aria-label="Penalty mode enabled"
+                aria-label={t('action.penalty_mode_enabled', { defaultValue: 'Penalty mode enabled' })}
               >
                 ⚔️
               </span>
@@ -160,7 +163,7 @@ export function TaskCard({
                 className="inline-flex items-center gap-1.5 rounded-md px-3 h-8 text-xs font-medium bg-emerald-100 text-emerald-800 hover:bg-emerald-200 border-0 shadow-none transition-colors"
               >
                 <Play className="h-3 w-3" />
-                Resume
+                {t('action.resume')}
               </Link>
             )}
 
@@ -174,7 +177,7 @@ export function TaskCard({
                   )}
                 >
                   <Play className="h-3 w-3" />
-                  Resume
+                  {t('action.resume')}
                 </Link>
 
                 <button
@@ -186,7 +189,7 @@ export function TaskCard({
                   )}
                 >
                   <Send className="h-3 w-3" />
-                  Submit
+                  {t('action.submit')}
                 </button>
               </>
             )}
@@ -194,7 +197,7 @@ export function TaskCard({
             {isTerminal && (
               <Link
                 to={`/focus/${task.id}`}
-                aria-label="View details"
+                aria-label={t('action.view')}
                 className="inline-flex items-center justify-center rounded-md h-8 w-8 text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
               >
                 <Eye className="h-3.5 w-3.5" />
@@ -208,7 +211,7 @@ export function TaskCard({
               type="button"
               onClick={() => onToggleStar?.(task.id)}
               disabled={isTogglingStarId === task.id}
-              aria-label={task.is_starred ? 'Unstar task' : 'Star task'}
+              aria-label={task.is_starred ? t('unstar') : t('star')}
               className={cn(
                 'shrink-0 transition-colors',
                 task.is_starred

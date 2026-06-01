@@ -21,5 +21,37 @@
   "star": "Đánh dấu",
   "unstar": "Bỏ đánh dấu",
   "penalty_mode": "Chế độ phạt — bỏ cuộc sẽ ảnh hưởng khu vườn",
-  "todos": "{{done}}/{{total}} việc nhỏ"
+  "todos": "{{done}}/{{total}} việc nhỏ",
+  "create_modal": {
+    "title": "Nhiệm Vụ Tập Trung Mới",
+    "title_label": "Bạn sẽ tập trung vào điều gì?",
+    "title_placeholder": "vd. Viết bản tóm tắt sản phẩm",
+    "title_required": "Tiêu đề là bắt buộc.",
+    "todos_label": "Danh sách việc cần làm",
+    "todos_error": "Thêm ít nhất một mục công việc.",
+    "todos_hint": "Enter để thêm · Tab để thụt đầu dòng · Shift+Tab để bỏ thụt",
+    "duration_label": "Thời lượng phiên",
+    "duration_custom_min": 25,
+    "duration_custom_max": 480,
+    "duration_max_warning": "Thời lượng phiên tối đa là {{max}} phút (8 giờ).",
+    "duration_out_of_range": "Nhập một số từ {{min}} đến {{max}} phút",
+    "penalty_mode_label": "Chế độ phạt — bỏ cuộc sẽ ảnh hưởng khu vườn",
+    "cancel": "Hủy",
+    "submit": "Tạo Nhiệm Vụ"
+  },
+  "filter": {
+    "title": "Bộ Lọc",
+    "status_indicator": "trạng thái",
+    "today": "Hôm nay",
+    "yesterday": "Hôm qua",
+    "7days": "7 ngày",
+    "30days": "30 ngày",
+    "time_section": "Thời Gian",
+    "status_section": "Trạng Thái"
+  },
+  "sidebar": {
+    "garden_awaits": "Khu vườn của bạn đang chờ",
+    "summary_title": "Tóm tắt tập trung",
+    "summary_desc": "Hoàn thành các nhiệm vụ để trồng cây trong khu vườn của bạn."
+  }
 }
