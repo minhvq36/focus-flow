@@ -1,8 +1,9 @@
 import { Link, useLocation } from 'react-router-dom'
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { Sprout } from 'lucide-react'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { cn } from '@/lib/utils'
+import { useLanguage } from '@/hooks/use-language'
 
 const tabs = [
   { path: '/garden', label: 'My Garden' },
@@ -78,6 +79,56 @@ function UtcClock() {
   )
 }
 
+function LanguageSwitcher() {
+  const { currentLang, setLanguage, languages } = useLanguage()
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  // Đóng khi click ra ngoài
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const current = languages.find(l => l.code === currentLang)
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen(prev => !prev)}
+        className="font-mono text-[10px] font-medium uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors"
+      >
+        {current?.shortLabel}
+      </button>
+
+      {open && (
+        <div className="absolute left-0 top-full mt-2 min-w-[120px] rounded-md border border-border bg-popover shadow-md">
+          {languages.map(lang => (
+            <button
+              key={lang.code}
+              onClick={() => { setLanguage(lang.code); setOpen(false) }}
+              className={cn(
+                'flex w-full items-center gap-2 px-3 py-2 text-sm transition-colors hover:bg-secondary',
+                currentLang === lang.code
+                  ? 'text-foreground font-medium'
+                  : 'text-muted-foreground'
+              )}
+            >
+              <span className="font-mono text-[10px] tracking-widest">{lang.shortLabel}</span>
+              <span>{lang.nativeLabel}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function Header() {
   const { pathname } = useLocation()
 
@@ -114,6 +165,7 @@ export default function Header() {
         {/* Right */}
         <div className="flex items-center gap-2">
           <UtcClock />
+          <LanguageSwitcher />
           <span className="flex items-center gap-1 text-sm text-foreground/80">🪙 <strong>0</strong></span>
           <span className="flex items-center gap-1 text-sm text-foreground/80">💛 <strong>0</strong></span>
 
