@@ -22,6 +22,7 @@ export function GardenToolbar() {
           label="Nhổ cây" 
           isActive={activeTool === 'shovel'} 
           onClick={() => setActiveTool('shovel')} 
+        //   TODO: Add shortcut key D
         />
       </div>
 
@@ -34,7 +35,7 @@ export function GardenToolbar() {
           icon={<Backpack size={24} />} 
           label="Túi đồ" 
           onClick={() => console.log('Mở Inventory')} 
-          shortcut="I"
+          shortcut="E"
         />
         <MenuButton 
           icon={<Store size={24} />} 

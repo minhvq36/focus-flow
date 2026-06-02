@@ -35,7 +35,7 @@
     "duration_custom_max": 480,
     "duration_max_warning": "Thời lượng phiên tối đa là {{max}} phút (8 giờ).",
     "duration_out_of_range": "Nhập một số từ {{min}} đến {{max}} phút",
-    "penalty_mode_label": "Chế độ phạt — bỏ cuộc sẽ ảnh hưởng khu vườn",
+    "penalty_mode_label": "Chế độ phạt",
     "cancel": "Hủy",
     "submit": "Tạo Nhiệm Vụ"
   },

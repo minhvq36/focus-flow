@@ -35,7 +35,7 @@
     "duration_custom_max": 480,
     "duration_max_warning": "Maximum session duration is {{max}} minutes (8 hours).",
     "duration_out_of_range": "Enter a number between {{min}} and {{max}} minutes",
-    "penalty_mode_label": "Penalty mode — give up affects your garden",
+    "penalty_mode_label": "Penalty mode",
     "cancel": "Cancel",
     "submit": "Create Task"
   },
