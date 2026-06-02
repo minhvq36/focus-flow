@@ -1,6 +1,6 @@
 "use client"
 import type { DateRange, FilterState, TaskStatus } from "@/types/task"
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { useTranslation } from "react-i18next"
 import { ChevronUp, ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -10,102 +10,68 @@ interface FilterPanelProps {
   onChange: (next: FilterState) => void
 }
 
-const DATE_RANGE_OPTIONS: { value: DateRange; label: string }[] = [
-  { value: "today",     label: "Today"     },
-  { value: "yesterday", label: "Yesterday" },
-  { value: "7days",     label: "7 days"    },
-  { value: "30days",    label: "30 days"   },
-]
+// ─── Helper: Create filter options from translations ──────────────────────────
 
-const STATUS_OPTIONS: {
-  value: TaskStatus
-  label: string
-  dotClass: string
-  badgeClass: string
-}[] = [
-  {
-    value: "active",
-    label: "Active",
-    dotClass:   "bg-emerald-500",
-    badgeClass: "border-emerald-200 bg-emerald-50 text-emerald-700",
-  },
-  {
-    value: "paused",
-    label: "Paused",
-    dotClass:   "bg-amber-500",
-    badgeClass: "border-amber-200 bg-amber-50 text-amber-700",
-  },
-  {
-    value: "submitted",
-    label: "Submitted",
-    dotClass:   "bg-primary",
-    badgeClass: "border-primary/20 bg-primary/10 text-primary",
-  },
-  {
-    value: "given_up",
-    label: "Given up",
-    dotClass:   "bg-red-500",
-    badgeClass: "border-red-200 bg-red-50 text-red-600",
-  },
-]
+interface FilterOptions {
+  dateRange: { value: DateRange; label: string }[]
+  status: {
+    value: TaskStatus
+    label: string
+    dotClass: string
+    badgeClass: string
+  }[]
+  dateLabel: Record<DateRange, string>
+}
 
-const DATE_LABEL: Record<DateRange, string> = {
-  today:     "Today",
-  yesterday: "Yesterday",
-  "7days":   "7 days",
-  "30days":  "30 days",
+function createFilterOptions(t: any): FilterOptions {
+  return {
+    dateRange: [
+      { value: "today", label: t('filter.today', { defaultValue: 'Today' }) },
+      { value: "yesterday", label: t('filter.yesterday', { defaultValue: 'Yesterday' }) },
+      { value: "7days", label: t('filter.7days', { defaultValue: '7 days' }) },
+      { value: "30days", label: t('filter.30days', { defaultValue: '30 days' }) },
+    ],
+    status: [
+      {
+        value: "active",
+        label: t('status.active'),
+        dotClass: "bg-emerald-500",
+        badgeClass: "border-emerald-200 bg-emerald-50 text-emerald-700",
+      },
+      {
+        value: "paused",
+        label: t('status.paused'),
+        dotClass: "bg-amber-500",
+        badgeClass: "border-amber-200 bg-amber-50 text-amber-700",
+      },
+      {
+        value: "submitted",
+        label: t('status.submitted'),
+        dotClass: "bg-primary",
+        badgeClass: "border-primary/20 bg-primary/10 text-primary",
+      },
+      {
+        value: "given_up",
+        label: t('status.given_up'),
+        dotClass: "bg-red-500",
+        badgeClass: "border-red-200 bg-red-50 text-red-600",
+      },
+    ],
+    dateLabel: {
+      today: t('filter.today', { defaultValue: 'Today' }),
+      yesterday: t('filter.yesterday', { defaultValue: 'Yesterday' }),
+      "7days": t('filter.7days', { defaultValue: '7 days' }),
+      "30days": t('filter.30days', { defaultValue: '30 days' }),
+    },
+  }
 }
 
 export function FilterPanel({ value, onChange }: FilterPanelProps) {
   const { t } = useTranslation('tasks')
   const [open, setOpen] = useState(false)
 
-  // Dynamic options from translations
-  const dateRangeOptions: { value: DateRange; label: string }[] = [
-    { value: "today",     label: t('filter.today', { defaultValue: 'Today' }) },
-    { value: "yesterday", label: t('filter.yesterday', { defaultValue: 'Yesterday' }) },
-    { value: "7days",     label: t('filter.7days', { defaultValue: '7 days' }) },
-    { value: "30days",    label: t('filter.30days', { defaultValue: '30 days' }) },
-  ]
-
-  const statusOptions: {
-    value: TaskStatus
-    label: string
-    dotClass: string
-    badgeClass: string
-  }[] = [
-    {
-      value: "active",
-      label: t('status.active'),
-      dotClass:   "bg-emerald-500",
-      badgeClass: "border-emerald-200 bg-emerald-50 text-emerald-700",
-    },
-    {
-      value: "paused",
-      label: t('status.paused'),
-      dotClass:   "bg-amber-500",
-      badgeClass: "border-amber-200 bg-amber-50 text-amber-700",
-    },
-    {
-      value: "submitted",
-      label: t('status.submitted'),
-      dotClass:   "bg-primary",
-      badgeClass: "border-primary/20 bg-primary/10 text-primary",
-    },
-    {
-      value: "given_up",
-      label: t('status.given_up'),
-      dotClass:   "bg-red-500",
-      badgeClass: "border-red-200 bg-red-50 text-red-600",
-    },
-  ]
-
-  const dateLabel: Record<DateRange, string> = {
-    today:     t('filter.today', { defaultValue: 'Today' }),
-    yesterday: t('filter.yesterday', { defaultValue: 'Yesterday' }),
-    "7days":   t('filter.7days', { defaultValue: '7 days' }),
-    "30days":  t('filter.30days', { defaultValue: '30 days' }),
-  }
+  // Memoize options - recreate only when translations change (i.e., language switch)
+  const options = useMemo(() => createFilterOptions(t), [t])
 
   function setDateRange(range: DateRange) {
     onChange({ ...value, dateRange: range })
@@ -138,7 +104,7 @@ export function FilterPanel({ value, onChange }: FilterPanelProps) {
           {!open && (
             <span className="flex items-center gap-1.5 text-xs text-muted-foreground font-normal">
               <span className="text-foreground font-medium">
-                {dateLabel[value.dateRange]}
+                {options.dateLabel[value.dateRange]}
               </span>
               {activeStatusCount > 0 && (
                 <>
@@ -161,7 +127,7 @@ export function FilterPanel({ value, onChange }: FilterPanelProps) {
               {t('filter.time_section', { defaultValue: 'Time' })}
             </p>
             <div className="grid grid-cols-2 gap-1.5" role="group" aria-label="Date range">
-              {dateRangeOptions.map((opt) => (
+              {options.dateRange.map((opt) => (
                 <button
                   key={opt.value}
                   type="button"
@@ -185,7 +151,7 @@ export function FilterPanel({ value, onChange }: FilterPanelProps) {
               {t('filter.status_section', { defaultValue: 'Status' })}
             </p>
             <div className="flex flex-col gap-1.5" role="group" aria-label="Status filter">
-              {statusOptions.map((opt) => {
+              {options.status.map((opt) => {
                 const active = value.statusFilters.has(opt.value)
                 return (
                   <button
