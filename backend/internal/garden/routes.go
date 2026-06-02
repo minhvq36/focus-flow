@@ -8,7 +8,7 @@ import (
 
 func Routes(db *pgxpool.Pool, log *logger.Logger) func(r chi.Router) {
 	repo := NewRepository(db, log)
-	service := NewService(repo, log)
+	service := NewService(db, repo, log)
 	handler := NewHandler(service, log)
 
 	return func(r chi.Router) {

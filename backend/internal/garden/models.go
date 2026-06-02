@@ -125,3 +125,10 @@ func GetEffectiveDimensions(w, h, rotation int) (effectiveW, effectiveH int) {
 	}
 	return w, h
 }
+
+type InventoryItemDetails struct {
+	ItemID   string
+	AssetKey string
+	Width    int
+	Height   int
+}

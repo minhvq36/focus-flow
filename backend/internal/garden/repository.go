@@ -126,13 +126,13 @@ func (r *Repository) GetPlacementsByUserGardenID(ctx context.Context, userGarden
 	return result, rows.Err()
 }
 
-func (r *Repository) ValidatePlacement(ctx context.Context, in ValidationInput) error {
-	// 1. BOUNDS CHECK (Thuần Go, kiểm tra biên)
+func (r *Repository) ValidatePlacement(ctx context.Context, tx pgx.Tx, in ValidationInput) error {
+	// 1. BOUNDS CHECK
 	if in.GridX < 0 || in.GridY < 0 || in.GridX+in.EffectiveWidth > in.GridSize || in.GridY+in.EffectiveHeight > in.GridSize {
 		return &apperr.ValidationError{Message: "placement out of bounds"}
 	}
 
-	// 2. OVERLAP CHECK BẰNG SQL (AABB Collision)
+	// 2. OVERLAP CHECK
 	query := `
 		SELECT EXISTS (
 			SELECT 1 FROM public.garden_placements
@@ -146,9 +146,8 @@ func (r *Repository) ValidatePlacement(ctx context.Context, in ValidationInput) 
 	`
 
 	var isOverlap bool
-	err := r.db.QueryRow(ctx, query,
-		in.UserGardenID,
-		in.ExcludePlacementID,
+	err := tx.QueryRow(ctx, query,
+		in.UserGardenID, in.ExcludePlacementID,
 		in.GridX, in.EffectiveWidth,
 		in.GridY, in.EffectiveHeight,
 	).Scan(&isOverlap)
@@ -156,16 +155,13 @@ func (r *Repository) ValidatePlacement(ctx context.Context, in ValidationInput) 
 	if err != nil {
 		return fmt.Errorf("validate placement overlap: %w", err)
 	}
-
 	if isOverlap {
 		return &apperr.ValidationError{Message: "placement overlaps existing item"}
 	}
-
 	return nil
 }
 
-// CreatePlacement thêm một item mới vào khu vườn
-func (r *Repository) CreatePlacement(ctx context.Context, arg CreatePlacementParams) (*Placement, error) {
+func (r *Repository) CreatePlacement(ctx context.Context, tx pgx.Tx, arg CreatePlacementParams) (*Placement, error) {
 	query := `
 		INSERT INTO public.garden_placements (
 			user_garden_id, inventory_id, 
@@ -177,23 +173,13 @@ func (r *Repository) CreatePlacement(ctx context.Context, arg CreatePlacementPar
 	`
 
 	var p Placement
-	err := r.db.QueryRow(ctx, query,
-		arg.UserGardenID,
-		arg.InventoryID,
-		arg.GridX,
-		arg.GridY,
-		arg.EffectiveWidth,
-		arg.EffectiveHeight,
-		arg.Rotation,
-	).Scan(
-		&p.ID,
-		&p.HealthStatus,
-		&p.WiltedAt,
-		&p.PlacedAt,
-	)
+	err := tx.QueryRow(ctx, query,
+		arg.UserGardenID, arg.InventoryID,
+		arg.GridX, arg.GridY,
+		arg.EffectiveWidth, arg.EffectiveHeight, arg.Rotation,
+	).Scan(&p.ID, &p.HealthStatus, &p.WiltedAt, &p.PlacedAt)
 
 	if err != nil {
-		// Bắt lỗi Unique Constraint (23505) nếu item đã được đặt
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
 			return nil, &apperr.DuplicateError{Message: "item is already placed in a garden"}
@@ -201,7 +187,6 @@ func (r *Repository) CreatePlacement(ctx context.Context, arg CreatePlacementPar
 		return nil, fmt.Errorf("insert placement: %w", err)
 	}
 
-	// Gán ngược lại dữ liệu input vào object trả về
 	p.UserGardenID = arg.UserGardenID
 	p.InventoryID = arg.InventoryID
 	p.GridX = arg.GridX
@@ -211,4 +196,49 @@ func (r *Repository) CreatePlacement(ctx context.Context, arg CreatePlacementPar
 	p.Rotation = arg.Rotation
 
 	return &p, nil
+}
+
+func (r *Repository) LockUserGarden(ctx context.Context, tx pgx.Tx, userGardenID, userID string) (int, int, error) {
+	var baseSize, expansionLevel int
+	err := tx.QueryRow(ctx, `
+		SELECT g.grid_size, ug.expansion_level 
+		FROM public.user_gardens ug
+		JOIN public.gardens g ON g.id = ug.garden_id
+		WHERE ug.id = $1 AND ug.user_id = $2
+		FOR UPDATE OF ug
+	`, userGardenID, userID).Scan(&baseSize, &expansionLevel)
+
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return 0, 0, &apperr.NotFoundError{Resource: "user garden"}
+		}
+		return 0, 0, fmt.Errorf("lock user garden: %w", err)
+	}
+
+	// Trả về cả kích thước gốc và cấp độ mở rộng
+	return baseSize, expansionLevel, nil
+}
+
+// GetInventoryItemWH lấy kích thước gốc của item trong kho và kiểm tra quyền sở hữu
+func (r *Repository) GetInventoryItemDetails(ctx context.Context, inventoryID, userID string) (*InventoryItemDetails, error) {
+	var item InventoryItemDetails
+	err := r.db.QueryRow(ctx, `
+		SELECT i.id, i.asset_key, i.width, i.height 
+		FROM public.inventory inv
+		JOIN public.items i ON i.id = inv.item_id
+		WHERE inv.id = $1 AND inv.user_id = $2
+	`, inventoryID, userID).Scan(
+		&item.ItemID,
+		&item.AssetKey,
+		&item.Width,
+		&item.Height,
+	)
+
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, &apperr.NotFoundError{Resource: "inventory item"}
+		}
+		return nil, fmt.Errorf("get inventory item details: %w", err)
+	}
+	return &item, nil
 }
