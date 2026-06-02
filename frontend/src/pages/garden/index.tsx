@@ -9,6 +9,7 @@ import { RecenterButton } from './components/recenter-button'
 import { GardenTabs } from './components/garden-tabs'
 import { LoadingOverlay } from './components/loading-overlay'
 import { TilePopup } from './components/tile-popup'
+import { GardenToolbar } from './components/garden-toolbar'
 
 const ZOOM_KEY = (gardenId: string) => `garden_zoom_${gardenId}`
 
@@ -140,6 +141,8 @@ export default function Garden() {
         activeGardenId={activeGardenId}
         onChange={handleGardenChange}
       />
+
+      <GardenToolbar />
 
       {isLoading && <LoadingOverlay />}
 
