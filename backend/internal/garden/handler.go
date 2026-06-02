@@ -9,12 +9,14 @@ import (
 	"github.com/minhvq36/focus-flow/backend/internal/auth"
 	"github.com/minhvq36/focus-flow/backend/pkg/apperr"
 	"github.com/minhvq36/focus-flow/backend/pkg/logger"
+	"github.com/minhvq36/focus-flow/backend/pkg/request"
 	"github.com/minhvq36/focus-flow/backend/pkg/response"
 )
 
 type ServiceInterface interface {
 	GetUserGardenList(ctx context.Context, userID string) ([]GardenListItem, error)
 	GetUserGardenByID(ctx context.Context, userGardenID, userID string) (*GardenResponse, error)
+	PlaceItem(ctx context.Context, userID string, req PlaceRequest) (*PlacementResponse, error)
 }
 
 type Handler struct {
@@ -69,4 +71,41 @@ func (h *Handler) GetGardenByID(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response.Success(w, garden)
+}
+
+func (h *Handler) PlaceItem(w http.ResponseWriter, r *http.Request) {
+	userID, ok := auth.GetUserID(r.Context())
+	if !ok {
+		response.Unauthorized(w)
+		return
+	}
+
+	var req PlaceRequest
+	if ok := request.BindAndValidate(w, r, &req); !ok {
+		return
+	}
+
+	req.UserGardenID = chi.URLParam(r, "id")
+	if req.UserGardenID == "" {
+		response.BadRequest(w, "INVALID_ID", "Garden ID is required")
+		return
+	}
+
+	placement, err := h.service.PlaceItem(r.Context(), userID, req)
+	if err != nil {
+		switch {
+		case errors.Is(err, apperr.ErrValidation):
+			response.BadRequest(w, "VALIDATION_ERROR", err.Error())
+		case errors.Is(err, apperr.ErrDuplicate):
+			response.Conflict(w, "DUPLICATE_ITEM", err.Error())
+		case errors.Is(err, apperr.ErrNotFound):
+			response.NotFound(w, "Resource")
+		default:
+			h.log.Error("PlaceItem failed", "user_id", userID, "error", err.Error())
+			response.InternalError(w)
+		}
+		return
+	}
+
+	response.Success(w, placement)
 }

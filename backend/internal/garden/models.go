@@ -87,11 +87,11 @@ func computeCurrentSize(baseSize, expansionLevel int) int {
 }
 
 type PlaceRequest struct {
-	UserGardenID string `json:"user_garden_id"`
-	InventoryID  string `json:"inventory_id"`
-	GridX        int    `json:"grid_x"`
-	GridY        int    `json:"grid_y"`
-	Rotation     int    `json:"rotation"`
+	UserGardenID string `json:"-"` // Lấy từ URL param
+	InventoryID  string `json:"inventory_id" validate:"required"`
+	GridX        int    `json:"grid_x" validate:"min=0"`
+	GridY        int    `json:"grid_y" validate:"min=0"`
+	Rotation     int    `json:"rotation" validate:"min=0,max=270"`
 }
 
 type UpdatePlacementRequest struct {
