@@ -20,6 +20,8 @@ create table if not exists public.garden_placements (
     inventory_id uuid not null unique references public.inventory(id) on delete cascade, -- inventory global unique constraint to prevent double placement
     grid_x int not null check (grid_x >= 0),
     grid_y int not null check (grid_y >= 0),
+    effective_width int not null default 1 check (effective_width > 0),
+    effective_height int not null default 1 check (effective_height > 0),
     rotation smallint NOT NULL DEFAULT 0 CHECK (rotation IN (0, 90, 180, 270)),
     health_status varchar(50) default 'healthy' check (health_status in ('healthy', 'wilted')),
     wilted_at timestamptz default null,

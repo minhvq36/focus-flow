@@ -27,36 +27,40 @@ type GardenListItem struct {
 }
 
 type Placement struct {
-	ID           string     `db:"id"`
-	UserGardenID string     `db:"user_garden_id"`
-	InventoryID  string     `db:"inventory_id"`
-	ItemID       string     `db:"item_id"` // joined từ inventory
-	AssetKey     string     `db:"asset_key"`
-	GridX        int        `db:"grid_x"`
-	GridY        int        `db:"grid_y"`
-	ItemWidth    int        `db:"item_width"`
-	ItemHeight   int        `db:"item_height"`
-	Rotation     int        `db:"rotation"`
-	HealthStatus string     `db:"health_status"`
-	WiltedAt     *time.Time `db:"wilted_at"`
-	PlacedAt     time.Time  `db:"placed_at"`
+	ID              string     `db:"id"`
+	UserGardenID    string     `db:"user_garden_id"`
+	InventoryID     string     `db:"inventory_id"`
+	ItemID          string     `db:"item_id"` // joined từ inventory
+	AssetKey        string     `db:"asset_key"`
+	GridX           int        `db:"grid_x"`
+	GridY           int        `db:"grid_y"`
+	ItemWidth       int        `db:"item_width"`
+	ItemHeight      int        `db:"item_height"`
+	EffectiveWidth  int        `db:"effective_width"` // sau khi xoay
+	EffectiveHeight int        `db:"effective_height"`
+	Rotation        int        `db:"rotation"`
+	HealthStatus    string     `db:"health_status"`
+	WiltedAt        *time.Time `db:"wilted_at"`
+	PlacedAt        time.Time  `db:"placed_at"`
 }
 
 // --- Response types ---
 
 type PlacementResponse struct {
-	ID           string     `json:"id"`
-	InventoryID  string     `json:"inventory_id"`
-	ItemID       string     `json:"item_id"`
-	AssetKey     string     `json:"asset_key"`
-	GridX        int        `json:"grid_x"`
-	GridY        int        `json:"grid_y"`
-	ItemWidth    int        `json:"item_width"`
-	ItemHeight   int        `json:"item_height"`
-	Rotation     int        `json:"rotation"`
-	HealthStatus string     `json:"health_status"`
-	WiltedAt     *time.Time `json:"wilted_at"`
-	PlacedAt     time.Time  `json:"placed_at"`
+	ID              string     `json:"id"`
+	InventoryID     string     `json:"inventory_id"`
+	ItemID          string     `json:"item_id"`
+	AssetKey        string     `json:"asset_key"`
+	GridX           int        `json:"grid_x"`
+	GridY           int        `json:"grid_y"`
+	ItemWidth       int        `json:"item_width"`
+	ItemHeight      int        `json:"item_height"`
+	EffectiveWidth  int        `json:"effective_width"`
+	EffectiveHeight int        `json:"effective_height"`
+	Rotation        int        `json:"rotation"`
+	HealthStatus    string     `json:"health_status"`
+	WiltedAt        *time.Time `json:"wilted_at"`
+	PlacedAt        time.Time  `json:"placed_at"`
 }
 
 type GardenResponse struct {
@@ -80,4 +84,27 @@ const (
 
 func computeCurrentSize(baseSize, expansionLevel int) int {
 	return baseSize + expansionLevel*expansionStep
+}
+
+type PlaceRequest struct {
+	UserGardenID string `json:"user_garden_id"`
+	InventoryID  string `json:"inventory_id"`
+	GridX        int    `json:"grid_x"`
+	GridY        int    `json:"grid_y"`
+	Rotation     int    `json:"rotation"`
+}
+
+type UpdatePlacementRequest struct {
+	GridX    *int `json:"grid_x"`
+	GridY    *int `json:"grid_y"`
+	Rotation *int `json:"rotation"`
+}
+
+type ValidationInput struct {
+	UserGardenID       string
+	ExcludePlacementID string
+	GridX, GridY       int
+	EffectiveWidth     int // Compute from ItemWidth, Height + Rotation
+	EffectiveHeight    int //
+	GridSize           int
 }
