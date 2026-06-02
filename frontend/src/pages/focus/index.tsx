@@ -1,6 +1,7 @@
 import { useParams, Link } from 'react-router-dom'
 import { useEffect, useState, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useLanguage } from '@/hooks/use-language'
 import { useTaskDetail } from '@/pages/tasks/hooks/use-task-detail'
 import { EditableTitle } from './components/editable-title'
 import { TimerRing } from './components/timer-ring'
@@ -41,6 +42,7 @@ const STATUS_CONFIG = {
 export default function FocusPage() {
   const { taskId } = useParams<{ taskId: string }>()
   const { t } = useTranslation('focus')
+  const { currentLang } = useLanguage()
   const { task, isLoading, isFetching, pause, resume, submit, giveUp, updateTodos, updateTitle, extend, reset, toggleStar, isTogglingStar } =
     useTaskDetail(taskId!)
 
@@ -265,9 +267,10 @@ export default function FocusPage() {
             </div>
           </div>
           <span className="text-xs text-muted-foreground/60">
-            {new Date(task.created_at).toLocaleDateString('en-US', {
-              month: 'short', day: 'numeric', year: 'numeric',
-            })}
+            {new Date(task.created_at).toLocaleDateString(
+              currentLang === 'vi' ? 'vi-VN' : 'en-US',
+              { month: 'short', day: 'numeric', year: 'numeric' }
+            )}
           </span>
         </div>
       </header>

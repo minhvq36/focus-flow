@@ -11,22 +11,25 @@ const tabs = (t: any) => [
   { path: '/tasks',  label: t('nav.tasks')  },
 ]
 
-// 1. TỐI ƯU BỘ NHỚ: Khởi tạo formatter ở ngoài Component.
-// Việc này giúp JS Engine không phải khởi tạo lại Object DateFormat mỗi lần render.
-const dateFormatter = new Intl.DateTimeFormat("en-US", {
-  month: "short",
-  day: "numeric",
-  timeZone: "UTC",
-})
-
 function UtcClock() {
+  const { currentLang } = useLanguage()
+  
   // 2. CHỐNG CLS (Giật Layout): Khởi tạo state bằng string có độ dài chuẩn.
   // Tabular-nums sẽ giúp "00:00:00" chiếm đúng diện tích bằng giờ thật.
   const [timeStr, setTimeStr] = useState("00:00:00")
   const [dateStr, setDateStr] = useState("...") 
-  const[isMounted, setIsMounted] = useState(false) // Dùng để làm hiệu ứng fade-in
+  const [isMounted, setIsMounted] = useState(false) // Dùng để làm hiệu ứng fade-in
 
   useEffect(() => {
+    // 1. TỐI ƯU BỘ NHỚ: Tạo formatter dựa trên ngôn ngữ hiện tại
+    // Khi ngôn ngữ thay đổi, formatter sẽ được tạo lại với locale đúng
+    const locale = currentLang === 'vi' ? 'vi-VN' : 'en-US'
+    const dateFormatter = new Intl.DateTimeFormat(locale, {
+      month: "short",
+      day: "numeric",
+      timeZone: "UTC",
+    })
+
     let lastDateNum = -1
 
     function tick() {
@@ -59,7 +62,7 @@ function UtcClock() {
       clearInterval(id)
       document.removeEventListener("visibilitychange", handleVisibilityChange)
     }
-  },[])
+  }, [currentLang])
 
   return (
     <div
@@ -102,7 +105,7 @@ function LanguageSwitcher() {
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen(prev => !prev)}
-        className="font-mono text-[10px] font-medium uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors"
+        className="font-mono text-[10px] font-medium uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors py-1.5"
       >
         {current?.shortLabel}
       </button>
