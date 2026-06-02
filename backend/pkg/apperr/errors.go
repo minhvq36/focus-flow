@@ -51,3 +51,13 @@ type UserNotFoundError struct{}
 
 func (e *UserNotFoundError) Error() string { return "user not found" }
 func (e *UserNotFoundError) Unwrap() error { return ErrUserNotFound }
+
+type DuplicateError struct{ Message string }
+
+func (e *DuplicateError) Error() string {
+	if e.Message != "" {
+		return "duplicate: " + e.Message
+	}
+	return "duplicate resource"
+}
+func (e *DuplicateError) Unwrap() error { return ErrDuplicate }

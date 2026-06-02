@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/minhvq36/focus-flow/backend/pkg/apperr"
 	"github.com/minhvq36/focus-flow/backend/pkg/logger"
@@ -123,4 +124,91 @@ func (r *Repository) GetPlacementsByUserGardenID(ctx context.Context, userGarden
 		result = append(result, p)
 	}
 	return result, rows.Err()
+}
+
+func (r *Repository) ValidatePlacement(ctx context.Context, in ValidationInput) error {
+	// 1. BOUNDS CHECK (Thuần Go, kiểm tra biên)
+	if in.GridX < 0 || in.GridY < 0 || in.GridX+in.EffectiveWidth > in.GridSize || in.GridY+in.EffectiveHeight > in.GridSize {
+		return &apperr.ValidationError{Message: "placement out of bounds"}
+	}
+
+	// 2. OVERLAP CHECK BẰNG SQL (AABB Collision)
+	query := `
+		SELECT EXISTS (
+			SELECT 1 FROM public.garden_placements
+			WHERE user_garden_id = $1
+			  AND (NULLIF($2, '') IS NULL OR id::text != $2)
+			  AND $3 < grid_x + effective_width
+			  AND $3 + $4 > grid_x
+			  AND $5 < grid_y + effective_height
+			  AND $5 + $6 > grid_y
+		)
+	`
+
+	var isOverlap bool
+	err := r.db.QueryRow(ctx, query,
+		in.UserGardenID,
+		in.ExcludePlacementID,
+		in.GridX, in.EffectiveWidth,
+		in.GridY, in.EffectiveHeight,
+	).Scan(&isOverlap)
+
+	if err != nil {
+		return fmt.Errorf("validate placement overlap: %w", err)
+	}
+
+	if isOverlap {
+		return &apperr.ValidationError{Message: "placement overlaps existing item"}
+	}
+
+	return nil
+}
+
+// CreatePlacement thêm một item mới vào khu vườn
+func (r *Repository) CreatePlacement(ctx context.Context, arg CreatePlacementParams) (*Placement, error) {
+	query := `
+		INSERT INTO public.garden_placements (
+			user_garden_id, inventory_id, 
+			grid_x, grid_y, effective_width, effective_height, rotation
+		) VALUES (
+			$1, $2, $3, $4, $5, $6, $7
+		)
+		RETURNING id, health_status, wilted_at, placed_at
+	`
+
+	var p Placement
+	err := r.db.QueryRow(ctx, query,
+		arg.UserGardenID,
+		arg.InventoryID,
+		arg.GridX,
+		arg.GridY,
+		arg.EffectiveWidth,
+		arg.EffectiveHeight,
+		arg.Rotation,
+	).Scan(
+		&p.ID,
+		&p.HealthStatus,
+		&p.WiltedAt,
+		&p.PlacedAt,
+	)
+
+	if err != nil {
+		// Bắt lỗi Unique Constraint (23505) nếu item đã được đặt
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return nil, &apperr.DuplicateError{Message: "item is already placed in a garden"}
+		}
+		return nil, fmt.Errorf("insert placement: %w", err)
+	}
+
+	// Gán ngược lại dữ liệu input vào object trả về
+	p.UserGardenID = arg.UserGardenID
+	p.InventoryID = arg.InventoryID
+	p.GridX = arg.GridX
+	p.GridY = arg.GridY
+	p.EffectiveWidth = arg.EffectiveWidth
+	p.EffectiveHeight = arg.EffectiveHeight
+	p.Rotation = arg.Rotation
+
+	return &p, nil
 }

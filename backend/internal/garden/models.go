@@ -108,3 +108,20 @@ type ValidationInput struct {
 	EffectiveHeight    int //
 	GridSize           int
 }
+
+type CreatePlacementParams struct {
+	UserGardenID    string
+	InventoryID     string
+	GridX           int
+	GridY           int
+	EffectiveWidth  int
+	EffectiveHeight int
+	Rotation        int
+}
+
+func GetEffectiveDimensions(w, h, rotation int) (effectiveW, effectiveH int) {
+	if rotation == 90 || rotation == 270 {
+		return h, w
+	}
+	return w, h
+}
