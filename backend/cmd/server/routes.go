@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/minhvq36/focus-flow/backend/internal/auth"
 	"github.com/minhvq36/focus-flow/backend/internal/garden"
+	"github.com/minhvq36/focus-flow/backend/internal/inventory"
 	"github.com/minhvq36/focus-flow/backend/internal/task"
 	"github.com/minhvq36/focus-flow/backend/pkg/logger"
 )
@@ -26,6 +27,7 @@ func setupRoutes(jwks keyfunc.Keyfunc, db *pgxpool.Pool, log *logger.Logger) *ch
 		r.Use(auth.RequireAuth(jwks))
 		r.Route("/api/tasks", task.Routes(db, log))
 		r.Route("/api/garden", garden.Routes(db, log))
+		r.Route("/api/inventory", inventory.Routes(db, log))
 	})
 
 	return r
