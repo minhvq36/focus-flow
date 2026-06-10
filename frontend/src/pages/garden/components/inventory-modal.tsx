@@ -1,7 +1,6 @@
 import { X, Loader2, PackageOpen } from 'lucide-react'
 import { useInventoryBag } from '../hooks/use-inventory'
 import { getAssetUrl } from '@/lib/storage'
-import { useEffect } from 'react'
 import { usePlacementStore } from '@/store/placement-store'
 
 interface InventoryModalProps {
@@ -13,18 +12,6 @@ export function InventoryModal({ isOpen, onClose }: InventoryModalProps) {
   const { data: items, isLoading, error } = useInventoryBag()
   const { setActiveItem } = usePlacementStore()
 
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (!isOpen) return
-      const target = e.target as HTMLElement
-      if (target.closest('button[title*="Túi đồ"]')) return
-      if (!target.closest('#inventory-panel')) {
-        onClose()
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [isOpen, onClose])
 
   return (
     <div 
