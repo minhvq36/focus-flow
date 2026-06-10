@@ -59,15 +59,12 @@ export function InventoryModal({ isOpen, onClose }: InventoryModalProps) {
                         alt={item.name}
                         className="w-3/4 h-3/4 object-contain group-hover:scale-110 transition-transform drop-shadow-md"
                         onError={(e) => {
-                            // Dùng GIF trong suốt 1x1 pixel (Siêu nhẹ, không tốn resource, không request mạng)
                             const emptyImage = 'data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw=='
                             
                             // Chặn loop vô hạn
                             if (e.currentTarget.src !== emptyImage) {
                             e.currentTarget.src = emptyImage
-                            
-                            // Mẹo nhỏ: Bạn có thể giảm opacity của ô này xuống 50% để biểu thị là "đang lỗi ảnh" 
-                            // e.currentTarget.style.opacity = '0.5' 
+                            e.currentTarget.style.opacity = '0.5' 
                             }
                         }}
                     />

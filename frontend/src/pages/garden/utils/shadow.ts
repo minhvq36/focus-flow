@@ -14,7 +14,7 @@ export function getShadowTransform(date: Date = new Date()) {
     const progress = (time - 6) / 12
     skewX = 0.8 - (progress * 1.6)
     const distFromNoon = Math.abs(progress - 0.5)
-    alpha = 0.35 - (Math.pow(distFromNoon, 1.5) * 0.4)
+    alpha = 0.28 - (Math.pow(distFromNoon, 1.5) * 0.3)
     scaleYMultiplier = 0.55 + (distFromNoon * 1.6)
 
   } else {
