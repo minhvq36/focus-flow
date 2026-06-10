@@ -86,23 +86,24 @@ export default function Garden() {
         // CLICK ĐỂ ĐẶT ĐỒ (Khi đang cầm item)
         grid.onRequestPlace = (col, row, item, rot) => {
           if (item.instance_ids.length === 0) return
-          
           const instanceId = item.instance_ids[0]
 
-          // 1. Gọi API (Optimistic UI sẽ làm hình ảnh xuất hiện ngay lập tức)
+          // GỌI API (Đã cung cấp đủ data cho Optimistic UI vẽ hình)
           placeMutation.mutate({
             inventory_id: instanceId,
             grid_x: col,
             grid_y: row,
-            rotation: rot
+            rotation: rot,
+            asset_key: item.asset_key,    // <--- THÊM DÒNG NÀY
+            item_width: item.width,       // <--- THÊM DÒNG NÀY
+            item_height: item.height      // <--- THÊM DÒNG NÀY
           })
 
-          // 2. Logic Shift-To-Batch
           const isShiftPressed = window.event && (window.event as MouseEvent).shiftKey
           if (isShiftPressed && item.instance_ids.length > 1) {
-            updateActiveItemInstances(item.instance_ids.slice(1)) // Trừ đi item vừa đặt
+            updateActiveItemInstances(item.instance_ids.slice(1))
           } else {
-            clearPlacement() // Hết đồ hoặc thả Shift -> Tắt chế độ đặt
+            clearPlacement() 
           }
         }
 

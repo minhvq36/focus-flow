@@ -1,16 +1,10 @@
-import { Container, Graphics, Sprite, Assets } from 'pixi.js'
+import { Container, Graphics, Sprite, Assets, Polygon } from 'pixi.js'
 import type { GardenResponse, PlacementResponse } from '@/types/garden'
-import {
-  gridToScreen,
-  placementToScreen,
-  diamondVertices,
-  isInBounds,
-  type TileConfig,
-} from './isometric'
+import type { InBagItem } from '@/types/inventory'
+import { gridToScreen, placementToScreen, diamondVertices, isInBounds, type TileConfig } from './isometric'
 import { ASSET_MAP, DEFAULT_ASSET_CONFIG } from '@/constants/assets'
 import { createShadow } from './shadow'
 import { getAssetUrl } from '@/lib/storage'
-import type { InBagItem } from '@/types/inventory'
 
 export const TILE_CONFIG: TileConfig = {
   tileWidth: 64,
@@ -24,14 +18,19 @@ const COLOR = {
   TILE_HOVER:       0xffd966,
   TILE_SELECTED:    0xff9900,
   PLACEMENT_FILL:   0x4a90d9,
+  
+  // --- BẢNG MÀU CHO CHẾ ĐỘ ĐẶT ĐỒ (BLUEPRINT) ---
+  BP_VALID:         0x4ade80, // Xanh lá sáng (Đặt được)
+  BP_INVALID:       0xf87171, // Đỏ rực (Bị vướng)
+  BP_OCCUPIED:      0x64748b, // Xám (Đất đã có vật thể)
+  BP_DIM:           0x6ea543, // Xanh lá sẫm (Đất trống bị làm chìm đi)
 } as const
 
 export class GardenGrid extends Container {
   private gridSize: number = 0
   private tiles = new Map<string, Graphics>()
-  
   private placementSprites = new Map<string, Sprite>()
-  private shadowSprites = new Map<string, Container>() // Thay đổi kiểu dữ liệu
+  private shadowSprites = new Map<string, Container>()
   
   private hoveredTile: { col: number; row: number } | null = null
   private selectedTile: { col: number; row: number } | null = null
@@ -40,7 +39,7 @@ export class GardenGrid extends Container {
   private shadowLayer = new Container()
   private objectLayer = new Container()
 
-    // THÊM BIẾN CHO GHOST MODE
+  // --- STATE DÀNH CHO GHOST MODE ---
   private currentPlacements: PlacementResponse[] = []
   private ghostSprite: Sprite | null = null
   private ghostShadow: Container | null = null
@@ -48,8 +47,11 @@ export class GardenGrid extends Container {
   private activeRotation: number = 0
   private isValidPlacement: boolean = false
 
-  onRequestPlace?: (col: number, row: number, item: InBagItem, rotation: number) => void
+  // Biến tối ưu chống Lag
+  private occupiedTiles = new Set<string>() 
+  private currentFootprint = new Set<string>() 
 
+  onRequestPlace?: (col: number, row: number, item: InBagItem, rotation: number) => void
   onTileClick?: (col: number, row: number, placement: PlacementResponse | null) => void
   onTileHover?: (col: number, row: number) => void
   getIsDragging?: () => boolean
@@ -58,7 +60,6 @@ export class GardenGrid extends Container {
     super()
     this.eventMode = 'static'
     this.objectLayer.sortableChildren = true
-    
     this.addChild(this.floorLayer)
     this.addChild(this.shadowLayer)
     this.addChild(this.objectLayer)
@@ -87,6 +88,12 @@ export class GardenGrid extends Container {
       }
     }
 
+    // Nếu đang cầm đồ khi data load lại (nhờ Optimistic UI), cập nhật lại mảng chiếm chỗ
+    if (this.activeItem) {
+      this.calculateOccupiedTiles()
+      this.redrawAllTiles()
+    }
+
     for (const p of garden.placements) {
       this.createPlacementSprite(p)
     }
@@ -96,17 +103,22 @@ export class GardenGrid extends Container {
     this.activeItem = item
     this.activeRotation = rotation
 
-    // Nếu tắt -> Dọn dẹp Ghost
+    if (this.ghostSprite) { this.ghostSprite.destroy(); this.ghostSprite = null }
+    if (this.ghostShadow) { this.ghostShadow.destroy(); this.ghostShadow = null }
+    this.currentFootprint.clear()
+
     if (!item) {
-      if (this.ghostSprite) { this.ghostSprite.destroy(); this.ghostSprite = null }
-      if (this.ghostShadow) { this.ghostShadow.destroy(); this.ghostShadow = null }
+      this.redrawAllTiles() // Khôi phục map về bình thường
       return
     }
 
-    // Xoá ghost cũ nếu có
-    if (this.ghostSprite) { this.ghostSprite.destroy(); this.ghostSprite = null }
-    if (this.ghostShadow) { this.ghostShadow.destroy(); this.ghostShadow = null }
+    // 1. Lưu lại các ô bị chiếm để check nhanh
+    this.calculateOccupiedTiles()
+    
+    // 2. Làm mờ toàn bộ map
+    this.redrawAllTiles()
 
+    // 3. Tạo Sprite bóng mờ
     const config = ASSET_MAP[item.asset_key] || { ...DEFAULT_ASSET_CONFIG, fileName: item.asset_key }
     const textureUrl = getAssetUrl(config.fileName)
 
@@ -116,15 +128,14 @@ export class GardenGrid extends Container {
       const autoScale = targetScreenWidth / texture.width
       const finalScale = autoScale * config.paddingZoom
 
-      // Tạo bóng mờ
       if (config.castShadow) {
         this.ghostShadow = createShadow(texture, config, finalScale)
         this.ghostShadow.alpha = 0.5
         this.ghostShadow.visible = false
+        this.ghostShadow.eventMode = 'none'
         this.shadowLayer.addChild(this.ghostShadow)
       }
 
-      // Tạo Sprite Ghost
       this.ghostSprite = new Sprite(texture)
       this.ghostSprite.anchor.set(config.anchorX, config.anchorY)
       this.ghostSprite.scale.set(finalScale)
@@ -132,123 +143,39 @@ export class GardenGrid extends Container {
       this.ghostSprite.eventMode = 'none'
       this.ghostSprite.visible = false
       this.objectLayer.addChild(this.ghostSprite)
-
     } catch (e) {
       console.warn("Error loading ghost", e)
     }
   }
 
-  // HÀM MỚI 2: THUẬT TOÁN AABB
-  private checkCollision(col: number, row: number, effW: number, effH: number): boolean {
-    // 1. Check văng ra ngoài map
-    if (col < 0 || row < 0 || col + effW > this.gridSize || row + effH > this.gridSize) {
-      return true
-    }
-    // 2. Check đè lên item khác
+  private calculateOccupiedTiles() {
+    this.occupiedTiles.clear()
     for (const p of this.currentPlacements) {
-      if (
-        col < p.grid_x + p.effective_width &&
-        col + effW > p.grid_x &&
-        row < p.grid_y + p.effective_height &&
-        row + effH > p.grid_y
-      ) {
-        return true // Có va chạm
+      // Dùng fallback phòng trường hợp DB cũ effective_width = 0
+      const w = p.effective_width || p.item_width || 1
+      const h = p.effective_height || p.item_height || 1
+      for (let r = 0; r < h; r++) {
+        for (let c = 0; c < w; c++) {
+          this.occupiedTiles.add(`${p.grid_x + c}_${p.grid_y + r}`)
+        }
+      }
+    }
+  }
+
+  private checkCollision(col: number, row: number, effW: number, effH: number): boolean {
+    if (col < 0 || row < 0 || col + effW > this.gridSize || row + effH > this.gridSize) return true
+    for (let r = 0; r < effH; r++) {
+      for (let c = 0; c < effW; c++) {
+        if (this.occupiedTiles.has(`${col + c}_${row + r}`)) return true
       }
     }
     return false
   }
 
-  private async createPlacementSprite(placement: PlacementResponse): Promise<void> {
-    const config = ASSET_MAP[placement.asset_key] || {
-      ...DEFAULT_ASSET_CONFIG,
-      fileName: placement.asset_key, 
-    }
-
-    const textureUrl = getAssetUrl(config.fileName)
-
-    try {
-      const texture = await Assets.load(textureUrl)
-      
-      const { grid_x: col, grid_y: row, item_width: w, item_height: h } = placement
-      const screen = placementToScreen(col, row, w, h, TILE_CONFIG)
-      
-      const targetScreenWidth = (w + h) * (TILE_CONFIG.tileWidth / 2)
-      const autoScale = targetScreenWidth / texture.width
-      const finalScale = autoScale * config.paddingZoom
-
-      // ==========================================
-      // A. SHADOW LAYER (Render siêu gọn gàng)
-      // ==========================================
-      if (config.castShadow) {
-        // Chỉ việc gọi hàm từ file shadow.ts
-        const shadowNode = createShadow(texture, config, finalScale)
-        
-        shadowNode.x = screen.x
-        shadowNode.y = screen.y
-
-        if (!this.objectLayer.destroyed) {
-          // Map giờ lưu được kiểu Container thay vì Sprite riêng lẻ
-          this.shadowSprites.set(`${col}_${row}`, shadowNode) 
-          this.shadowLayer.addChild(shadowNode)
-        }
-      }
-
-      // ==========================================
-      // B. MAIN SPRITE
-      // ==========================================
-      const sprite = new Sprite(texture)
-      sprite.x = screen.x
-      sprite.y = screen.y
-      sprite.anchor.set(config.anchorX, config.anchorY) 
-      sprite.scale.set(finalScale)
-      sprite.zIndex = col + row + w + h
-      sprite.eventMode = 'none'
-
-      if (!this.objectLayer.destroyed) {
-        this.placementSprites.set(`${col}_${row}`, sprite)
-        this.objectLayer.addChild(sprite)
-      }
-
-    } catch (error) {
-      console.warn(`[Fallback] Cannot load asset: ${textureUrl}`, error)
-    }
-  }
-
-  private createTile(col: number, row: number, placement: PlacementResponse | null): Graphics {
-    const g = new Graphics()
-    const screen = gridToScreen(col, row, TILE_CONFIG)
-    g.x = screen.x
-    g.y = screen.y
-
-    this.drawTile(g, col, row, placement, false)
-    g.eventMode = 'static'
-    g.cursor = 'pointer'
-
-    g.on('pointerover', () => this.handleHover(col, row))
-    g.on('pointerout',  () => this.handleHoverOut(col, row))
-    g.on('pointertap',  () => this.handleClick(col, row, placement))
-
-    return g
-  }
-
-  private drawTile(g: Graphics, col: number, row: number, placement: PlacementResponse | null, isHovered: boolean): void {
-    g.clear()
-    const vertices = diamondVertices(TILE_CONFIG)
-    const isSelected = this.selectedTile?.col === col && this.selectedTile?.row === row
-    
-    let fillColor: number
-    if (isSelected) fillColor = COLOR.TILE_SELECTED
-    else if (isHovered) fillColor = COLOR.TILE_HOVER
-    else if (placement) fillColor = COLOR.PLACEMENT_FILL
-    else fillColor = (col + row) % 2 === 0 ? COLOR.TILE_FILL : COLOR.TILE_FILL_ALT
-    
-    g.poly(vertices).fill(fillColor).stroke({ color: COLOR.TILE_STROKE, width: 1 })
-  }
-
   private handleHover(col: number, row: number): void {
     if (!isInBounds(col, row, this.gridSize)) return
 
-    // --- LOGIC GHOST SPRITE ---
+    // --- CHẾ ĐỘ ĐẶT ĐỒ ---
     if (this.activeItem && this.ghostSprite) {
       this.ghostSprite.visible = true
       if (this.ghostShadow) this.ghostShadow.visible = true
@@ -258,69 +185,177 @@ export class GardenGrid extends Container {
       const effH = isRotated ? this.activeItem.width : this.activeItem.height
 
       const screen = placementToScreen(col, row, effW, effH, TILE_CONFIG)
+      this.ghostSprite.x = screen.x; this.ghostSprite.y = screen.y
+      this.ghostSprite.zIndex = col + row + effW + effH
+      if (this.ghostShadow) { this.ghostShadow.x = screen.x; this.ghostShadow.y = screen.y }
+
+      this.isValidPlacement = !this.checkCollision(col, row, effW, effH)
+      this.ghostSprite.tint = this.isValidPlacement ? 0xffffff : 0xff4444
+
+      // TỐI ƯU HOÁ: CHỈ VẼ LẠI Ô BỊ THAY ĐỔI
+      const oldFootprint = Array.from(this.currentFootprint)
+      this.currentFootprint.clear()
       
-      this.ghostSprite.x = screen.x
-      this.ghostSprite.y = screen.y
-      this.ghostSprite.zIndex = col + row + effW + effH // Tính Z-index chuẩn
-      
-      if (this.ghostShadow) {
-        this.ghostShadow.x = screen.x
-        this.ghostShadow.y = screen.y
+      for (let r = 0; r < effH; r++) {
+        for (let c = 0; c < effW; c++) {
+          this.currentFootprint.add(`${col + c}_${row + r}`)
+        }
       }
 
-      // Đổi màu Đỏ/Bình thường
-      const isColliding = this.checkCollision(col, row, effW, effH)
-      this.isValidPlacement = !isColliding
-      
-      if (isColliding) {
-        this.ghostSprite.tint = 0xff4444 // Đỏ
-      } else {
-        this.ghostSprite.tint = 0xffffff // Xanh/Mặc định
-      }
-      return // Bỏ qua highlight vàng của map
+      const tilesToRedraw = new Set([...oldFootprint, ...Array.from(this.currentFootprint)])
+      tilesToRedraw.forEach(key => {
+        const [c, r] = key.split('_').map(Number)
+        if (isInBounds(c, r, this.gridSize)) this.drawTileSpecific(c, r)
+      })
+      return
     }
 
-    // --- LOGIC HOVER BÌNH THƯỜNG (CŨ) ---
+    // --- CHẾ ĐỘ THƯỜNG ---
     if (this.hoveredTile) {
       const prev = this.hoveredTile
-      const prevTile = this.tiles.get(`${prev.col}_${prev.row}`)
-      if (prevTile) this.drawTile(prevTile, prev.col, prev.row, null, false)
+      this.hoveredTile = null
+      this.drawTileSpecific(prev.col, prev.row)
     }
     this.hoveredTile = { col, row }
-    const tile = this.tiles.get(`${col}_${row}`)
-    if (tile) this.drawTile(tile, col, row, null, true)
+    this.drawTileSpecific(col, row)
     this.onTileHover?.(col, row)
   }
 
   private handleHoverOut(col: number, row: number): void {
-    const tile = this.tiles.get(`${col}_${row}`)
-    if (tile) this.drawTile(tile, col, row, null, false)
+    if (this.activeItem) {
+      if (this.ghostSprite) this.ghostSprite.visible = false
+      if (this.ghostShadow) this.ghostShadow.visible = false
+      
+      const oldFootprint = Array.from(this.currentFootprint)
+      this.currentFootprint.clear()
+      oldFootprint.forEach(key => {
+        const [c, r] = key.split('_').map(Number)
+        if (isInBounds(c, r, this.gridSize)) this.drawTileSpecific(c, r)
+      })
+      return
+    }
+    const prev = this.hoveredTile
     this.hoveredTile = null
+    if (prev) this.drawTileSpecific(prev.col, prev.row)
   }
 
   private handleClick(col: number, row: number, placement: PlacementResponse | null): void {
     if (this.getIsDragging?.()) return
     if (!isInBounds(col, row, this.gridSize)) return
 
-    // --- LOGIC CLICK ĐẶT ĐỒ ---
     if (this.activeItem) {
-      if (this.isValidPlacement) {
-        this.onRequestPlace?.(col, row, this.activeItem, this.activeRotation)
-      } else {
-        // Tương lai: Phát âm thanh bíp bíp lỗi ở đây
-      }
+      if (this.isValidPlacement) this.onRequestPlace?.(col, row, this.activeItem, this.activeRotation)
       return
     }
 
-    // --- LOGIC CHỌN ĐỒ BÌNH THƯỜNG (CŨ) ---
     if (this.selectedTile?.col === col && this.selectedTile?.row === row) {
       this.selectedTile = null
     } else {
       this.selectedTile = { col, row }
     }
-    const tile = this.tiles.get(`${col}_${row}`)
-    if (tile) this.drawTile(tile, col, row, placement, false)
+    this.redrawAllTiles()
     this.onTileClick?.(col, row, placement)
+  }
+
+  // --- HÀM RENDER RIÊNG LẺ CHỐNG LAG ---
+  private drawTileSpecific(col: number, row: number) {
+    const tile = this.tiles.get(`${col}_${row}`)
+    if (tile) this.drawTile(tile, col, row, null, false)
+  }
+
+  private redrawAllTiles() {
+    this.tiles.forEach((tile, key) => {
+      const [col, row] = key.split('_').map(Number)
+      this.drawTile(tile, col, row, null, false)
+    })
+  }
+
+  private drawTile(g: Graphics, col: number, row: number, placement: PlacementResponse | null, isHovered: boolean): void {
+    g.clear()
+    const vertices = diamondVertices(TILE_CONFIG)
+    const key = `${col}_${row}`
+    let fillColor: number
+    
+    if (this.activeItem) {
+      if (this.currentFootprint.has(key)) {
+        fillColor = this.isValidPlacement ? COLOR.BP_VALID : COLOR.BP_INVALID
+      } else if (this.occupiedTiles.has(key)) {
+        fillColor = COLOR.BP_OCCUPIED
+      } else {
+        fillColor = COLOR.BP_DIM
+      }
+    } else {
+      const isSelected = this.selectedTile?.col === col && this.selectedTile?.row === row
+      const isHoveredTile = this.hoveredTile?.col === col && this.hoveredTile?.row === row
+      
+      if (isSelected) fillColor = COLOR.TILE_SELECTED
+      else if (isHoveredTile || isHovered) fillColor = COLOR.TILE_HOVER
+      else if (placement) fillColor = COLOR.PLACEMENT_FILL
+      else fillColor = (col + row) % 2 === 0 ? COLOR.TILE_FILL : COLOR.TILE_FILL_ALT
+    }
+    
+    g.poly(vertices).fill(fillColor).stroke({ color: COLOR.TILE_STROKE, width: 1 })
+  }
+
+  private createTile(col: number, row: number, placement: PlacementResponse | null): Graphics {
+    const g = new Graphics()
+    const screen = gridToScreen(col, row, TILE_CONFIG)
+    g.x = screen.x; g.y = screen.y
+
+    // --- FIX LỖI NHẤP NHÁY (FLICKERING) ---
+    // Định nghĩa cố định HitArea (Vùng nhận diện chuột).
+    // Khi này g.clear() sẽ không làm mất nhận diện chuột nữa!
+    const vertices = diamondVertices(TILE_CONFIG)
+    g.hitArea = new Polygon(vertices)
+
+    this.drawTile(g, col, row, placement, false)
+    g.eventMode = 'static'
+    g.cursor = 'pointer'
+
+    g.on('pointerover', () => this.handleHover(col, row))
+    g.on('pointerout',  () => this.handleHoverOut(col, row))
+    g.on('pointertap',  () => this.handleClick(col, row, placement))
+    return g
+  }
+
+  private async createPlacementSprite(placement: PlacementResponse): Promise<void> {
+    const config = ASSET_MAP[placement.asset_key] || { ...DEFAULT_ASSET_CONFIG, fileName: placement.asset_key }
+    const textureUrl = getAssetUrl(config.fileName)
+
+    try {
+      const texture = await Assets.load(textureUrl)
+      // SỬA LỖI MẤT SPRITE Ở ĐÂY: Fallback về item_width nếu effective_width bị 0
+      const w = placement.effective_width || placement.item_width || 1
+      const h = placement.effective_height || placement.item_height || 1
+      const screen = placementToScreen(placement.grid_x, placement.grid_y, w, h, TILE_CONFIG)
+      
+      const targetScreenWidth = (w + h) * (TILE_CONFIG.tileWidth / 2)
+      const autoScale = targetScreenWidth / texture.width
+      const finalScale = autoScale * config.paddingZoom
+
+      if (config.castShadow) {
+        const shadowNode = createShadow(texture, config, finalScale)
+        shadowNode.x = screen.x; shadowNode.y = screen.y
+        if (!this.objectLayer.destroyed) {
+          this.shadowSprites.set(`${placement.grid_x}_${placement.grid_y}`, shadowNode) 
+          this.shadowLayer.addChild(shadowNode)
+        }
+      }
+
+      const sprite = new Sprite(texture)
+      sprite.x = screen.x; sprite.y = screen.y
+      sprite.anchor.set(config.anchorX, config.anchorY) 
+      sprite.scale.set(finalScale)
+      sprite.zIndex = placement.grid_x + placement.grid_y + w + h
+      sprite.eventMode = 'none'
+
+      if (!this.objectLayer.destroyed) {
+        this.placementSprites.set(`${placement.grid_x}_${placement.grid_y}`, sprite)
+        this.objectLayer.addChild(sprite)
+      }
+    } catch (error) {
+      console.warn(`[Fallback] Cannot load asset: ${textureUrl}`, error)
+    }
   }
 
   private clear(): void {

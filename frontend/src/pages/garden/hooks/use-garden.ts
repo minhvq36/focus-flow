@@ -40,38 +40,39 @@ export function usePlaceItem(gardenId: string | null) {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (data: { inventory_id: string; grid_x: number; grid_y: number; rotation: number }) => {
-      // Gọi API thực tế của backend bạn
-      return api.post<PlacementResponse>(`/api/garden/${gardenId}/placements`, data)
+    mutationFn: async (data: { 
+      inventory_id: string; grid_x: number; grid_y: number; rotation: number;
+      // 3 trường này thêm vào chỉ để phục vụ Optimistic UI (Không gửi lên API)
+      asset_key: string; item_width: number; item_height: number;
+    }) => {
+      // Bóc tách data, CHỈ GỬI đúng field mà backend cần
+      const payload = {
+        inventory_id: data.inventory_id,
+        grid_x: data.grid_x,
+        grid_y: data.grid_y,
+        rotation: data.rotation
+      }
+      return api.post<PlacementResponse>(`/api/garden/${gardenId}/placements`, payload)
     },
-    // KHI BẮT ĐẦU GỌI API -> CẬP NHẬT UI NGAY LẬP TỨC
     onMutate: async (variables) => {
       if (!gardenId) return
-      
-      // Hủy các request get garden đang dở dang
       await queryClient.cancelQueries({ queryKey: ['garden', gardenId] })
-      
-      // Lưu lại state cũ để lỡ lỗi thì Rollback
       const previousGarden = queryClient.getQueryData<GardenResponse>(['garden', gardenId])
       
-      // Bơm data ảo (Optimistic) vào cache
       if (previousGarden) {
-        // Giả lập tính toán effective width/height tạm thời
-        // LƯU Ý: Frontend cần biết width/height gốc, ở đây mình tạm fake 1x1, 
-        // Lát nữa API trả về thật nó sẽ đè lên data đúng.
         const isRotated = variables.rotation === 90 || variables.rotation === 270
         
         const optimisticPlacement: PlacementResponse = {
           id: `temp_${Date.now()}`,
           inventory_id: variables.inventory_id,
-          item_id: 'temp', // Lẽ ra truyền từ UI vào, nhưng temp cũng ko sao
-          asset_key: '',   // Tạm thời bỏ qua hoặc truyền từ component vào
+          item_id: 'temp', 
+          asset_key: variables.asset_key, // BÂY GIỜ ĐÃ CÓ ASSET KEY!
           grid_x: variables.grid_x,
           grid_y: variables.grid_y,
-          item_width: 1, 
-          item_height: 1,
-          effective_width: isRotated ? 1 : 1, 
-          effective_height: isRotated ? 1 : 1,
+          item_width: variables.item_width, 
+          item_height: variables.item_height,
+          effective_width: isRotated ? variables.item_height : variables.item_width, 
+          effective_height: isRotated ? variables.item_width : variables.item_height,
           rotation: variables.rotation,
           health_status: 'healthy',
           wilted_at: null,
@@ -85,18 +86,16 @@ export function usePlaceItem(gardenId: string | null) {
       }
       return { previousGarden }
     },
-    // NẾU API LỖI -> TRẢ LẠI TRẠNG THÁI CŨ
     onError: (err, _variables, context) => {
       if (context?.previousGarden && gardenId) {
         queryClient.setQueryData(['garden', gardenId], context.previousGarden)
       }
       console.error("Lỗi đặt đồ:", err)
     },
-    // DÙ THÀNH CÔNG HAY THẤT BẠI -> REFETCH BACKGROUND ĐỂ ĐỒNG BỘ DATA THẬT
     onSettled: () => {
       if (gardenId) {
         queryClient.invalidateQueries({ queryKey: ['garden', gardenId] })
-        queryClient.invalidateQueries({ queryKey: ['inventory'] }) // Refresh lại túi đồ
+        queryClient.invalidateQueries({ queryKey: ['inventory'] })
       }
     },
   })

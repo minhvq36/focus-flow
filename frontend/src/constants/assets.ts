@@ -12,7 +12,7 @@ export const ASSET_MAP: Record<string, AssetConfig> = {
   'path_stone': {
     fileName: 'path_stone',
     anchorX: 0.5,
-    anchorY: 0.91,     // Item phẳng nên tâm thường ở giữa
+    anchorY: 0.75,     // Item phẳng nên tâm thường ở giữa
     visualBaseY: 0.8,
     paddingZoom: 1.285,
     castShadow: true, // TODO: To change this
