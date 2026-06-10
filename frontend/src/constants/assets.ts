@@ -13,7 +13,7 @@ export const ASSET_MAP: Record<string, AssetConfig> = {
     fileName: 'path_stone',
     anchorX: 0.5,
     anchorY: 0.75,     // Item phẳng nên tâm thường ở giữa
-    visualBaseY: 0.8,
+    visualBaseY: 0.81,
     paddingZoom: 1.285,
     castShadow: true, // TODO: To change this
     shadowStyle: 'upright', // TODO: To change this
@@ -21,8 +21,8 @@ export const ASSET_MAP: Record<string, AssetConfig> = {
   'blossom_tree': {
     fileName: 'blossom_tree',
     anchorX: 0.5,
-    anchorY: 0.91,    // Gốc cây chạm đất ở 91% chiều cao ảnh
-    visualBaseY: 0.8,
+    anchorY: 0.75,    // Gốc cây chạm đất ở 91% chiều cao ảnh
+    visualBaseY: 0.81,
     paddingZoom: 1.285,
     castShadow: true,  // <-- Cây đứng thẳng thì CÓ bóng
     shadowStyle: 'upright', // <-- Cây đứng thẳng thì bóng có texture
@@ -32,8 +32,8 @@ export const ASSET_MAP: Record<string, AssetConfig> = {
 export const DEFAULT_ASSET_CONFIG: AssetConfig = {
   fileName: 'default',
   anchorX: 0.5,
-  anchorY: 0.91,
-  visualBaseY: 0.8,
+  anchorY: 0.75,
+  visualBaseY: 0.81,
   paddingZoom: 1.285,
   castShadow: true,
   shadowStyle: 'upright',

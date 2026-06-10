@@ -243,6 +243,12 @@ export class GardenGrid extends Container {
     if (this.getIsDragging?.()) return
     if (!isInBounds(col, row, this.gridSize)) return
 
+    // TODO: Develop when delete mode
+    // if (this.currentMode === 'DELETE_MODE' && placement) {
+    //   this.api.deletePlacement(placement.id); // Chuẩn xác 100%, không bị vướng padding!
+    //   return;
+    // }
+
     if (this.activeItem) {
       if (this.isValidPlacement) this.onRequestPlace?.(col, row, this.activeItem, this.activeRotation)
       return
@@ -336,6 +342,7 @@ export class GardenGrid extends Container {
       if (config.castShadow) {
         const shadowNode = createShadow(texture, config, finalScale)
         shadowNode.x = screen.x; shadowNode.y = screen.y
+        shadowNode.eventMode = 'none'
         if (!this.objectLayer.destroyed) {
           this.shadowSprites.set(`${placement.grid_x}_${placement.grid_y}`, shadowNode) 
           this.shadowLayer.addChild(shadowNode)
