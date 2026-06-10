@@ -2,6 +2,7 @@ import { X, Loader2, PackageOpen } from 'lucide-react'
 import { useInventoryBag } from '../hooks/use-inventory'
 import { getAssetUrl } from '@/lib/storage'
 import { useEffect } from 'react'
+import { usePlacementStore } from '@/store/placement-store'
 
 interface InventoryModalProps {
   isOpen: boolean
@@ -10,6 +11,7 @@ interface InventoryModalProps {
 
 export function InventoryModal({ isOpen, onClose }: InventoryModalProps) {
   const { data: items, isLoading, error } = useInventoryBag()
+  const { setActiveItem } = usePlacementStore()
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -70,7 +72,9 @@ export function InventoryModal({ isOpen, onClose }: InventoryModalProps) {
               return (
                 <div 
                   key={item.item_id} 
-                  /* CHỈNH SỬA: Khung item màu xám cực nhạt (slate-50), hover sáng viền vàng (amber-400) + nền vàng nhạt (amber-50) */
+                  onClick={() => {
+                    setActiveItem(item)
+                  }}
                   className="relative group w-full aspect-square bg-slate-50/80 border border-slate-200 rounded-xl flex items-center justify-center hover:bg-amber-50 hover:border-amber-400 transition-all cursor-pointer shadow-sm hover:shadow-md"
                   title={`${item.name} (${item.width}x${item.height})`}
                 >

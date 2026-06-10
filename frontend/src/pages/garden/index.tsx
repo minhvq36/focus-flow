@@ -1,15 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
 import { GardenApp } from './utils/garden-app'
 import { GardenGrid } from './utils/garden-grid'
-import { useGardenList, useGarden, getLastGardenId, setLastGardenId } from './hooks/use-garden'
+import { useGardenList, useGarden, getLastGardenId, setLastGardenId, usePlaceItem } from './hooks/use-garden'
 import type { PlacementResponse } from '@/types/garden'
 
-// Nhập các component nội bộ
 import { RecenterButton } from './components/recenter-button'
 import { GardenTabs } from './components/garden-tabs'
 import { LoadingOverlay } from './components/loading-overlay'
 import { TilePopup } from './components/tile-popup'
 import { GardenToolbar } from './components/garden-toolbar'
+
+import { usePlacementStore } from '@/store/placement-store'
 
 const ZOOM_KEY = (gardenId: string) => `garden_zoom_${gardenId}`
 
@@ -58,6 +59,12 @@ export default function Garden() {
     placement: PlacementResponse | null
   } | null>(null)
 
+  // Lấy dữ liệu và hàm từ Zustand Store
+  const { activeItem, rotation, clearPlacement, rotateItem, updateActiveItemInstances } = usePlacementStore()
+  
+  // Khởi tạo Mutation cho việc đặt đồ
+  const placeMutation = usePlaceItem(activeGardenId)
+
   // Khởi tạo PixiJS Canvas
   useEffect(() => {
     if (!containerRef.current) return
@@ -70,9 +77,35 @@ export default function Garden() {
       onReady: () => {
         const grid = new GardenGrid()
         grid.getIsDragging = () => app.isDragging
+        
+        // CLICK THÔNG THƯỜNG (Để xem thông tin)
         grid.onTileClick = (col, row, placement) => {
           setSelectedTile({ col, row, placement })
         }
+
+        // CLICK ĐỂ ĐẶT ĐỒ (Khi đang cầm item)
+        grid.onRequestPlace = (col, row, item, rot) => {
+          if (item.instance_ids.length === 0) return
+          
+          const instanceId = item.instance_ids[0]
+
+          // 1. Gọi API (Optimistic UI sẽ làm hình ảnh xuất hiện ngay lập tức)
+          placeMutation.mutate({
+            inventory_id: instanceId,
+            grid_x: col,
+            grid_y: row,
+            rotation: rot
+          })
+
+          // 2. Logic Shift-To-Batch
+          const isShiftPressed = window.event && (window.event as MouseEvent).shiftKey
+          if (isShiftPressed && item.instance_ids.length > 1) {
+            updateActiveItemInstances(item.instance_ids.slice(1)) // Trừ đi item vừa đặt
+          } else {
+            clearPlacement() // Hết đồ hoặc thả Shift -> Tắt chế độ đặt
+          }
+        }
+
         app.cameraContainer.addChild(grid)
         gardenGridRef.current = grid
         
@@ -86,7 +119,8 @@ export default function Garden() {
       gardenGridRef.current = null
       setIsCanvasReady(false)
     }
-  }, [])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // Chỉ chạy 1 lần khi mount
 
   // Load Data vào Canvas
   useEffect(() => {
@@ -94,6 +128,9 @@ export default function Garden() {
 
     const app = gardenAppRef.current
     gardenGridRef.current.load(garden)
+
+    // Mỗi khi load xong data, cập nhật luôn state của Blueprint (Tránh bị mất ghost khi refetch)
+    gardenGridRef.current.setPlacementMode(activeItem, rotation)
 
     const size: number = garden.current_size ?? garden.base_size ?? 5
 
@@ -109,7 +146,26 @@ export default function Garden() {
     return () => {
       app?.app?.stage?.off('garden:zoom', handleZoom)
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [garden, isCanvasReady])
+
+  // --- IMPERATIVE BRIDGE: Đồng bộ từ Zustand -> PixiJS ---
+  useEffect(() => {
+    if (gardenGridRef.current && isCanvasReady) {
+      gardenGridRef.current.setPlacementMode(activeItem, rotation)
+    }
+  }, [activeItem, rotation, isCanvasReady])
+
+  // --- LẮNG NGHE BÀN PHÍM ---
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!activeItem) return
+      if (e.key === 'r' || e.key === 'R') rotateItem()
+      if (e.key === 'Escape') clearPlacement()
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [activeItem, rotateItem, clearPlacement])
 
   // --- HANDLERS CHO CÁC COMPONENTS ---
   const handleRecenter = () => {
@@ -126,7 +182,6 @@ export default function Garden() {
     setSelectedTile(null)
   }
 
-  // Khối DOM HTML gọn gàng hơn hẳn
   return (
     <div className="relative w-[90vw] md:w-[85vw] max-w-6xl min-w-[320px] md:min-w-[500px] h-[85vh] min-h-[500px] mx-auto my-8 border border-border rounded-xl shadow-sm overflow-hidden bg-background">
       
@@ -151,6 +206,26 @@ export default function Garden() {
           selectedTile={selectedTile} 
           onClose={() => setSelectedTile(null)} 
         />
+      )}
+
+      {/* OVERLAY HƯỚNG DẪN KHI ĐANG CẦM ĐỒ */}
+      {activeItem && (
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 px-6 py-2.5 bg-slate-900/80 backdrop-blur-md text-white text-sm font-medium rounded-full shadow-lg pointer-events-none flex items-center gap-3 animate-in slide-in-from-bottom-4">
+          <div className="flex gap-1.5 items-center">
+            <span className="bg-slate-700 px-2 py-0.5 rounded text-amber-400 font-mono">R</span> Xoay
+          </div>
+          <div className="w-1 h-1 bg-slate-500 rounded-full" />
+          <div className="flex gap-1.5 items-center">
+            <span className="bg-slate-700 px-2 py-0.5 rounded text-amber-400 font-mono">ESC</span> Huỷ
+          </div>
+          <div className="w-1 h-1 bg-slate-500 rounded-full" />
+          <div className="flex gap-1.5 items-center">
+            <span className="bg-slate-700 px-2 py-0.5 rounded text-amber-400 font-mono">Shift</span> Đặt liên tục
+          </div>
+          <div className="ml-2 pl-3 border-l border-slate-600 font-bold text-amber-400">
+            Remaining: {activeItem.instance_ids.length}
+          </div>
+        </div>
       )}
       
     </div>

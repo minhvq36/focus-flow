@@ -1,4 +1,4 @@
-import { Container, Graphics, Sprite, Assets, BlurFilter } from 'pixi.js'
+import { Container, Graphics, Sprite, Assets } from 'pixi.js'
 import type { GardenResponse, PlacementResponse } from '@/types/garden'
 import {
   gridToScreen,
@@ -10,6 +10,7 @@ import {
 import { ASSET_MAP, DEFAULT_ASSET_CONFIG } from '@/constants/assets'
 import { createShadow } from './shadow'
 import { getAssetUrl } from '@/lib/storage'
+import type { InBagItem } from '@/types/inventory'
 
 export const TILE_CONFIG: TileConfig = {
   tileWidth: 64,
@@ -39,6 +40,16 @@ export class GardenGrid extends Container {
   private shadowLayer = new Container()
   private objectLayer = new Container()
 
+    // THÊM BIẾN CHO GHOST MODE
+  private currentPlacements: PlacementResponse[] = []
+  private ghostSprite: Sprite | null = null
+  private ghostShadow: Container | null = null
+  private activeItem: InBagItem | null = null
+  private activeRotation: number = 0
+  private isValidPlacement: boolean = false
+
+  onRequestPlace?: (col: number, row: number, item: InBagItem, rotation: number) => void
+
   onTileClick?: (col: number, row: number, placement: PlacementResponse | null) => void
   onTileHover?: (col: number, row: number) => void
   getIsDragging?: () => boolean
@@ -56,6 +67,7 @@ export class GardenGrid extends Container {
   load(garden: GardenResponse): void {
     this.clear()
     this.gridSize = garden.current_size
+    this.currentPlacements = garden.placements 
 
     this.pivot.x = 0
     this.pivot.y = (this.gridSize * TILE_CONFIG.tileHeight) / 2
@@ -78,6 +90,72 @@ export class GardenGrid extends Container {
     for (const p of garden.placements) {
       this.createPlacementSprite(p)
     }
+  }
+
+  public async setPlacementMode(item: InBagItem | null, rotation: number) {
+    this.activeItem = item
+    this.activeRotation = rotation
+
+    // Nếu tắt -> Dọn dẹp Ghost
+    if (!item) {
+      if (this.ghostSprite) { this.ghostSprite.destroy(); this.ghostSprite = null }
+      if (this.ghostShadow) { this.ghostShadow.destroy(); this.ghostShadow = null }
+      return
+    }
+
+    // Xoá ghost cũ nếu có
+    if (this.ghostSprite) { this.ghostSprite.destroy(); this.ghostSprite = null }
+    if (this.ghostShadow) { this.ghostShadow.destroy(); this.ghostShadow = null }
+
+    const config = ASSET_MAP[item.asset_key] || { ...DEFAULT_ASSET_CONFIG, fileName: item.asset_key }
+    const textureUrl = getAssetUrl(config.fileName)
+
+    try {
+      const texture = await Assets.load(textureUrl)
+      const targetScreenWidth = (item.width + item.height) * (TILE_CONFIG.tileWidth / 2)
+      const autoScale = targetScreenWidth / texture.width
+      const finalScale = autoScale * config.paddingZoom
+
+      // Tạo bóng mờ
+      if (config.castShadow) {
+        this.ghostShadow = createShadow(texture, config, finalScale)
+        this.ghostShadow.alpha = 0.5
+        this.ghostShadow.visible = false
+        this.shadowLayer.addChild(this.ghostShadow)
+      }
+
+      // Tạo Sprite Ghost
+      this.ghostSprite = new Sprite(texture)
+      this.ghostSprite.anchor.set(config.anchorX, config.anchorY)
+      this.ghostSprite.scale.set(finalScale)
+      this.ghostSprite.alpha = 0.6
+      this.ghostSprite.eventMode = 'none'
+      this.ghostSprite.visible = false
+      this.objectLayer.addChild(this.ghostSprite)
+
+    } catch (e) {
+      console.warn("Error loading ghost", e)
+    }
+  }
+
+  // HÀM MỚI 2: THUẬT TOÁN AABB
+  private checkCollision(col: number, row: number, effW: number, effH: number): boolean {
+    // 1. Check văng ra ngoài map
+    if (col < 0 || row < 0 || col + effW > this.gridSize || row + effH > this.gridSize) {
+      return true
+    }
+    // 2. Check đè lên item khác
+    for (const p of this.currentPlacements) {
+      if (
+        col < p.grid_x + p.effective_width &&
+        col + effW > p.grid_x &&
+        row < p.grid_y + p.effective_height &&
+        row + effH > p.grid_y
+      ) {
+        return true // Có va chạm
+      }
+    }
+    return false
   }
 
   private async createPlacementSprite(placement: PlacementResponse): Promise<void> {
@@ -169,6 +247,40 @@ export class GardenGrid extends Container {
 
   private handleHover(col: number, row: number): void {
     if (!isInBounds(col, row, this.gridSize)) return
+
+    // --- LOGIC GHOST SPRITE ---
+    if (this.activeItem && this.ghostSprite) {
+      this.ghostSprite.visible = true
+      if (this.ghostShadow) this.ghostShadow.visible = true
+
+      const isRotated = this.activeRotation === 90 || this.activeRotation === 270
+      const effW = isRotated ? this.activeItem.height : this.activeItem.width
+      const effH = isRotated ? this.activeItem.width : this.activeItem.height
+
+      const screen = placementToScreen(col, row, effW, effH, TILE_CONFIG)
+      
+      this.ghostSprite.x = screen.x
+      this.ghostSprite.y = screen.y
+      this.ghostSprite.zIndex = col + row + effW + effH // Tính Z-index chuẩn
+      
+      if (this.ghostShadow) {
+        this.ghostShadow.x = screen.x
+        this.ghostShadow.y = screen.y
+      }
+
+      // Đổi màu Đỏ/Bình thường
+      const isColliding = this.checkCollision(col, row, effW, effH)
+      this.isValidPlacement = !isColliding
+      
+      if (isColliding) {
+        this.ghostSprite.tint = 0xff4444 // Đỏ
+      } else {
+        this.ghostSprite.tint = 0xffffff // Xanh/Mặc định
+      }
+      return // Bỏ qua highlight vàng của map
+    }
+
+    // --- LOGIC HOVER BÌNH THƯỜNG (CŨ) ---
     if (this.hoveredTile) {
       const prev = this.hoveredTile
       const prevTile = this.tiles.get(`${prev.col}_${prev.row}`)
@@ -189,6 +301,18 @@ export class GardenGrid extends Container {
   private handleClick(col: number, row: number, placement: PlacementResponse | null): void {
     if (this.getIsDragging?.()) return
     if (!isInBounds(col, row, this.gridSize)) return
+
+    // --- LOGIC CLICK ĐẶT ĐỒ ---
+    if (this.activeItem) {
+      if (this.isValidPlacement) {
+        this.onRequestPlace?.(col, row, this.activeItem, this.activeRotation)
+      } else {
+        // Tương lai: Phát âm thanh bíp bíp lỗi ở đây
+      }
+      return
+    }
+
+    // --- LOGIC CHỌN ĐỒ BÌNH THƯỜNG (CŨ) ---
     if (this.selectedTile?.col === col && this.selectedTile?.row === row) {
       this.selectedTile = null
     } else {
