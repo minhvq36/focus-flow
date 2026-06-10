@@ -242,3 +242,18 @@ func (r *Repository) GetInventoryItemDetails(ctx context.Context, inventoryID, u
 	}
 	return &item, nil
 }
+
+func (r *Repository) UpdateInventoryStatus(ctx context.Context, tx pgx.Tx, inventoryID, userID, status string) error {
+	tag, err := tx.Exec(ctx, `
+		UPDATE public.inventory
+		SET status = $1
+		WHERE id = $2 AND user_id = $3
+	`, status, inventoryID, userID)
+	if err != nil {
+		return fmt.Errorf("update inventory status: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return &apperr.NotFoundError{Resource: "inventory item"}
+	}
+	return nil
+}

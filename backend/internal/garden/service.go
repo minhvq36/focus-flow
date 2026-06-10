@@ -17,6 +17,7 @@ type RepositoryInterface interface {
 	LockUserGarden(ctx context.Context, tx pgx.Tx, userGardenID, userID string) (baseSize, expansionLevel int, err error)
 	ValidatePlacement(ctx context.Context, tx pgx.Tx, in ValidationInput) error
 	CreatePlacement(ctx context.Context, tx pgx.Tx, arg CreatePlacementParams) (*Placement, error)
+	UpdateInventoryStatus(ctx context.Context, tx pgx.Tx, inventoryID, userID, status string) error
 }
 
 type Service struct {
@@ -138,6 +139,10 @@ func (s *Service) PlaceItem(ctx context.Context, userID string, req PlaceRequest
 	}
 	placement, err := s.repo.CreatePlacement(ctx, tx, createInput)
 	if err != nil {
+		return nil, err
+	}
+
+	if err := s.repo.UpdateInventoryStatus(ctx, tx, req.InventoryID, userID, "placed"); err != nil {
 		return nil, err
 	}
 
