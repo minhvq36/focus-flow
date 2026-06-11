@@ -66,40 +66,76 @@ export class GardenGrid extends Container {
   }
 
   load(garden: GardenResponse): void {
-    this.clear()
-    this.gridSize = garden.current_size
-    this.currentPlacements = garden.placements 
+    // 1. CHỈ TẠO LẠI NỀN ĐẤT NẾU LÀ LẦN ĐẦU TIÊN HOẶC MAP BỊ MỞ RỘNG
+    if (this.gridSize !== garden.current_size || this.tiles.size === 0) {
+      this.clear() // Chỉ nuke toàn bộ nếu size thay đổi
+      this.gridSize = garden.current_size
+      
+      this.pivot.x = 0
+      this.pivot.y = (this.gridSize * TILE_CONFIG.tileHeight) / 2
 
-    this.pivot.x = 0
-    this.pivot.y = (this.gridSize * TILE_CONFIG.tileHeight) / 2
-
-    const placementMap = new Map<string, PlacementResponse>()
-    for (const p of garden.placements) {
-      placementMap.set(`${p.grid_x}_${p.grid_y}`, p)
-    }
-
-    for (let row = 0; row < this.gridSize; row++) {
-      for (let col = 0; col < this.gridSize; col++) {
-        const key = `${col}_${row}`
-        const placement = placementMap.get(key) ?? null
-        const tile = this.createTile(col, row, placement)
-        this.tiles.set(key, tile)
-        this.floorLayer.addChild(tile)
+      for (let row = 0; row < this.gridSize; row++) {
+        for (let col = 0; col < this.gridSize; col++) {
+          const key = `${col}_${row}`
+          // Tile ban đầu chưa có placement, màu sắc sẽ được update ở hàm redrawAllTiles
+          const tile = this.createTile(col, row, null)
+          this.tiles.set(key, tile)
+          this.floorLayer.addChild(tile)
+        }
       }
     }
 
-    // Nếu đang cầm đồ khi data load lại (nhờ Optimistic UI), cập nhật lại mảng chiếm chỗ
+    // Cập nhật state nội bộ
+    this.currentPlacements = garden.placements
+
+    // 2. THUẬT TOÁN DIFFING CHO SPRITE (Chống nháy)
+    const newPlacementKeys = new Set<string>()
+
+    // A. Thêm sprite mới nếu chưa có trên Canvas
+    for (const p of garden.placements) {
+      const key = `${p.grid_x}_${p.grid_y}`
+      newPlacementKeys.add(key)
+      
+      if (!this.placementSprites.has(key)) {
+        this.createPlacementSprite(p) // Chỉ tạo sprite thực sự mới
+      }
+    }
+
+    // B. Xóa sprite cũ trên Canvas nếu Data từ DB không còn (vd: lỗi rollback)
+    for (const [key, sprite] of this.placementSprites.entries()) {
+      if (!newPlacementKeys.has(key)) {
+        sprite.destroy()
+        this.placementSprites.delete(key)
+        
+        const shadow = this.shadowSprites.get(key)
+        if (shadow) {
+          shadow.destroy()
+          this.shadowSprites.delete(key)
+        }
+      }
+    }
+
+    // 3. Cập nhật lại màu sắc cho sàn đất (Floor) dựa trên data mới nhất
+    this.redrawAllTiles()
+
+    // 4. Nếu đang cầm đồ khi data load lại, cập nhật lại mảng chiếm chỗ
     if (this.activeItem) {
       this.calculateOccupiedTiles()
       this.redrawAllTiles()
     }
-
-    for (const p of garden.placements) {
-      this.createPlacementSprite(p)
-    }
   }
 
   public async setPlacementMode(item: InBagItem | null, rotation: number) {
+    // ✅ CHỐT CHẶN: Nếu đang cầm đúng cái item đó, góc xoay đó -> BỎ QUA KHÔNG LÀM GÌ CẢ
+    if (
+      item !== null &&
+      this.activeItem !== null &&
+      this.activeItem.asset_key === item.asset_key &&
+      this.activeRotation === rotation
+    ) {
+      return 
+    }
+    
     this.activeItem = item
     this.activeRotation = rotation
 
@@ -270,9 +306,16 @@ export class GardenGrid extends Container {
   }
 
   private redrawAllTiles() {
+    // Tạo map tra cứu nhanh
+    const placementMap = new Map<string, PlacementResponse>()
+    for (const p of this.currentPlacements) {
+      placementMap.set(`${p.grid_x}_${p.grid_y}`, p)
+    }
+
     this.tiles.forEach((tile, key) => {
       const [col, row] = key.split('_').map(Number)
-      this.drawTile(tile, col, row, null, false)
+      const placement = placementMap.get(key) ?? null
+      this.drawTile(tile, col, row, placement, false)
     })
   }
 

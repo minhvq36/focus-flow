@@ -60,7 +60,7 @@ export default function Garden() {
   } | null>(null)
 
   // Lấy dữ liệu và hàm từ Zustand Store
-  const { activeItem, rotation, clearPlacement, rotateItem, updateActiveItemInstances } = usePlacementStore()
+  const { activeItem, rotation, clearPlacement, rotateItem, consumeActiveItem } = usePlacementStore()
   
   // Khởi tạo Mutation cho việc đặt đồ
   const placeMutation = usePlaceItem(activeGardenId)
@@ -85,25 +85,31 @@ export default function Garden() {
 
         // CLICK ĐỂ ĐẶT ĐỒ (Khi đang cầm item)
         grid.onRequestPlace = (col, row, item, rot) => {
-          if (item.instance_ids.length === 0) return
+          if (!item.instance_ids || item.instance_ids.length === 0) return
+          
           const instanceId = item.instance_ids[0]
 
-          // GỌI API (Đã cung cấp đủ data cho Optimistic UI vẽ hình)
+          // 1. GỌI API
           placeMutation.mutate({
             inventory_id: instanceId,
             grid_x: col,
             grid_y: row,
             rotation: rot,
-            asset_key: item.asset_key,    // <--- THÊM DÒNG NÀY
-            item_width: item.width,       // <--- THÊM DÒNG NÀY
-            item_height: item.height      // <--- THÊM DÒNG NÀY
+            asset_key: item.asset_key,
+            item_width: item.width,
+            item_height: item.height
           })
 
+          // 2. XỬ LÝ STORE GIAO DIỆN SAU KHI CLICK
           const isShiftPressed = window.event && (window.event as MouseEvent).shiftKey
-          if (isShiftPressed && item.instance_ids.length > 1) {
-            updateActiveItemInstances(item.instance_ids.slice(1))
+          
+          if (isShiftPressed) {
+            // Nếu đè SHIFT: Gọi hàm consume để cắt bỏ ID vừa dùng và giảm số lượng trên tay.
+            // (Lưu ý: Nếu hàm consume phát hiện hết đồ, nó sẽ tự động clearPlacement luôn)
+            consumeActiveItem() 
           } else {
-            clearPlacement() 
+            // Nếu KHÔNG đè SHIFT: Đặt 1 cái rồi cất công cụ đi luôn
+            clearPlacement()
           }
         }
 
@@ -131,7 +137,7 @@ export default function Garden() {
     gardenGridRef.current.load(garden)
 
     // Mỗi khi load xong data, cập nhật luôn state của Blueprint (Tránh bị mất ghost khi refetch)
-    gardenGridRef.current.setPlacementMode(activeItem, rotation)
+    // gardenGridRef.current.setPlacementMode(activeItem, rotation)
 
     const size: number = garden.current_size ?? garden.base_size ?? 5
 
