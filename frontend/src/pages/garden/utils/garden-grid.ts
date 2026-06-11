@@ -133,6 +133,7 @@ export class GardenGrid extends Container {
       this.activeItem.asset_key === item.asset_key &&
       this.activeRotation === rotation
     ) {
+      this.activeItem = item
       return 
     }
     

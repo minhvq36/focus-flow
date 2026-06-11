@@ -9,21 +9,15 @@ export function GardenToolbar() {
   // Xử lý phím tắt
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Bỏ qua nếu user đang gõ chữ vào input/textarea (ví dụ chat)
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
-        return
-      }
+      const tag = (e.target as HTMLElement)?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+      if ((e.target as HTMLElement)?.isContentEditable) return
 
-      const key = e.key.toLowerCase()
-      
-      if (key === 'e') {
+      if (e.code === 'KeyE') {
         setIsInventoryOpen(prev => !prev) // Toggle túi đồ
       }
-      if (key === 'd') {
+      if (e.code === 'KeyD') {
         setActiveTool('shovel')
-      }
-      if (key === 'Escape') {
-        setIsInventoryOpen(false) // Bấm ESC thì đóng Modal
       }
     }
 

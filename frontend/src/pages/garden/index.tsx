@@ -166,13 +166,18 @@ export default function Garden() {
   // --- LẮNG NGHE BÀN PHÍM ---
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+      if ((e.target as HTMLElement)?.isContentEditable) return
+
+      const { activeItem, rotateItem, clearPlacement } = usePlacementStore.getState()
       if (!activeItem) return
-      if (e.key === 'r' || e.key === 'R') rotateItem()
-      if (e.key === 'Escape') clearPlacement()
+      if (e.code === 'KeyR') rotateItem()
+      if (e.code === 'Escape') clearPlacement()
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [activeItem, rotateItem, clearPlacement])
+  }, [])
 
   // --- HANDLERS CHO CÁC COMPONENTS ---
   const handleRecenter = () => {
