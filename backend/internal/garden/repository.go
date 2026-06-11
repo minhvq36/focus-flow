@@ -126,82 +126,10 @@ func (r *Repository) GetPlacementsByUserGardenID(ctx context.Context, userGarden
 	return result, rows.Err()
 }
 
-func (r *Repository) ValidatePlacement(ctx context.Context, tx pgx.Tx, in ValidationInput) error {
-	// 1. BOUNDS CHECK
-	if in.GridX < 0 || in.GridY < 0 || in.GridX+in.EffectiveWidth > in.GridSize || in.GridY+in.EffectiveHeight > in.GridSize {
-		return &apperr.ValidationError{Message: "placement out of bounds"}
-	}
-
-	// 2. OVERLAP CHECK
-	query := `
-		SELECT EXISTS (
-			SELECT 1 FROM public.garden_placements
-			WHERE user_garden_id = $1
-			  AND (NULLIF($2, '') IS NULL OR id::text != $2)
-			  AND $3 < grid_x + effective_width
-			  AND $3 + $4 > grid_x
-			  AND $5 < grid_y + effective_height
-			  AND $5 + $6 > grid_y
-		)
-	`
-
-	var isOverlap bool
-	err := tx.QueryRow(ctx, query,
-		in.UserGardenID, in.ExcludePlacementID,
-		in.GridX, in.EffectiveWidth,
-		in.GridY, in.EffectiveHeight,
-	).Scan(&isOverlap)
-
-	if err != nil {
-		return fmt.Errorf("validate placement overlap: %w", err)
-	}
-	if isOverlap {
-		return &apperr.ValidationError{Message: "placement overlaps existing item"}
-	}
-	return nil
-}
-
-func (r *Repository) CreatePlacement(ctx context.Context, tx pgx.Tx, arg CreatePlacementParams) (*Placement, error) {
-	query := `
-		INSERT INTO public.garden_placements (
-			user_garden_id, inventory_id, 
-			grid_x, grid_y, effective_width, effective_height, rotation
-		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7
-		)
-		RETURNING id, health_status, wilted_at, placed_at
-	`
-
-	var p Placement
-	err := tx.QueryRow(ctx, query,
-		arg.UserGardenID, arg.InventoryID,
-		arg.GridX, arg.GridY,
-		arg.EffectiveWidth, arg.EffectiveHeight, arg.Rotation,
-	).Scan(&p.ID, &p.HealthStatus, &p.WiltedAt, &p.PlacedAt)
-
-	if err != nil {
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-			return nil, &apperr.DuplicateError{Message: "item is already placed in a garden"}
-		}
-		return nil, fmt.Errorf("insert placement: %w", err)
-	}
-
-	p.UserGardenID = arg.UserGardenID
-	p.InventoryID = arg.InventoryID
-	p.GridX = arg.GridX
-	p.GridY = arg.GridY
-	p.EffectiveWidth = arg.EffectiveWidth
-	p.EffectiveHeight = arg.EffectiveHeight
-	p.Rotation = arg.Rotation
-
-	return &p, nil
-}
-
 func (r *Repository) LockUserGarden(ctx context.Context, tx pgx.Tx, userGardenID, userID string) (int, int, error) {
 	var baseSize, expansionLevel int
 	err := tx.QueryRow(ctx, `
-		SELECT g.grid_size, ug.expansion_level 
+		SELECT g.grid_size, ug.expansion_level
 		FROM public.user_gardens ug
 		JOIN public.gardens g ON g.id = ug.garden_id
 		WHERE ug.id = $1 AND ug.user_id = $2
@@ -219,41 +147,126 @@ func (r *Repository) LockUserGarden(ctx context.Context, tx pgx.Tx, userGardenID
 	return baseSize, expansionLevel, nil
 }
 
-// GetInventoryItemWH lấy kích thước gốc của item trong kho và kiểm tra quyền sở hữu
-func (r *Repository) GetInventoryItemDetails(ctx context.Context, inventoryID, userID string) (*InventoryItemDetails, error) {
-	var item InventoryItemDetails
-	err := r.db.QueryRow(ctx, `
-		SELECT i.id, i.asset_key, i.width, i.height 
-		FROM public.inventory inv
-		JOIN public.items i ON i.id = inv.item_id
-		WHERE inv.id = $1 AND inv.user_id = $2
-	`, inventoryID, userID).Scan(
-		&item.ItemID,
-		&item.AssetKey,
-		&item.Width,
-		&item.Height,
-	)
-
+// Lấy danh sách BoundingBox của các Placement hiện tại TRONG TRANSACTION
+func (r *Repository) GetPlacementsBoundingBoxesTx(ctx context.Context, tx pgx.Tx, userGardenID string) ([]BoundingBox, error) {
+	// Chỉ select đúng các cột cần thiết để tiết kiệm RAM (O(k))
+	query := `
+		SELECT id, grid_x, grid_y, effective_width, effective_height 
+		FROM public.garden_placements 
+		WHERE user_garden_id = $1
+	`
+	rows, err := tx.Query(ctx, query, userGardenID)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, &apperr.NotFoundError{Resource: "inventory item"}
-		}
-		return nil, fmt.Errorf("get inventory item details: %w", err)
+		return nil, fmt.Errorf("query bounding boxes: %w", err)
 	}
-	return &item, nil
+	defer rows.Close()
+
+	var boxes []BoundingBox
+	for rows.Next() {
+		var b BoundingBox
+		if err := rows.Scan(&b.ID, &b.X, &b.Y, &b.W, &b.H); err != nil {
+			return nil, fmt.Errorf("scan bounding box row: %w", err)
+		}
+		boxes = append(boxes, b)
+	}
+	return boxes, rows.Err()
 }
 
-func (r *Repository) UpdateInventoryStatus(ctx context.Context, tx pgx.Tx, inventoryID, userID, status string) error {
-	tag, err := tx.Exec(ctx, `
-		UPDATE public.inventory
-		SET status = $1
-		WHERE id = $2 AND user_id = $3
-	`, status, inventoryID, userID)
+// Lấy thông tin nhiều Inventory items cùng 1 lúc và trả về MAP để tra cứu O(1)
+func (r *Repository) GetInventoryItemsMap(ctx context.Context, inventoryIDs []string, userID string) (map[string]InventoryItemDetails, error) {
+	query := `
+		SELECT inv.id, i.id, i.asset_key, i.width, i.height 
+		FROM public.inventory inv
+		JOIN public.items i ON i.id = inv.item_id
+		WHERE inv.id = ANY($1) AND inv.user_id = $2 AND inv.status != 'placed'
+	`
+
+	// Ép mảng string sang kiểu mảng của pgx để query IN
+	rows, err := r.db.Query(ctx, query, inventoryIDs, userID)
 	if err != nil {
-		return fmt.Errorf("update inventory status: %w", err)
+		return nil, fmt.Errorf("query bulk inventory items: %w", err)
 	}
-	if tag.RowsAffected() == 0 {
-		return &apperr.NotFoundError{Resource: "inventory item"}
+	defer rows.Close()
+
+	resultMap := make(map[string]InventoryItemDetails)
+	for rows.Next() {
+		var invID string
+		var item InventoryItemDetails
+		if err := rows.Scan(&invID, &item.ItemID, &item.AssetKey, &item.Width, &item.Height); err != nil {
+			return nil, fmt.Errorf("scan bulk inventory item: %w", err)
+		}
+		resultMap[invID] = item
 	}
-	return nil
+	return resultMap, rows.Err()
+}
+
+// Ghi một danh sách Placement mới vào DB sử dụng pgx.Batch (1 Round-trip)
+func (r *Repository) CreatePlacementsAndUpdateInventory(ctx context.Context, tx pgx.Tx, params []CreatePlacementParams, userID string) ([]Placement, error) {
+	if len(params) == 0 {
+		return nil, nil
+	}
+
+	batch := &pgx.Batch{}
+
+	insertQuery := `
+		INSERT INTO public.garden_placements 
+		(user_garden_id, inventory_id, grid_x, grid_y, effective_width, effective_height, rotation) 
+		VALUES ($1, $2, $3, $4, $5, $6, $7) 
+		RETURNING id, health_status, wilted_at, placed_at
+	`
+
+	updateQuery := `UPDATE public.inventory SET status = $1 WHERE id = $2 AND user_id = $3`
+
+	// 1. Nhét toàn bộ lệnh INSERT vào hàng đợi
+	for _, p := range params {
+		batch.Queue(insertQuery, p.UserGardenID, p.InventoryID, p.GridX, p.GridY, p.EffectiveWidth, p.EffectiveHeight, p.Rotation)
+	}
+
+	// 2. Nhét tiếp toàn bộ lệnh UPDATE vào hàng đợi
+	for _, p := range params {
+		batch.Queue(updateQuery, "placed", p.InventoryID, userID)
+	}
+
+	// Gửi đi 1 lần duy nhất
+	br := tx.SendBatch(ctx, batch)
+	defer br.Close()
+
+	// 3. Đọc kết quả của tập lệnh INSERT (Phải đọc theo đúng thứ tự đã Queue)
+	var results []Placement
+	for _, p := range params {
+		var placed Placement
+		err := br.QueryRow().Scan(&placed.ID, &placed.HealthStatus, &placed.WiltedAt, &placed.PlacedAt)
+
+		if err != nil {
+			// Bắt lỗi Unique Constraint (Race condition)
+			var pgErr *pgconn.PgError
+			if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+				return nil, &apperr.DuplicateError{Message: "item is already placed in a garden"}
+			}
+			return nil, fmt.Errorf("batch insert scan failed for inventory %s: %w", p.InventoryID, err)
+		}
+
+		placed.UserGardenID = p.UserGardenID
+		placed.InventoryID = p.InventoryID
+		placed.GridX = p.GridX
+		placed.GridY = p.GridY
+		placed.EffectiveWidth = p.EffectiveWidth
+		placed.EffectiveHeight = p.EffectiveHeight
+		placed.Rotation = p.Rotation
+
+		results = append(results, placed)
+	}
+
+	// 4. Đọc kết quả của tập lệnh UPDATE
+	for _, p := range params {
+		tag, err := br.Exec()
+		if err != nil {
+			return nil, fmt.Errorf("batch update inventory %s failed: %w", p.InventoryID, err)
+		}
+		if tag.RowsAffected() == 0 {
+			r.log.Warn(fmt.Sprintf("inventory item %s not updated during batch", p.InventoryID))
+		}
+	}
+
+	return results, nil
 }

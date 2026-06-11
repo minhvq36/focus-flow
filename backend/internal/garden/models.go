@@ -132,3 +132,45 @@ type InventoryItemDetails struct {
 	Width    int
 	Height   int
 }
+
+type PlaceItemReq struct {
+	InventoryID string `json:"inventory_id" validate:"required"`
+	GridX       int    `json:"grid_x" validate:"min=0"`
+	GridY       int    `json:"grid_y" validate:"min=0"`
+	Rotation    int    `json:"rotation" validate:"min=0,max=270"`
+}
+
+type MultiPlaceRequest struct {
+	UserGardenID string         `json:"-"`
+	Items        []PlaceItemReq `json:"items" validate:"required,dive,min=1"`
+}
+
+type BatchPlacementItemResult struct {
+	InventoryID string             `json:"inventory_id"`
+	Success     bool               `json:"success"`
+	ErrorReason string             `json:"error_reason,omitempty"`
+	Placement   *PlacementResponse `json:"placement,omitempty"`
+}
+
+type MultiPlaceResponse struct {
+	Results []BatchPlacementItemResult `json:"results"`
+}
+
+type BoundingBox struct {
+	ID string
+	X  int
+	Y  int
+	W  int
+	H  int
+}
+
+func (b BoundingBox) Overlaps(other BoundingBox) bool {
+	return b.X < other.X+other.W &&
+		b.X+b.W > other.X &&
+		b.Y < other.Y+other.H &&
+		b.Y+b.H > other.Y
+}
+
+func (b BoundingBox) IsWithinBounds(gridSize int) bool {
+	return b.X >= 0 && b.Y >= 0 && b.X+b.W <= gridSize && b.Y+b.H <= gridSize
+}

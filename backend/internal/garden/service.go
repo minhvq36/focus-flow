@@ -6,6 +6,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/minhvq36/focus-flow/backend/pkg/apperr"
 	"github.com/minhvq36/focus-flow/backend/pkg/logger"
 )
 
@@ -13,11 +14,10 @@ type RepositoryInterface interface {
 	GetUserGardenList(ctx context.Context, userID string) ([]gardenRow, error)
 	GetUserGardenByID(ctx context.Context, userGardenID, userID string) (*gardenRow, error)
 	GetPlacementsByUserGardenID(ctx context.Context, userGardenID string) ([]Placement, error)
-	GetInventoryItemDetails(ctx context.Context, inventoryID, userID string) (*InventoryItemDetails, error)
 	LockUserGarden(ctx context.Context, tx pgx.Tx, userGardenID, userID string) (baseSize, expansionLevel int, err error)
-	ValidatePlacement(ctx context.Context, tx pgx.Tx, in ValidationInput) error
-	CreatePlacement(ctx context.Context, tx pgx.Tx, arg CreatePlacementParams) (*Placement, error)
-	UpdateInventoryStatus(ctx context.Context, tx pgx.Tx, inventoryID, userID, status string) error
+	GetInventoryItemsMap(ctx context.Context, inventoryIDs []string, userID string) (map[string]InventoryItemDetails, error)
+	GetPlacementsBoundingBoxesTx(ctx context.Context, tx pgx.Tx, userGardenID string) ([]BoundingBox, error)
+	CreatePlacementsAndUpdateInventory(ctx context.Context, tx pgx.Tx, params []CreatePlacementParams, userID string) ([]Placement, error)
 }
 
 type Service struct {
@@ -94,78 +94,204 @@ func (s *Service) GetUserGardenByID(ctx context.Context, userGardenID, userID st
 	}, nil
 }
 
-func (s *Service) PlaceItem(ctx context.Context, userID string, req PlaceRequest) (*PlacementResponse, error) {
-	itemInfo, err := s.repo.GetInventoryItemDetails(ctx, req.InventoryID, userID)
-	if err != nil {
-		return nil, err
+func (s *Service) PlaceItemsBatch(ctx context.Context, userID string, req MultiPlaceRequest) (*MultiPlaceResponse, error) {
+	// Khởi tạo response ban đầu
+	response := &MultiPlaceResponse{
+		Results: make([]BatchPlacementItemResult, 0, len(req.Items)),
 	}
 
-	effW, effH := GetEffectiveDimensions(itemInfo.Width, itemInfo.Height, req.Rotation)
+	// 1. Lọc danh sách InventoryID để query DB 1 lần
+	inventoryIDs := make([]string, 0, len(req.Items))
+	for _, item := range req.Items {
+		inventoryIDs = append(inventoryIDs, item.InventoryID)
+	}
 
+	// 2. Bắt đầu Transaction
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("PlaceItem begin tx: %w", err)
+		return nil, fmt.Errorf("PlaceItemsBatch begin tx: %w", err)
 	}
 	defer tx.Rollback(ctx)
 
+	// 3. Lock Garden & Lấy GridSize
 	baseSize, expansionLevel, err := s.repo.LockUserGarden(ctx, tx, req.UserGardenID, userID)
 	if err != nil {
-		return nil, err
+		return nil, err // apperr.NotFoundError đã được wrap trong repo
 	}
-
 	currentGridSize := computeCurrentSize(baseSize, expansionLevel)
 
-	valInput := ValidationInput{
-		UserGardenID:    req.UserGardenID,
-		GridX:           req.GridX,
-		GridY:           req.GridY,
-		EffectiveWidth:  effW,
-		EffectiveHeight: effH,
-		GridSize:        currentGridSize, // Dùng kích thước đã được cộng dồn (Current Size)
-	}
-
-	if err := s.repo.ValidatePlacement(ctx, tx, valInput); err != nil {
-		return nil, err
-	}
-
-	createInput := CreatePlacementParams{
-		UserGardenID:    req.UserGardenID,
-		InventoryID:     req.InventoryID,
-		GridX:           req.GridX,
-		GridY:           req.GridY,
-		EffectiveWidth:  effW,
-		EffectiveHeight: effH,
-		Rotation:        req.Rotation,
-	}
-	placement, err := s.repo.CreatePlacement(ctx, tx, createInput)
+	// 4. Fetch State vào RAM (Map Kho đồ và BoundingBox đang có trên Map)
+	invMap, err := s.repo.GetInventoryItemsMap(ctx, inventoryIDs, userID)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := s.repo.UpdateInventoryStatus(ctx, tx, req.InventoryID, userID, "placed"); err != nil {
+	existingBoxes, err := s.repo.GetPlacementsBoundingBoxesTx(ctx, tx, req.UserGardenID)
+	if err != nil {
 		return nil, err
 	}
 
-	// 7. COMMIT TRANSACTION
-	if err := tx.Commit(ctx); err != nil {
-		return nil, fmt.Errorf("PlaceItem commit tx: %w", err)
+	// 5. THUẬT TOÁN IN-MEMORY XỬ LÝ TỪNG ITEM (O(k))
+	var createParams []CreatePlacementParams
+	var successfulInvIDs []string
+	var successReqItems []PlaceItemReq // Lưu lại req để lát nữa build Response
+
+	currentStateBoxes := existingBoxes
+	usedInvIDsInBatch := make(map[string]bool) // Chống client gửi 2 lần cùng 1 item trong mảng req
+
+	for _, reqItem := range req.Items {
+		// 5.1: Check trùng item_id ngay trong request
+		if usedInvIDsInBatch[reqItem.InventoryID] {
+			response.Results = append(response.Results, BatchPlacementItemResult{
+				InventoryID: reqItem.InventoryID,
+				Success:     false,
+				ErrorReason: "duplicate inventory_id in request",
+			})
+			continue
+		}
+
+		// 5.2: Check kho đồ (có sở hữu không, đã đặt chưa)
+		invInfo, exists := invMap[reqItem.InventoryID]
+		if !exists {
+			response.Results = append(response.Results, BatchPlacementItemResult{
+				InventoryID: reqItem.InventoryID,
+				Success:     false,
+				ErrorReason: "item not found in inventory or already placed",
+			})
+			continue
+		}
+
+		// 5.3: Tính kích thước sau khi xoay và tạo BoundingBox
+		effW, effH := GetEffectiveDimensions(invInfo.Width, invInfo.Height, reqItem.Rotation)
+		newBox := BoundingBox{
+			ID: reqItem.InventoryID,
+			X:  reqItem.GridX,
+			Y:  reqItem.GridY,
+			W:  effW,
+			H:  effH,
+		}
+
+		// 5.4: Kiểm tra có lọt ra ngoài bản đồ không (Bounds check)
+		if !newBox.IsWithinBounds(currentGridSize) {
+			response.Results = append(response.Results, BatchPlacementItemResult{
+				InventoryID: reqItem.InventoryID,
+				Success:     false,
+				ErrorReason: "placement out of bounds",
+			})
+			continue
+		}
+
+		// 5.5: Kiểm tra có đè lên đồ khác không (Overlap check)
+		isOverlapping := false
+		for _, stateBox := range currentStateBoxes {
+			if newBox.Overlaps(stateBox) {
+				isOverlapping = true
+				break
+			}
+		}
+
+		if isOverlapping {
+			response.Results = append(response.Results, BatchPlacementItemResult{
+				InventoryID: reqItem.InventoryID,
+				Success:     false,
+				ErrorReason: "placement overlaps with an existing item",
+			})
+			continue
+		}
+
+		// --- ĐẾN ĐÂY LÀ ITEM HỢP LỆ ---
+		usedInvIDsInBatch[reqItem.InventoryID] = true
+		successfulInvIDs = append(successfulInvIDs, reqItem.InventoryID)
+		successReqItems = append(successReqItems, reqItem)
+		createParams = append(createParams, CreatePlacementParams{
+			UserGardenID:    req.UserGardenID,
+			InventoryID:     reqItem.InventoryID,
+			GridX:           reqItem.GridX,
+			GridY:           reqItem.GridY,
+			EffectiveWidth:  effW,
+			EffectiveHeight: effH,
+			Rotation:        reqItem.Rotation,
+		})
+
+		// QUAN TRỌNG NHẤT: Thêm item vừa thành công vào currentStateBoxes
+		// Để các item tiếp theo trong cùng Request sẽ va chạm với chính nó!
+		currentStateBoxes = append(currentStateBoxes, newBox)
 	}
 
-	// 8. TRẢ VỀ DỮ LIỆU ĐẦY ĐỦ CHO FRONTEND
-	return &PlacementResponse{
-		ID:              placement.ID,
-		InventoryID:     placement.InventoryID,
-		ItemID:          itemInfo.ItemID,
-		AssetKey:        itemInfo.AssetKey,
-		GridX:           placement.GridX,
-		GridY:           placement.GridY,
-		ItemWidth:       itemInfo.Width,
-		ItemHeight:      itemInfo.Height,
-		EffectiveWidth:  placement.EffectiveWidth,
-		EffectiveHeight: placement.EffectiveHeight,
-		Rotation:        placement.Rotation,
-		HealthStatus:    placement.HealthStatus,
-		WiltedAt:        placement.WiltedAt,
-		PlacedAt:        placement.PlacedAt,
-	}, nil
+	// 6. GHI DB HÀNG LOẠT (Chỉ chạy nếu có ít nhất 1 item thành công)
+	if len(createParams) > 0 {
+		placements, err := s.repo.CreatePlacementsAndUpdateInventory(ctx, tx, createParams, userID)
+		if err != nil {
+			return nil, err // Lỗi (bao gồm cả lỗi duplicate 23505) sẽ văng ra tại đây và kích hoạt Rollback
+		}
+
+		// Ráp dữ liệu trả về cho Frontend
+		for i, p := range placements {
+			reqItem := successReqItems[i]
+			invInfo := invMap[reqItem.InventoryID]
+
+			response.Results = append(response.Results, BatchPlacementItemResult{
+				InventoryID: reqItem.InventoryID,
+				Success:     true,
+				Placement: &PlacementResponse{
+					ID:              p.ID,
+					InventoryID:     p.InventoryID,
+					ItemID:          invInfo.ItemID,
+					AssetKey:        invInfo.AssetKey,
+					GridX:           p.GridX,
+					GridY:           p.GridY,
+					ItemWidth:       invInfo.Width,
+					ItemHeight:      invInfo.Height,
+					EffectiveWidth:  p.EffectiveWidth,
+					EffectiveHeight: p.EffectiveHeight,
+					Rotation:        p.Rotation,
+					HealthStatus:    p.HealthStatus,
+					WiltedAt:        p.WiltedAt,
+					PlacedAt:        p.PlacedAt,
+				},
+			})
+		}
+	}
+
+	// 7. Commit Transaction
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("PlaceItemsBatch commit tx: %w", err)
+	}
+
+	return response, nil
+}
+
+func (s *Service) PlaceItem(ctx context.Context, userID string, req PlaceRequest) (*PlacementResponse, error) {
+	// 1. Build Multi request từ Single request
+	batchReq := MultiPlaceRequest{
+		UserGardenID: req.UserGardenID,
+		Items: []PlaceItemReq{
+			{
+				InventoryID: req.InventoryID,
+				GridX:       req.GridX,
+				GridY:       req.GridY,
+				Rotation:    req.Rotation,
+			},
+		},
+	}
+
+	// 2. Gọi hàm Batch
+	batchRes, err := s.PlaceItemsBatch(ctx, userID, batchReq)
+	if err != nil {
+		return nil, err
+	}
+
+	// 3. Vì chỉ gửi lên 1 phần tử, nên kết quả trả về chắc chắn nằm ở index 0
+	if len(batchRes.Results) == 0 {
+		return nil, fmt.Errorf("unexpected error: no results returned from batch placement")
+	}
+
+	res := batchRes.Results[0]
+
+	// Nếu placement đó báo false (Overlap, Out of bounds, Not found,...)
+	if !res.Success {
+		return nil, &apperr.ValidationError{Message: res.ErrorReason}
+	}
+
+	return res.Placement, nil
 }
