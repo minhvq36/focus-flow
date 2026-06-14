@@ -78,12 +78,13 @@ export default function Garden() {
   } | null>(null)
 
   // ✅ HÀM MỚI: Xử lý Rollback mượt mà (Tránh nháy màn hình)
-  const performRollback = (rollbackGarden: boolean = true) => {
+  // ✅ FIX: Phân tách rõ ràng giữa Network Error và Logic Error
+  const performRollback = (isNetworkError: boolean = true) => {
     const snap = rollbackSnapshotRef.current
     if (!snap) return
 
-    // 1. Chỉ xóa cây ẢO khi bị sập mạng (Rollback hoàn toàn). Nếu lỗi overlap, giữ nguyên để đè mượt.
-    if (rollbackGarden && snap.garden && activeGardenId) {
+    // 1. LUÔN XÓA CÂY ẢO: Để dọn dẹp màn hình chờ data thật đè lên
+    if (activeGardenId) {
       queryClient.setQueryData<GardenResponse>(['garden', activeGardenId], (old) => {
         if (!old) return old
         return {
@@ -93,13 +94,17 @@ export default function Garden() {
       })
     }
 
-    // 2. LUÔN trả lại túi đồ (vì đặt xịt)
-    if (snap.inventory) {
-      queryClient.setQueryData(['inventory', 'bag'], snap.inventory)
+    // 2. CHỈ KHI SẬP MẠNG (Server chưa xử lý gì): Mới dùng lại Snapshot
+    if (isNetworkError) {
+      if (snap.inventory) {
+        queryClient.setQueryData(['inventory', 'bag'], snap.inventory)
+      }
+      
+      const currentHand = usePlacementStore.getState().activeItem;
+      if (snap.activeItem && currentHand && currentHand.asset_key === snap.activeItem.asset_key) {
+        usePlacementStore.getState().restoreActiveItem(snap.activeItem)
+      }
     }
-
-    // 3. LUÔN TRẢ LẠI ĐỒ VÀO TAY NGƯỜI DÙNG (Để chuột hiện Ghost đỏ lại)
-    usePlacementStore.getState().restoreActiveItem(snap.activeItem)
   }
 
   const flushBatchQueue = () => {
@@ -112,21 +117,46 @@ export default function Garden() {
       onSuccess: (data) => {
         const failedItems = data.results.filter(r => !r.success)
         if (failedItems.length > 0) {
-          // ✅ SOFT ROLLBACK: Trả lại túi đồ, nhưng KHÔNG xóa cây ảo ở map.
-          // Để InvalidateQueries ở onSettled tự kéo cây thật về đè lên (chống nháy)
+          // ✅ LỖI LOGIC: Không được đè Snapshot cũ. Chỉ xóa hình ảo.
           performRollback(false)
         }
       },
       onError: (err) => {
-        // ✅ HARD ROLLBACK: Lỗi sập mạng -> Xóa sạch trả về nguyên trạng ban đầu
+        // ✅ LỖI MẠNG: Đè toàn bộ Snapshot cũ để cứu vãn state.
         performRollback(true)
         toast.error("Failed to save. Action undone!")
         console.error("Batch placement error:", err)
       },
-      onSettled: () => {
+      // ✅ SỬA THÀNH ASYNC: Chờ kéo data mới về rồi mới đồng bộ tay người dùng
+      onSettled: async () => {
         if (activeGardenId) {
-          queryClient.invalidateQueries({ queryKey: ['garden', activeGardenId] })
-          queryClient.invalidateQueries({ queryKey: ['inventory', 'bag'] })
+          // Đợi React Query kéo data thật sự mới nhất từ DB về
+          await Promise.all([
+            queryClient.invalidateQueries({ queryKey: ['garden', activeGardenId] }),
+            queryClient.invalidateQueries({ queryKey: ['inventory', 'bag'] })
+          ])
+
+          // ✅ ĐỒNG BỘ ĐỒ TRÊN TAY THEO SỰ THẬT TỪ DATABASE
+          const currentHand = usePlacementStore.getState().activeItem
+
+          const freshInventory = queryClient.getQueryData<InBagItem[]>(['inventory', 'bag'])
+          console.log('[onSettled] currentHand:', currentHand)
+          console.log('[onSettled] freshInventory:', freshInventory)
+          const freshItem = freshInventory?.find(i => i.asset_key === currentHand?.asset_key)
+          console.log('[onSettled] freshItem found:', freshItem)
+          if (currentHand) {
+            const freshInventory = queryClient.getQueryData<InBagItem[]>(['inventory', 'bag'])
+            if (freshInventory) {
+              const freshItem = freshInventory.find(i => i.asset_key === currentHand.asset_key)
+              if (freshItem) {
+                // Nhét lại cái cây vào tay với mảng instance_ids CHUẨN ĐÉT
+                usePlacementStore.getState().restoreActiveItem(freshItem)
+              } else {
+                // Nếu đặt xong mà hết nhẵn đồ thật, cất tay luôn
+                usePlacementStore.getState().clearPlacement()
+              }
+            }
+          }
         }
         rollbackSnapshotRef.current = null 
       }

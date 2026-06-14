@@ -1,7 +1,8 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import type { GardenListItem, GardenResponse, PlaceItemReq, MultiPlaceResponse } from '@/types/garden'
 import { toast } from 'sonner'
+
 // ============================================================
 // GET /api/garden — list all gardens (meta only, no placements)
 // ============================================================
@@ -41,17 +42,15 @@ export function setLastGardenId(id: string): void {
 // POST /api/garden/:id/placements/batch — Batch Place Items
 // ============================================================
 export function useBatchPlaceItems(gardenId: string | null) {
-  const queryClient = useQueryClient()
-
   return useMutation({
     mutationFn: async (payload: PlaceItemReq[]) => {
-      // Gửi mảng Items lên server
       return api.post<MultiPlaceResponse>(`/api/garden/${gardenId}/placements/batch`, {
         items: payload
       })
     },
     onSuccess: (data) => {
-      // Xử lý Partial Success (Thành công 1 phần do bị vướng đồ)
+      // Chỉ lo toast thông báo kết quả
+      // Rollback, refetch, restoreActiveItem đều do index.tsx xử lý
       const failedItems = data.results.filter(r => !r.success)
       const successItems = data.results.filter(r => r.success)
       if (failedItems.length > 0 && successItems.length === 0) {
@@ -60,13 +59,6 @@ export function useBatchPlaceItems(gardenId: string | null) {
         toast.warning(`${successItems.length} items placed, unable to place ${failedItems.length} items (overlap).`)
       }
     },
-    // Chú ý: Việc Rollback khi onError sẽ được thực hiện ở index.tsx (nơi giữ Snapshot)
-    onSettled: () => {
-      // ĐŨA PHÉP THUẬT: Dù thành công, lỗi 1 phần hay sập mạng. Cuối cùng vẫn force fetch lại data chuẩn từ DB.
-      if (gardenId) {
-        queryClient.invalidateQueries({ queryKey: ['garden', gardenId] })
-        queryClient.invalidateQueries({ queryKey: ['inventory', 'bag'] })
-      }
-    },
+    // onSettled đã chuyển sang index.tsx để tránh duplicate và đảm bảo đúng thứ tự
   })
 }
