@@ -7,7 +7,8 @@ interface PlacementStore {
   setActiveItem: (item: InBagItem | null) => void
   rotateItem: () => void
   clearPlacement: () => void
-  consumeActiveItem: () => void // Hàm mới thay thế updateActiveItemInstances
+  consumeActiveItem: () => void 
+  restoreActiveItem: (item: InBagItem | null) => void // ✅ Đã thêm khai báo hàm này
 }
 
 export const usePlacementStore = create<PlacementStore>((set) => ({
@@ -44,5 +45,8 @@ export const usePlacementStore = create<PlacementStore>((set) => ({
         instance_ids: remainingIds
       }
     }
-  })
+  }),
+
+  // ✅ HÀM MỚI: Dùng để trả lại đồ vào tay người dùng khi API từ chối (Rollback)
+  restoreActiveItem: (item) => set({ activeItem: item })
 }))

@@ -69,45 +69,69 @@ export default function Garden() {
   // ==========================================
   const batchMutation = useBatchPlaceItems(activeGardenId)
   const batchQueueRef = useRef<PlaceItemReq[]>([])
-  const rollbackSnapshotRef = useRef<{ garden: GardenResponse | undefined, inventory: InBagItem[] | undefined } | null>(null)
+  
+  // ✅ CẬP NHẬT: Thêm activeItem vào Snapshot
+  const rollbackSnapshotRef = useRef<{ 
+    garden: GardenResponse | undefined, 
+    inventory: InBagItem[] | undefined,
+    activeItem: InBagItem | null
+  } | null>(null)
 
-  const flushBatchQueue = () => {
-      if (batchQueueRef.current.length === 0) return
+  // ✅ HÀM MỚI: Xử lý Rollback mượt mà (Tránh nháy màn hình)
+  const performRollback = (rollbackGarden: boolean = true) => {
+    const snap = rollbackSnapshotRef.current
+    if (!snap) return
 
-      const payloadToSend = [...batchQueueRef.current]
-      batchQueueRef.current = [] // Clear ngay lập tức để tránh double click
-
-      batchMutation.mutate(payloadToSend, {
-        onSuccess: (data) => {
-          // ✅ BẮT LỖI LOGIC: Có item nào bị server từ chối không? (VD: overlap do tab khác đã đặt)
-          const failedItems = data.results.filter(r => !r.success)
-          
-          if (failedItems.length > 0) {
-            // LẬP TỨC ROLLBACK LẠI TRẠNG THÁI TRƯỚC KHI CLICK ĐỂ XÓA GIAO DIỆN OPTIMISTIC (Flicker nhẹ để chữa sai)
-            if (activeGardenId && rollbackSnapshotRef.current?.garden) {
-              queryClient.setQueryData(['garden', activeGardenId], rollbackSnapshotRef.current.garden)
-            }
-            if (rollbackSnapshotRef.current?.inventory) {
-              queryClient.setQueryData(['inventory', 'bag'], rollbackSnapshotRef.current.inventory)
-            }
-          }
-        },
-        onError: (err) => {
-          // NẾU API LỖI MẠNG / SẬP SERVER -> ROLLBACK
-          if (activeGardenId && rollbackSnapshotRef.current?.garden) {
-            queryClient.setQueryData(['garden', activeGardenId], rollbackSnapshotRef.current.garden)
-          }
-          if (rollbackSnapshotRef.current?.inventory) {
-            queryClient.setQueryData(['inventory', 'bag'], rollbackSnapshotRef.current.inventory)
-          }
-          toast.error("Failed to save. Action undone!")
-          console.error("Batch placement error:", err)
-        },
-        onSettled: () => {
-          rollbackSnapshotRef.current = null // Dọn snapshot an toàn
+    // 1. Chỉ xóa cây ẢO khi bị sập mạng (Rollback hoàn toàn). Nếu lỗi overlap, giữ nguyên để đè mượt.
+    if (rollbackGarden && snap.garden && activeGardenId) {
+      queryClient.setQueryData<GardenResponse>(['garden', activeGardenId], (old) => {
+        if (!old) return old
+        return {
+          ...old,
+          placements: old.placements.filter(p => !p.id.toString().startsWith('temp_'))
         }
       })
     }
+
+    // 2. LUÔN trả lại túi đồ (vì đặt xịt)
+    if (snap.inventory) {
+      queryClient.setQueryData(['inventory', 'bag'], snap.inventory)
+    }
+
+    // 3. LUÔN TRẢ LẠI ĐỒ VÀO TAY NGƯỜI DÙNG (Để chuột hiện Ghost đỏ lại)
+    usePlacementStore.getState().restoreActiveItem(snap.activeItem)
+  }
+
+  const flushBatchQueue = () => {
+    if (batchQueueRef.current.length === 0) return
+
+    const payloadToSend = [...batchQueueRef.current]
+    batchQueueRef.current = [] 
+
+    batchMutation.mutate(payloadToSend, {
+      onSuccess: (data) => {
+        const failedItems = data.results.filter(r => !r.success)
+        if (failedItems.length > 0) {
+          // ✅ SOFT ROLLBACK: Trả lại túi đồ, nhưng KHÔNG xóa cây ảo ở map.
+          // Để InvalidateQueries ở onSettled tự kéo cây thật về đè lên (chống nháy)
+          performRollback(false)
+        }
+      },
+      onError: (err) => {
+        // ✅ HARD ROLLBACK: Lỗi sập mạng -> Xóa sạch trả về nguyên trạng ban đầu
+        performRollback(true)
+        toast.error("Failed to save. Action undone!")
+        console.error("Batch placement error:", err)
+      },
+      onSettled: () => {
+        if (activeGardenId) {
+          queryClient.invalidateQueries({ queryKey: ['garden', activeGardenId] })
+          queryClient.invalidateQueries({ queryKey: ['inventory', 'bag'] })
+        }
+        rollbackSnapshotRef.current = null 
+      }
+    })
+  }
 
   // BẢO VỆ KẼ HỞ BẰNG EVENT LISTENER
   useEffect(() => {
@@ -156,7 +180,6 @@ export default function Garden() {
           
           const instanceId = item.instance_ids[0]
 
-          // ✅ FIX 3: Báo ngay cho PixiJS biết ô này đã bị chiếm trước khi React kịp Update
           const isRotated = rot === 90 || rot === 270
           const effW = isRotated ? item.height : item.width
           const effH = isRotated ? item.width : item.height
@@ -169,7 +192,9 @@ export default function Garden() {
 
             rollbackSnapshotRef.current = {
               garden: queryClient.getQueryData<GardenResponse>(['garden', activeGardenId]),
-              inventory: queryClient.getQueryData<InBagItem[]>(['inventory', 'bag'])
+              inventory: queryClient.getQueryData<InBagItem[]>(['inventory', 'bag']),
+              // ✅ Lưu lại trạng thái cầm đồ hiện tại
+              activeItem: usePlacementStore.getState().activeItem 
             }
           }
 
@@ -181,7 +206,7 @@ export default function Garden() {
             rotation: rot,
           })
 
-          // 3. OPTIMISTIC UPDATE CHO VƯỜN (TỨC THÌ)
+          // 3. OPTIMISTIC UPDATE CHO VƯỜN
           queryClient.setQueryData<GardenResponse>(['garden', activeGardenId], (old) => {
             if (!old) return old
             const fakePlacement: PlacementResponse = {
@@ -203,7 +228,7 @@ export default function Garden() {
             return { ...old, placements: [...old.placements, fakePlacement] }
           })
 
-          // 4. OPTIMISTIC UPDATE CHO TÚI ĐỒ (TỨC THÌ)
+          // 4. OPTIMISTIC UPDATE CHO TÚI ĐỒ
           queryClient.setQueryData<InBagItem[]>(['inventory', 'bag'], (oldBag) => {
             if (!oldBag) return []
             return oldBag.map(invItem => {
