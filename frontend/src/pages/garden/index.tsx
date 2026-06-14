@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { GardenApp } from './utils/garden-app'
 import { GardenGrid } from './utils/garden-grid'
-import { useGardenList, useGarden, getLastGardenId, setLastGardenId, usePlaceItem } from './hooks/use-garden'
-import type { PlacementResponse } from '@/types/garden'
+import { useGardenList, useGarden, getLastGardenId, setLastGardenId, useBatchPlaceItems } from './hooks/use-garden'
+import type { PlacementResponse, GardenResponse, PlaceItemReq } from '@/types/garden'
+import type { InBagItem } from '@/types/inventory'
 
 import { RecenterButton } from './components/recenter-button'
 import { GardenTabs } from './components/garden-tabs'
@@ -11,6 +13,7 @@ import { TilePopup } from './components/tile-popup'
 import { GardenToolbar } from './components/garden-toolbar'
 
 import { usePlacementStore } from '@/store/placement-store'
+import { toast } from 'sonner'
 
 const ZOOM_KEY = (gardenId: string) => `garden_zoom_${gardenId}`
 
@@ -35,6 +38,7 @@ const TILE_WIDTH = 64
 const TILE_HEIGHT = 64
 
 export default function Garden() {
+  const queryClient = useQueryClient()
   const containerRef = useRef<HTMLDivElement>(null)
   const gardenAppRef = useRef<GardenApp | null>(null)
   const gardenGridRef = useRef<GardenGrid | null>(null)
@@ -44,7 +48,6 @@ export default function Garden() {
 
   const [isCanvasReady, setIsCanvasReady] = useState(false)
 
-  // Fallback về Garden cuối cùng nếu không có Cache
   useEffect(() => {
     if (!activeGardenId && gardenList && gardenList.length > 0) {
       setActiveGardenId(gardenList.at(-1)!.id)
@@ -59,11 +62,60 @@ export default function Garden() {
     placement: PlacementResponse | null
   } | null>(null)
 
-  // Lấy dữ liệu và hàm từ Zustand Store
   const { activeItem, rotation, clearPlacement, rotateItem, consumeActiveItem } = usePlacementStore()
   
-  // Khởi tạo Mutation cho việc đặt đồ
-  const placeMutation = usePlaceItem(activeGardenId)
+  // ==========================================
+  // HỆ THỐNG QUEUE & BATCH PLACEMENT (MỚI)
+  // ==========================================
+  const batchMutation = useBatchPlaceItems(activeGardenId)
+  const batchQueueRef = useRef<PlaceItemReq[]>([])
+  const rollbackSnapshotRef = useRef<{ garden: GardenResponse | undefined, inventory: InBagItem[] | undefined } | null>(null)
+
+  const flushBatchQueue = () => {
+    if (batchQueueRef.current.length === 0) return
+
+    const payloadToSend = [...batchQueueRef.current]
+    batchQueueRef.current = [] // Clear ngay lập tức để tránh double click
+
+    batchMutation.mutate(payloadToSend, {
+      onError: (err) => {
+        // NẾU API LỖI MẠNG / SẬP SERVER -> ROLLBACK
+        if (activeGardenId && rollbackSnapshotRef.current?.garden) {
+          queryClient.setQueryData(['garden', activeGardenId], rollbackSnapshotRef.current.garden)
+        }
+        if (rollbackSnapshotRef.current?.inventory) {
+          queryClient.setQueryData(['inventory', 'bag'], rollbackSnapshotRef.current.inventory)
+        }
+        toast.error("Failed to save. Action undone!")
+        console.error("Batch placement error:", err)
+      },
+      onSettled: () => {
+        rollbackSnapshotRef.current = null // Dọn snapshot
+      }
+    })
+  }
+
+  // BẢO VỆ KẼ HỞ BẰNG EVENT LISTENER
+  useEffect(() => {
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === 'Shift') flushBatchQueue() // Nhả shift -> Xả Queue
+    }
+
+    const handleWindowBlur = () => {
+      flushBatchQueue() // Alt+Tab -> Xả Queue
+      clearPlacement() // Cất đồ cho an toàn
+    }
+
+    window.addEventListener('keyup', handleKeyUp)
+    window.addEventListener('blur', handleWindowBlur)
+    
+    return () => {
+      window.removeEventListener('keyup', handleKeyUp)
+      window.removeEventListener('blur', handleWindowBlur)
+      flushBatchQueue() // Unmount Component -> Xả nốt Queue
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeGardenId]) // Cần activeGardenId để biết đang xả cho vườn nào
 
   // Khởi tạo PixiJS Canvas
   useEffect(() => {
@@ -78,38 +130,85 @@ export default function Garden() {
         const grid = new GardenGrid()
         grid.getIsDragging = () => app.isDragging
         
-        // CLICK THÔNG THƯỜNG (Để xem thông tin)
         grid.onTileClick = (col, row, placement) => {
           setSelectedTile({ col, row, placement })
         }
 
-        // CLICK ĐỂ ĐẶT ĐỒ (Khi đang cầm item)
-        grid.onRequestPlace = (col, row, item, rot) => {
+        // ==========================================
+        // LOGIC CLICK ĐỂ ĐẶT ĐỒ
+        // ==========================================
+        grid.onRequestPlace = async (col, row, item, rot) => {
           if (!item.instance_ids || item.instance_ids.length === 0) return
           
           const instanceId = item.instance_ids[0]
 
-          // 1. GỌI API
-          placeMutation.mutate({
+          // 1. TẠO SNAPSHOT ROLLBACK CHO LƯỢT ĐẦU TIÊN
+          if (batchQueueRef.current.length === 0) {
+            // Dừng mọi fetching ngầm
+            await queryClient.cancelQueries({ queryKey: ['garden', activeGardenId] })
+            await queryClient.cancelQueries({ queryKey: ['inventory', 'bag'] })
+
+            rollbackSnapshotRef.current = {
+              garden: queryClient.getQueryData<GardenResponse>(['garden', activeGardenId]),
+              inventory: queryClient.getQueryData<InBagItem[]>(['inventory', 'bag'])
+            }
+          }
+
+          // 2. NHÉT VÀO QUEUE
+          batchQueueRef.current.push({
             inventory_id: instanceId,
             grid_x: col,
             grid_y: row,
             rotation: rot,
-            asset_key: item.asset_key,
-            item_width: item.width,
-            item_height: item.height
           })
 
-          // 2. XỬ LÝ STORE GIAO DIỆN SAU KHI CLICK
+          // 3. OPTIMISTIC UPDATE CHO VƯỜN (TỨC THÌ)
+          queryClient.setQueryData<GardenResponse>(['garden', activeGardenId], (old) => {
+            if (!old) return old
+            const isRotated = rot === 90 || rot === 270
+            const fakePlacement: PlacementResponse = {
+              id: `temp_${Date.now()}_${Math.random()}`,
+              inventory_id: instanceId,
+              item_id: 'temp', 
+              asset_key: item.asset_key,
+              grid_x: col,
+              grid_y: row,
+              item_width: item.width, 
+              item_height: item.height,
+              effective_width: isRotated ? item.height : item.width, 
+              effective_height: isRotated ? item.width : item.height,
+              rotation: rot,
+              health_status: 'healthy',
+              wilted_at: null,
+              placed_at: new Date().toISOString(),
+            }
+            return { ...old, placements: [...old.placements, fakePlacement] }
+          })
+
+          // 4. OPTIMISTIC UPDATE CHO TÚI ĐỒ (TỨC THÌ)
+          queryClient.setQueryData<InBagItem[]>(['inventory', 'bag'], (oldBag) => {
+            if (!oldBag) return []
+            return oldBag.map(invItem => {
+              if (invItem.asset_key === item.asset_key) {
+                return { 
+                  ...invItem, 
+                  quantity: invItem.quantity - 1,
+                  instance_ids: invItem.instance_ids?.filter(id => id !== instanceId) || []
+                }
+              }
+              return invItem
+            }).filter(invItem => invItem.quantity > 0)
+          })
+
+          // 5. CẬP NHẬT GIAO DIỆN ZUSTAND
           const isShiftPressed = window.event && (window.event as MouseEvent).shiftKey
           
           if (isShiftPressed) {
-            // Nếu đè SHIFT: Gọi hàm consume để cắt bỏ ID vừa dùng và giảm số lượng trên tay.
-            // (Lưu ý: Nếu hàm consume phát hiện hết đồ, nó sẽ tự động clearPlacement luôn)
-            consumeActiveItem() 
+            consumeActiveItem() // Đè shift thì chỉ trừ đồ, giữ Blueprint
           } else {
-            // Nếu KHÔNG đè SHIFT: Đặt 1 cái rồi cất công cụ đi luôn
+            consumeActiveItem()
             clearPlacement()
+            flushBatchQueue() // Không đè shift thì XẢ QUEUE NGAY LẬP TỨC
           }
         }
 
@@ -127,7 +226,7 @@ export default function Garden() {
       setIsCanvasReady(false)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []) // Chỉ chạy 1 lần khi mount
+  }, [activeGardenId]) 
 
   // Load Data vào Canvas
   useEffect(() => {
@@ -135,9 +234,6 @@ export default function Garden() {
 
     const app = gardenAppRef.current
     gardenGridRef.current.load(garden)
-
-    // Mỗi khi load xong data, cập nhật luôn state của Blueprint (Tránh bị mất ghost khi refetch)
-    // gardenGridRef.current.setPlacementMode(activeItem, rotation)
 
     const size: number = garden.current_size ?? garden.base_size ?? 5
 
@@ -179,7 +275,6 @@ export default function Garden() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [])
 
-  // --- HANDLERS CHO CÁC COMPONENTS ---
   const handleRecenter = () => {
     if (garden && gardenAppRef.current) {
       const size = garden.current_size ?? garden.base_size ?? 5
@@ -197,10 +292,8 @@ export default function Garden() {
   return (
     <div className="relative w-[90vw] md:w-[85vw] max-w-6xl min-w-[320px] md:min-w-[500px] h-[85vh] min-h-[500px] mx-auto my-8 border border-border rounded-xl shadow-sm overflow-hidden bg-background">
       
-      {/* Lớp Canvas PixiJS */}
       <div ref={containerRef} className="absolute inset-0" />
 
-      {/* Các lớp UI xếp chồng lên trên (Overlays) */}
       <RecenterButton onRecenter={handleRecenter} />
 
       <GardenTabs 
@@ -220,7 +313,6 @@ export default function Garden() {
         />
       )}
 
-      {/* OVERLAY HƯỚNG DẪN KHI ĐANG CẦM ĐỒ */}
       {activeItem && (
         <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 px-6 py-2.5 bg-slate-900/80 backdrop-blur-md text-white text-sm font-medium rounded-full shadow-lg pointer-events-none flex items-center gap-3 animate-in slide-in-from-bottom-4">
           <div className="flex gap-1.5 items-center">
@@ -235,7 +327,7 @@ export default function Garden() {
             <span className="bg-slate-700 px-2 py-0.5 rounded text-amber-400 font-mono">Shift</span> Đặt liên tục
           </div>
           <div className="ml-2 pl-3 border-l border-slate-600 font-bold text-amber-400">
-            Remaining: {activeItem.instance_ids.length}
+            Còn lại: {activeItem.instance_ids?.length || 0}
           </div>
         </div>
       )}

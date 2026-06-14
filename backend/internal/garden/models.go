@@ -142,7 +142,7 @@ type PlaceItemReq struct {
 
 type MultiPlaceRequest struct {
 	UserGardenID string         `json:"-"`
-	Items        []PlaceItemReq `json:"items" validate:"required,dive,min=1"`
+	Items        []PlaceItemReq `json:"items" validate:"required,min=1,dive"`
 }
 
 type BatchPlacementItemResult struct {

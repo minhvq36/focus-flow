@@ -57,3 +57,21 @@ export interface GridCoord {
   col: number  // grid_x
   row: number  // grid_y
 }
+
+export interface PlaceItemReq {
+  inventory_id: string
+  grid_x: number
+  grid_y: number
+  rotation: number
+}
+
+export interface BatchPlacementItemResult {
+  inventory_id: string
+  success: boolean
+  error_reason?: string
+  placement?: PlacementResponse
+}
+
+export interface MultiPlaceResponse {
+  results: BatchPlacementItemResult[]
+}
