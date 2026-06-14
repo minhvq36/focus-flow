@@ -15,5 +15,6 @@ func Routes(db *pgxpool.Pool, log *logger.Logger) func(r chi.Router) {
 		r.Get("/", handler.GetGardenList)
 		r.Get("/{id}", handler.GetGardenByID)
 		r.Post("/{id}/placements", handler.PlaceItem)
+		r.Post("/{id}/placements/batch", handler.PlaceItemsBatch)
 	}
 }
