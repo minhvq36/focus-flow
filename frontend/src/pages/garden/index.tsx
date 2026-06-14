@@ -62,28 +62,21 @@ export default function Garden() {
     placement: PlacementResponse | null
   } | null>(null)
 
-  const { activeItem, rotation, clearPlacement, rotateItem, consumeActiveItem } = usePlacementStore()
+  const { activeItem, rotation, clearPlacement, consumeActiveItem } = usePlacementStore()
   
-  // ==========================================
-  // HỆ THỐNG QUEUE & BATCH PLACEMENT
-  // ==========================================
   const batchMutation = useBatchPlaceItems(activeGardenId)
   const batchQueueRef = useRef<PlaceItemReq[]>([])
   
-  // ✅ CẬP NHẬT: Thêm activeItem vào Snapshot
   const rollbackSnapshotRef = useRef<{ 
     garden: GardenResponse | undefined, 
     inventory: InBagItem[] | undefined,
     activeItem: InBagItem | null
   } | null>(null)
 
-  // ✅ HÀM MỚI: Xử lý Rollback mượt mà (Tránh nháy màn hình)
-  // ✅ FIX: Phân tách rõ ràng giữa Network Error và Logic Error
   const performRollback = (isNetworkError: boolean = true) => {
     const snap = rollbackSnapshotRef.current
     if (!snap) return
 
-    // 1. LUÔN XÓA CÂY ẢO: Để dọn dẹp màn hình chờ data thật đè lên
     if (activeGardenId) {
       queryClient.setQueryData<GardenResponse>(['garden', activeGardenId], (old) => {
         if (!old) return old
@@ -94,13 +87,11 @@ export default function Garden() {
       })
     }
 
-    // 2. CHỈ KHI SẬP MẠNG (Server chưa xử lý gì): Mới dùng lại Snapshot
     if (isNetworkError) {
       if (snap.inventory) {
         queryClient.setQueryData(['inventory', 'bag'], snap.inventory)
       }
-      
-      const currentHand = usePlacementStore.getState().activeItem;
+      const currentHand = usePlacementStore.getState().activeItem
       if (snap.activeItem && currentHand && currentHand.asset_key === snap.activeItem.asset_key) {
         usePlacementStore.getState().restoreActiveItem(snap.activeItem)
       }
@@ -111,59 +102,45 @@ export default function Garden() {
     if (batchQueueRef.current.length === 0) return
 
     const payloadToSend = [...batchQueueRef.current]
-    batchQueueRef.current = [] 
+    batchQueueRef.current = []
 
     batchMutation.mutate(payloadToSend, {
       onSuccess: (data) => {
         const failedItems = data.results.filter(r => !r.success)
         if (failedItems.length > 0) {
-          // ✅ LỖI LOGIC: Không được đè Snapshot cũ. Chỉ xóa hình ảo.
           performRollback(false)
         }
       },
       onError: (err) => {
-        // ✅ LỖI MẠNG: Đè toàn bộ Snapshot cũ để cứu vãn state.
         performRollback(true)
         toast.error("Failed to save. Action undone!")
         console.error("Batch placement error:", err)
       },
-      // ✅ SỬA THÀNH ASYNC: Chờ kéo data mới về rồi mới đồng bộ tay người dùng
       onSettled: async () => {
         if (activeGardenId) {
-          // Đợi React Query kéo data thật sự mới nhất từ DB về
           await Promise.all([
             queryClient.invalidateQueries({ queryKey: ['garden', activeGardenId] }),
             queryClient.invalidateQueries({ queryKey: ['inventory', 'bag'] })
           ])
 
-          // ✅ ĐỒNG BỘ ĐỒ TRÊN TAY THEO SỰ THẬT TỪ DATABASE
           const currentHand = usePlacementStore.getState().activeItem
-
-          const freshInventory = queryClient.getQueryData<InBagItem[]>(['inventory', 'bag'])
-          console.log('[onSettled] currentHand:', currentHand)
-          console.log('[onSettled] freshInventory:', freshInventory)
-          const freshItem = freshInventory?.find(i => i.asset_key === currentHand?.asset_key)
-          console.log('[onSettled] freshItem found:', freshItem)
           if (currentHand) {
             const freshInventory = queryClient.getQueryData<InBagItem[]>(['inventory', 'bag'])
             if (freshInventory) {
               const freshItem = freshInventory.find(i => i.asset_key === currentHand.asset_key)
               if (freshItem) {
-                // Nhét lại cái cây vào tay với mảng instance_ids CHUẨN ĐÉT
                 usePlacementStore.getState().restoreActiveItem(freshItem)
               } else {
-                // Nếu đặt xong mà hết nhẵn đồ thật, cất tay luôn
                 usePlacementStore.getState().clearPlacement()
               }
             }
           }
         }
-        rollbackSnapshotRef.current = null 
+        rollbackSnapshotRef.current = null
       }
     })
   }
 
-  // BẢO VỆ KẼ HỞ BẰNG EVENT LISTENER
   useEffect(() => {
     const handleKeyUp = (e: KeyboardEvent) => {
       if (e.key === 'Shift') flushBatchQueue()
@@ -183,9 +160,8 @@ export default function Garden() {
       flushBatchQueue()
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeGardenId]) 
+  }, [activeGardenId])
 
-  // Khởi tạo PixiJS Canvas
   useEffect(() => {
     if (!containerRef.current) return
 
@@ -202,33 +178,33 @@ export default function Garden() {
           setSelectedTile({ col, row, placement })
         }
 
-        // ==========================================
-        // LOGIC CLICK ĐỂ ĐẶT ĐỒ
-        // ==========================================
-        grid.onRequestPlace = async (col, row, item, rot) => {
+        // ✅ Bỏ async, nhận isShift từ tham số
+        grid.onRequestPlace = (col, row, item, rot, isShift) => {
           if (!item.instance_ids || item.instance_ids.length === 0) return
-          
+
           const instanceId = item.instance_ids[0]
+
+          // ✅ Guard chống duplicate trong cùng batch
+          const alreadyQueued = batchQueueRef.current.some(q => q.inventory_id === instanceId)
+          if (alreadyQueued) return
 
           const isRotated = rot === 90 || rot === 270
           const effW = isRotated ? item.height : item.width
           const effH = isRotated ? item.width : item.height
           grid.markTileOccupied(col, row, effW, effH)
 
-          // 1. TẠO SNAPSHOT ROLLBACK CHO LƯỢT ĐẦU TIÊN
+          // ✅ Bỏ await, fire-and-forget
           if (batchQueueRef.current.length === 0) {
-            await queryClient.cancelQueries({ queryKey: ['garden', activeGardenId] })
-            await queryClient.cancelQueries({ queryKey: ['inventory', 'bag'] })
+            queryClient.cancelQueries({ queryKey: ['garden', activeGardenId] })
+            queryClient.cancelQueries({ queryKey: ['inventory', 'bag'] })
 
             rollbackSnapshotRef.current = {
               garden: queryClient.getQueryData<GardenResponse>(['garden', activeGardenId]),
               inventory: queryClient.getQueryData<InBagItem[]>(['inventory', 'bag']),
-              // ✅ Lưu lại trạng thái cầm đồ hiện tại
-              activeItem: usePlacementStore.getState().activeItem 
+              activeItem: usePlacementStore.getState().activeItem
             }
           }
 
-          // 2. NHÉT VÀO QUEUE
           batchQueueRef.current.push({
             inventory_id: instanceId,
             grid_x: col,
@@ -236,19 +212,18 @@ export default function Garden() {
             rotation: rot,
           })
 
-          // 3. OPTIMISTIC UPDATE CHO VƯỜN
           queryClient.setQueryData<GardenResponse>(['garden', activeGardenId], (old) => {
             if (!old) return old
             const fakePlacement: PlacementResponse = {
               id: `temp_${Date.now()}_${Math.random()}`,
               inventory_id: instanceId,
-              item_id: 'temp', 
+              item_id: 'temp',
               asset_key: item.asset_key,
               grid_x: col,
               grid_y: row,
-              item_width: item.width, 
+              item_width: item.width,
               item_height: item.height,
-              effective_width: effW, 
+              effective_width: effW,
               effective_height: effH,
               rotation: rot,
               health_status: 'healthy',
@@ -258,13 +233,12 @@ export default function Garden() {
             return { ...old, placements: [...old.placements, fakePlacement] }
           })
 
-          // 4. OPTIMISTIC UPDATE CHO TÚI ĐỒ
           queryClient.setQueryData<InBagItem[]>(['inventory', 'bag'], (oldBag) => {
             if (!oldBag) return []
             return oldBag.map(invItem => {
               if (invItem.asset_key === item.asset_key) {
-                return { 
-                  ...invItem, 
+                return {
+                  ...invItem,
                   quantity: invItem.quantity - 1,
                   instance_ids: invItem.instance_ids?.filter(id => id !== instanceId) || []
                 }
@@ -273,15 +247,13 @@ export default function Garden() {
             }).filter(invItem => invItem.quantity > 0)
           })
 
-          // 5. CẬP NHẬT GIAO DIỆN ZUSTAND
-          const isShiftPressed = window.event && (window.event as MouseEvent).shiftKey
-          
-          if (isShiftPressed) {
-            consumeActiveItem() 
+          // ✅ Dùng isShift từ tham số, không dùng window.event
+          if (isShift) {
+            consumeActiveItem()
           } else {
             consumeActiveItem()
             clearPlacement()
-            flushBatchQueue() 
+            flushBatchQueue()
           }
         }
 
@@ -299,9 +271,8 @@ export default function Garden() {
       setIsCanvasReady(false)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeGardenId]) 
+  }, [activeGardenId])
 
-  // Load Data vào Canvas
   useEffect(() => {
     if (!garden || !gardenGridRef.current || !gardenAppRef.current) return
 
@@ -325,14 +296,12 @@ export default function Garden() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [garden, isCanvasReady])
 
-  // --- IMPERATIVE BRIDGE: Đồng bộ từ Zustand -> PixiJS ---
   useEffect(() => {
     if (gardenGridRef.current && isCanvasReady) {
       gardenGridRef.current.setPlacementMode(activeItem, rotation)
     }
   }, [activeItem, rotation, isCanvasReady])
 
-  // --- LẮNG NGHE BÀN PHÍM ---
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement)?.tagName
@@ -352,7 +321,7 @@ export default function Garden() {
     if (garden && gardenAppRef.current) {
       const size = garden.current_size ?? garden.base_size ?? 5
       gardenAppRef.current.applyFitZoom(size, size, TILE_WIDTH, TILE_HEIGHT, null)
-      saveZoom(garden.id, gardenAppRef.current.zoom) 
+      saveZoom(garden.id, gardenAppRef.current.zoom)
       setSelectedTile(null)
     }
   }

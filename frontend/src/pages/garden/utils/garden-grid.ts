@@ -18,12 +18,10 @@ const COLOR = {
   TILE_HOVER:       0xffd966,
   TILE_SELECTED:    0xff9900,
   PLACEMENT_FILL:   0x4a90d9,
-  
-  // --- BẢNG MÀU CHO CHẾ ĐỘ ĐẶT ĐỒ (BLUEPRINT) ---
-  BP_VALID:         0x4ade80, // Xanh lá sáng (Đặt được)
-  BP_INVALID:       0xf87171, // Đỏ rực (Bị vướng)
-  BP_OCCUPIED:      0x64748b, // Xám (Đất đã có vật thể)
-  BP_DIM:           0x6ea543, // Xanh lá sẫm (Đất trống bị làm chìm đi)
+  BP_VALID:         0x4ade80,
+  BP_INVALID:       0xf87171,
+  BP_OCCUPIED:      0x64748b,
+  BP_DIM:           0x6ea543,
 } as const
 
 export class GardenGrid extends Container {
@@ -35,7 +33,6 @@ export class GardenGrid extends Container {
   private hoveredTile: { col: number; row: number } | null = null
   private selectedTile: { col: number; row: number } | null = null
 
-  // ✅ FIX 2 & 3: Tách biến track chuột riêng biệt để không phụ thuộc hoveredTile bị null
   private lastHoveredCol: number = -1
   private lastHoveredRow: number = -1
 
@@ -43,7 +40,6 @@ export class GardenGrid extends Container {
   private shadowLayer = new Container()
   private objectLayer = new Container()
 
-  // --- STATE DÀNH CHO GHOST MODE ---
   private currentPlacements: PlacementResponse[] = []
   private ghostSprite: Sprite | null = null
   private ghostShadow: Container | null = null
@@ -51,11 +47,11 @@ export class GardenGrid extends Container {
   private activeRotation: number = 0
   private isValidPlacement: boolean = false
 
-  // Biến tối ưu chống Lag
   private occupiedTiles = new Set<string>() 
   private currentFootprint = new Set<string>() 
 
-  onRequestPlace?: (col: number, row: number, item: InBagItem, rotation: number) => void
+  // ✅ isShift thêm vào signature
+  onRequestPlace?: (col: number, row: number, item: InBagItem, rotation: number, isShift: boolean) => void
   onTileClick?: (col: number, row: number, placement: PlacementResponse | null) => void
   onTileHover?: (col: number, row: number) => void
   getIsDragging?: () => boolean
@@ -70,7 +66,6 @@ export class GardenGrid extends Container {
   }
 
   load(garden: GardenResponse): void {
-    // 1. CHỈ TẠO LẠI NỀN ĐẤT NẾU LÀ LẦN ĐẦU TIÊN HOẶC MAP BỊ MỞ RỘNG
     if (this.gridSize !== garden.current_size || this.tiles.size === 0) {
       this.clear()
       this.gridSize = garden.current_size
@@ -88,10 +83,8 @@ export class GardenGrid extends Container {
       }
     }
 
-    // Cập nhật state nội bộ
     this.currentPlacements = garden.placements
 
-    // 2. THUẬT TOÁN DIFFING CHO SPRITE (Chống nháy)
     const newPlacementKeys = new Set<string>()
 
     for (const p of garden.placements) {
@@ -115,14 +108,11 @@ export class GardenGrid extends Container {
       }
     }
 
-    // 3. Cập nhật lại màu sắc cho sàn đất (Floor)
     this.redrawAllTiles()
 
-    // 4. Nếu đang cầm đồ khi data load lại, cập nhật lại mảng chiếm chỗ
     if (this.activeItem) {
       this.calculateOccupiedTiles()
 
-      // ✅ FIX 2: Dùng lastHoveredCol/Row thay vì hoveredTile (luôn null trong placement)
       if (this.lastHoveredCol >= 0 && this.ghostSprite) {
         const isRotated = this.activeRotation === 90 || this.activeRotation === 270
         const effW = isRotated ? this.activeItem.height : this.activeItem.width
@@ -141,7 +131,6 @@ export class GardenGrid extends Container {
     }
   }
 
-  // ✅ FIX 3: Hàm hỗ trợ bypass React, đồng bộ ngay lập tức ô bị chiếm cho PixiJS
   public markTileOccupied(col: number, row: number, effW: number, effH: number): void {
     for (let r = 0; r < effH; r++) {
       for (let c = 0; c < effW; c++) {
@@ -149,10 +138,11 @@ export class GardenGrid extends Container {
       }
     }
     
-    // Check lại luôn vị trí chuột hiện tại xem còn hợp lệ không
     if (this.lastHoveredCol >= 0 && this.ghostSprite && this.activeItem) {
-      // Vì effW, effH ở trên truyền vào là của vật phẩm, có thể dùng lại luôn
-      this.isValidPlacement = !this.checkCollision(this.lastHoveredCol, this.lastHoveredRow, effW, effH)
+      const isRotated = this.activeRotation === 90 || this.activeRotation === 270
+      const curEffW = isRotated ? this.activeItem.height : this.activeItem.width
+      const curEffH = isRotated ? this.activeItem.width : this.activeItem.height
+      this.isValidPlacement = !this.checkCollision(this.lastHoveredCol, this.lastHoveredRow, curEffW, curEffH)
       this.ghostSprite.tint = this.isValidPlacement ? 0xffffff : 0xff4444
     }
     
@@ -240,11 +230,9 @@ export class GardenGrid extends Container {
   private handleHover(col: number, row: number): void {
     if (!isInBounds(col, row, this.gridSize)) return
 
-    // ✅ FIX 2: LUÔN track vị trí chuột, kể cả trong placement mode
     this.lastHoveredCol = col
     this.lastHoveredRow = row
 
-    // --- CHẾ ĐỘ ĐẶT ĐỒ ---
     if (this.activeItem && this.ghostSprite) {
       this.ghostSprite.visible = true
       if (this.ghostShadow) this.ghostShadow.visible = true
@@ -278,7 +266,6 @@ export class GardenGrid extends Container {
       return
     }
 
-    // --- CHẾ ĐỘ THƯỜNG ---
     if (this.hoveredTile) {
       const prev = this.hoveredTile
       this.hoveredTile = null
@@ -290,7 +277,6 @@ export class GardenGrid extends Container {
   }
 
   private handleHoverOut(col: number, row: number): void {
-    // ✅ FIX 2: Reset tracking khi chuột rời grid
     this.lastHoveredCol = -1
     this.lastHoveredRow = -1
 
@@ -311,19 +297,20 @@ export class GardenGrid extends Container {
     if (prev) this.drawTileSpecific(prev.col, prev.row)
   }
 
-  private handleClick(col: number, row: number, placement: PlacementResponse | null): void {
+  // ✅ Thêm isShift vào handleClick
+  private handleClick(col: number, row: number, placement: PlacementResponse | null, isShift: boolean = false): void {
     if (this.getIsDragging?.()) return
     if (!isInBounds(col, row, this.gridSize)) return
 
     if (this.activeItem) {
-      // ✅ FIX 3: Tính lại realtime thay vì dùng cached isValidPlacement để chống spam click nhanh
       const isRotated = this.activeRotation === 90 || this.activeRotation === 270
       const effW = isRotated ? this.activeItem.height : this.activeItem.width
       const effH = isRotated ? this.activeItem.width : this.activeItem.height
       const canPlace = !this.checkCollision(col, row, effW, effH)
       
       if (canPlace) {
-        this.onRequestPlace?.(col, row, this.activeItem, this.activeRotation)
+        // ✅ Truyền isShift lên index.tsx
+        this.onRequestPlace?.(col, row, this.activeItem, this.activeRotation, isShift)
       }
       return
     }
@@ -396,7 +383,8 @@ export class GardenGrid extends Container {
 
     g.on('pointerover', () => this.handleHover(col, row))
     g.on('pointerout',  () => this.handleHoverOut(col, row))
-    g.on('pointertap',  () => this.handleClick(col, row, placement))
+    // ✅ Lấy isShift trực tiếp từ PixiJS FederatedPointerEvent
+    g.on('pointertap',  (e) => this.handleClick(col, row, placement, e.shiftKey))
     return g
   }
 
