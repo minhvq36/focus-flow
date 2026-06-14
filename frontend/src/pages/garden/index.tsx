@@ -65,7 +65,7 @@ export default function Garden() {
   const { activeItem, rotation, clearPlacement, rotateItem, consumeActiveItem } = usePlacementStore()
   
   // ==========================================
-  // HỆ THỐNG QUEUE & BATCH PLACEMENT (MỚI)
+  // HỆ THỐNG QUEUE & BATCH PLACEMENT
   // ==========================================
   const batchMutation = useBatchPlaceItems(activeGardenId)
   const batchQueueRef = useRef<PlaceItemReq[]>([])
@@ -75,11 +75,10 @@ export default function Garden() {
     if (batchQueueRef.current.length === 0) return
 
     const payloadToSend = [...batchQueueRef.current]
-    batchQueueRef.current = [] // Clear ngay lập tức để tránh double click
+    batchQueueRef.current = [] 
 
     batchMutation.mutate(payloadToSend, {
       onError: (err) => {
-        // NẾU API LỖI MẠNG / SẬP SERVER -> ROLLBACK
         if (activeGardenId && rollbackSnapshotRef.current?.garden) {
           queryClient.setQueryData(['garden', activeGardenId], rollbackSnapshotRef.current.garden)
         }
@@ -90,7 +89,7 @@ export default function Garden() {
         console.error("Batch placement error:", err)
       },
       onSettled: () => {
-        rollbackSnapshotRef.current = null // Dọn snapshot
+        rollbackSnapshotRef.current = null 
       }
     })
   }
@@ -98,12 +97,12 @@ export default function Garden() {
   // BẢO VỆ KẼ HỞ BẰNG EVENT LISTENER
   useEffect(() => {
     const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.key === 'Shift') flushBatchQueue() // Nhả shift -> Xả Queue
+      if (e.key === 'Shift') flushBatchQueue()
     }
 
     const handleWindowBlur = () => {
-      flushBatchQueue() // Alt+Tab -> Xả Queue
-      clearPlacement() // Cất đồ cho an toàn
+      flushBatchQueue()
+      clearPlacement()
     }
 
     window.addEventListener('keyup', handleKeyUp)
@@ -112,10 +111,10 @@ export default function Garden() {
     return () => {
       window.removeEventListener('keyup', handleKeyUp)
       window.removeEventListener('blur', handleWindowBlur)
-      flushBatchQueue() // Unmount Component -> Xả nốt Queue
+      flushBatchQueue()
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeGardenId]) // Cần activeGardenId để biết đang xả cho vườn nào
+  }, [activeGardenId]) 
 
   // Khởi tạo PixiJS Canvas
   useEffect(() => {
@@ -142,9 +141,14 @@ export default function Garden() {
           
           const instanceId = item.instance_ids[0]
 
+          // ✅ FIX 3: Báo ngay cho PixiJS biết ô này đã bị chiếm trước khi React kịp Update
+          const isRotated = rot === 90 || rot === 270
+          const effW = isRotated ? item.height : item.width
+          const effH = isRotated ? item.width : item.height
+          grid.markTileOccupied(col, row, effW, effH)
+
           // 1. TẠO SNAPSHOT ROLLBACK CHO LƯỢT ĐẦU TIÊN
           if (batchQueueRef.current.length === 0) {
-            // Dừng mọi fetching ngầm
             await queryClient.cancelQueries({ queryKey: ['garden', activeGardenId] })
             await queryClient.cancelQueries({ queryKey: ['inventory', 'bag'] })
 
@@ -165,7 +169,6 @@ export default function Garden() {
           // 3. OPTIMISTIC UPDATE CHO VƯỜN (TỨC THÌ)
           queryClient.setQueryData<GardenResponse>(['garden', activeGardenId], (old) => {
             if (!old) return old
-            const isRotated = rot === 90 || rot === 270
             const fakePlacement: PlacementResponse = {
               id: `temp_${Date.now()}_${Math.random()}`,
               inventory_id: instanceId,
@@ -175,8 +178,8 @@ export default function Garden() {
               grid_y: row,
               item_width: item.width, 
               item_height: item.height,
-              effective_width: isRotated ? item.height : item.width, 
-              effective_height: isRotated ? item.width : item.height,
+              effective_width: effW, 
+              effective_height: effH,
               rotation: rot,
               health_status: 'healthy',
               wilted_at: null,
@@ -204,11 +207,11 @@ export default function Garden() {
           const isShiftPressed = window.event && (window.event as MouseEvent).shiftKey
           
           if (isShiftPressed) {
-            consumeActiveItem() // Đè shift thì chỉ trừ đồ, giữ Blueprint
+            consumeActiveItem() 
           } else {
             consumeActiveItem()
             clearPlacement()
-            flushBatchQueue() // Không đè shift thì XẢ QUEUE NGAY LẬP TỨC
+            flushBatchQueue() 
           }
         }
 

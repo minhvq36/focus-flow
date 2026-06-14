@@ -53,8 +53,11 @@ export function useBatchPlaceItems(gardenId: string | null) {
     onSuccess: (data) => {
       // Xử lý Partial Success (Thành công 1 phần do bị vướng đồ)
       const failedItems = data.results.filter(r => !r.success)
-      if (failedItems.length > 0) {
-        toast.error(`Có ${failedItems.length} vật phẩm không thể đặt được.`)
+      const successItems = data.results.filter(r => r.success)
+      if (failedItems.length > 0 && successItems.length === 0) {
+        toast.error(`Unable to place ${failedItems.length} items.`)
+      } else if (failedItems.length > 0) {
+        toast.warning(`${successItems.length} items placed, unable to place ${failedItems.length} items (overlap).`)
       }
     },
     // Chú ý: Việc Rollback khi onError sẽ được thực hiện ở index.tsx (nơi giữ Snapshot)

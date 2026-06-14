@@ -35,6 +35,10 @@ export class GardenGrid extends Container {
   private hoveredTile: { col: number; row: number } | null = null
   private selectedTile: { col: number; row: number } | null = null
 
+  // ✅ FIX 2 & 3: Tách biến track chuột riêng biệt để không phụ thuộc hoveredTile bị null
+  private lastHoveredCol: number = -1
+  private lastHoveredRow: number = -1
+
   private floorLayer = new Container()
   private shadowLayer = new Container()
   private objectLayer = new Container()
@@ -68,7 +72,7 @@ export class GardenGrid extends Container {
   load(garden: GardenResponse): void {
     // 1. CHỈ TẠO LẠI NỀN ĐẤT NẾU LÀ LẦN ĐẦU TIÊN HOẶC MAP BỊ MỞ RỘNG
     if (this.gridSize !== garden.current_size || this.tiles.size === 0) {
-      this.clear() // Chỉ nuke toàn bộ nếu size thay đổi
+      this.clear()
       this.gridSize = garden.current_size
       
       this.pivot.x = 0
@@ -77,7 +81,6 @@ export class GardenGrid extends Container {
       for (let row = 0; row < this.gridSize; row++) {
         for (let col = 0; col < this.gridSize; col++) {
           const key = `${col}_${row}`
-          // Tile ban đầu chưa có placement, màu sắc sẽ được update ở hàm redrawAllTiles
           const tile = this.createTile(col, row, null)
           this.tiles.set(key, tile)
           this.floorLayer.addChild(tile)
@@ -91,17 +94,14 @@ export class GardenGrid extends Container {
     // 2. THUẬT TOÁN DIFFING CHO SPRITE (Chống nháy)
     const newPlacementKeys = new Set<string>()
 
-    // A. Thêm sprite mới nếu chưa có trên Canvas
     for (const p of garden.placements) {
       const key = `${p.grid_x}_${p.grid_y}`
       newPlacementKeys.add(key)
-      
       if (!this.placementSprites.has(key)) {
-        this.createPlacementSprite(p) // Chỉ tạo sprite thực sự mới
+        this.createPlacementSprite(p)
       }
     }
 
-    // B. Xóa sprite cũ trên Canvas nếu Data từ DB không còn (vd: lỗi rollback)
     for (const [key, sprite] of this.placementSprites.entries()) {
       if (!newPlacementKeys.has(key)) {
         sprite.destroy()
@@ -115,18 +115,51 @@ export class GardenGrid extends Container {
       }
     }
 
-    // 3. Cập nhật lại màu sắc cho sàn đất (Floor) dựa trên data mới nhất
+    // 3. Cập nhật lại màu sắc cho sàn đất (Floor)
     this.redrawAllTiles()
 
     // 4. Nếu đang cầm đồ khi data load lại, cập nhật lại mảng chiếm chỗ
     if (this.activeItem) {
       this.calculateOccupiedTiles()
+
+      // ✅ FIX 2: Dùng lastHoveredCol/Row thay vì hoveredTile (luôn null trong placement)
+      if (this.lastHoveredCol >= 0 && this.ghostSprite) {
+        const isRotated = this.activeRotation === 90 || this.activeRotation === 270
+        const effW = isRotated ? this.activeItem.height : this.activeItem.width
+        const effH = isRotated ? this.activeItem.width : this.activeItem.height
+
+        this.isValidPlacement = !this.checkCollision(
+          this.lastHoveredCol,
+          this.lastHoveredRow,
+          effW,
+          effH
+        )
+        this.ghostSprite.tint = this.isValidPlacement ? 0xffffff : 0xff4444
+      }
+
       this.redrawAllTiles()
     }
   }
 
+  // ✅ FIX 3: Hàm hỗ trợ bypass React, đồng bộ ngay lập tức ô bị chiếm cho PixiJS
+  public markTileOccupied(col: number, row: number, effW: number, effH: number): void {
+    for (let r = 0; r < effH; r++) {
+      for (let c = 0; c < effW; c++) {
+        this.occupiedTiles.add(`${col + c}_${row + r}`)
+      }
+    }
+    
+    // Check lại luôn vị trí chuột hiện tại xem còn hợp lệ không
+    if (this.lastHoveredCol >= 0 && this.ghostSprite && this.activeItem) {
+      // Vì effW, effH ở trên truyền vào là của vật phẩm, có thể dùng lại luôn
+      this.isValidPlacement = !this.checkCollision(this.lastHoveredCol, this.lastHoveredRow, effW, effH)
+      this.ghostSprite.tint = this.isValidPlacement ? 0xffffff : 0xff4444
+    }
+    
+    this.redrawAllTiles()
+  }
+
   public async setPlacementMode(item: InBagItem | null, rotation: number) {
-    // ✅ CHỐT CHẶN: Nếu đang cầm đúng cái item đó, góc xoay đó -> BỎ QUA KHÔNG LÀM GÌ CẢ
     if (
       item !== null &&
       this.activeItem !== null &&
@@ -145,17 +178,13 @@ export class GardenGrid extends Container {
     this.currentFootprint.clear()
 
     if (!item) {
-      this.redrawAllTiles() // Khôi phục map về bình thường
+      this.redrawAllTiles()
       return
     }
 
-    // 1. Lưu lại các ô bị chiếm để check nhanh
     this.calculateOccupiedTiles()
-    
-    // 2. Làm mờ toàn bộ map
     this.redrawAllTiles()
 
-    // 3. Tạo Sprite bóng mờ
     const config = ASSET_MAP[item.asset_key] || { ...DEFAULT_ASSET_CONFIG, fileName: item.asset_key }
     const textureUrl = getAssetUrl(config.fileName)
 
@@ -188,7 +217,6 @@ export class GardenGrid extends Container {
   private calculateOccupiedTiles() {
     this.occupiedTiles.clear()
     for (const p of this.currentPlacements) {
-      // Dùng fallback phòng trường hợp DB cũ effective_width = 0
       const w = p.effective_width || p.item_width || 1
       const h = p.effective_height || p.item_height || 1
       for (let r = 0; r < h; r++) {
@@ -212,6 +240,10 @@ export class GardenGrid extends Container {
   private handleHover(col: number, row: number): void {
     if (!isInBounds(col, row, this.gridSize)) return
 
+    // ✅ FIX 2: LUÔN track vị trí chuột, kể cả trong placement mode
+    this.lastHoveredCol = col
+    this.lastHoveredRow = row
+
     // --- CHẾ ĐỘ ĐẶT ĐỒ ---
     if (this.activeItem && this.ghostSprite) {
       this.ghostSprite.visible = true
@@ -229,7 +261,6 @@ export class GardenGrid extends Container {
       this.isValidPlacement = !this.checkCollision(col, row, effW, effH)
       this.ghostSprite.tint = this.isValidPlacement ? 0xffffff : 0xff4444
 
-      // TỐI ƯU HOÁ: CHỈ VẼ LẠI Ô BỊ THAY ĐỔI
       const oldFootprint = Array.from(this.currentFootprint)
       this.currentFootprint.clear()
       
@@ -259,6 +290,10 @@ export class GardenGrid extends Container {
   }
 
   private handleHoverOut(col: number, row: number): void {
+    // ✅ FIX 2: Reset tracking khi chuột rời grid
+    this.lastHoveredCol = -1
+    this.lastHoveredRow = -1
+
     if (this.activeItem) {
       if (this.ghostSprite) this.ghostSprite.visible = false
       if (this.ghostShadow) this.ghostShadow.visible = false
@@ -280,14 +315,16 @@ export class GardenGrid extends Container {
     if (this.getIsDragging?.()) return
     if (!isInBounds(col, row, this.gridSize)) return
 
-    // TODO: Develop when delete mode
-    // if (this.currentMode === 'DELETE_MODE' && placement) {
-    //   this.api.deletePlacement(placement.id); // Chuẩn xác 100%, không bị vướng padding!
-    //   return;
-    // }
-
     if (this.activeItem) {
-      if (this.isValidPlacement) this.onRequestPlace?.(col, row, this.activeItem, this.activeRotation)
+      // ✅ FIX 3: Tính lại realtime thay vì dùng cached isValidPlacement để chống spam click nhanh
+      const isRotated = this.activeRotation === 90 || this.activeRotation === 270
+      const effW = isRotated ? this.activeItem.height : this.activeItem.width
+      const effH = isRotated ? this.activeItem.width : this.activeItem.height
+      const canPlace = !this.checkCollision(col, row, effW, effH)
+      
+      if (canPlace) {
+        this.onRequestPlace?.(col, row, this.activeItem, this.activeRotation)
+      }
       return
     }
 
@@ -300,14 +337,12 @@ export class GardenGrid extends Container {
     this.onTileClick?.(col, row, placement)
   }
 
-  // --- HÀM RENDER RIÊNG LẺ CHỐNG LAG ---
   private drawTileSpecific(col: number, row: number) {
     const tile = this.tiles.get(`${col}_${row}`)
     if (tile) this.drawTile(tile, col, row, null, false)
   }
 
   private redrawAllTiles() {
-    // Tạo map tra cứu nhanh
     const placementMap = new Map<string, PlacementResponse>()
     for (const p of this.currentPlacements) {
       placementMap.set(`${p.grid_x}_${p.grid_y}`, p)
@@ -352,9 +387,6 @@ export class GardenGrid extends Container {
     const screen = gridToScreen(col, row, TILE_CONFIG)
     g.x = screen.x; g.y = screen.y
 
-    // --- FIX LỖI NHẤP NHÁY (FLICKERING) ---
-    // Định nghĩa cố định HitArea (Vùng nhận diện chuột).
-    // Khi này g.clear() sẽ không làm mất nhận diện chuột nữa!
     const vertices = diamondVertices(TILE_CONFIG)
     g.hitArea = new Polygon(vertices)
 
@@ -374,7 +406,6 @@ export class GardenGrid extends Container {
 
     try {
       const texture = await Assets.load(textureUrl)
-      // SỬA LỖI MẤT SPRITE Ở ĐÂY: Fallback về item_width nếu effective_width bị 0
       const w = placement.effective_width || placement.item_width || 1
       const h = placement.effective_height || placement.item_height || 1
       const screen = placementToScreen(placement.grid_x, placement.grid_y, w, h, TILE_CONFIG)
