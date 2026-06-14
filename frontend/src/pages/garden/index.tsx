@@ -72,27 +72,42 @@ export default function Garden() {
   const rollbackSnapshotRef = useRef<{ garden: GardenResponse | undefined, inventory: InBagItem[] | undefined } | null>(null)
 
   const flushBatchQueue = () => {
-    if (batchQueueRef.current.length === 0) return
+      if (batchQueueRef.current.length === 0) return
 
-    const payloadToSend = [...batchQueueRef.current]
-    batchQueueRef.current = [] 
+      const payloadToSend = [...batchQueueRef.current]
+      batchQueueRef.current = [] // Clear ngay lập tức để tránh double click
 
-    batchMutation.mutate(payloadToSend, {
-      onError: (err) => {
-        if (activeGardenId && rollbackSnapshotRef.current?.garden) {
-          queryClient.setQueryData(['garden', activeGardenId], rollbackSnapshotRef.current.garden)
+      batchMutation.mutate(payloadToSend, {
+        onSuccess: (data) => {
+          // ✅ BẮT LỖI LOGIC: Có item nào bị server từ chối không? (VD: overlap do tab khác đã đặt)
+          const failedItems = data.results.filter(r => !r.success)
+          
+          if (failedItems.length > 0) {
+            // LẬP TỨC ROLLBACK LẠI TRẠNG THÁI TRƯỚC KHI CLICK ĐỂ XÓA GIAO DIỆN OPTIMISTIC (Flicker nhẹ để chữa sai)
+            if (activeGardenId && rollbackSnapshotRef.current?.garden) {
+              queryClient.setQueryData(['garden', activeGardenId], rollbackSnapshotRef.current.garden)
+            }
+            if (rollbackSnapshotRef.current?.inventory) {
+              queryClient.setQueryData(['inventory', 'bag'], rollbackSnapshotRef.current.inventory)
+            }
+          }
+        },
+        onError: (err) => {
+          // NẾU API LỖI MẠNG / SẬP SERVER -> ROLLBACK
+          if (activeGardenId && rollbackSnapshotRef.current?.garden) {
+            queryClient.setQueryData(['garden', activeGardenId], rollbackSnapshotRef.current.garden)
+          }
+          if (rollbackSnapshotRef.current?.inventory) {
+            queryClient.setQueryData(['inventory', 'bag'], rollbackSnapshotRef.current.inventory)
+          }
+          toast.error("Failed to save. Action undone!")
+          console.error("Batch placement error:", err)
+        },
+        onSettled: () => {
+          rollbackSnapshotRef.current = null // Dọn snapshot an toàn
         }
-        if (rollbackSnapshotRef.current?.inventory) {
-          queryClient.setQueryData(['inventory', 'bag'], rollbackSnapshotRef.current.inventory)
-        }
-        toast.error("Failed to save. Action undone!")
-        console.error("Batch placement error:", err)
-      },
-      onSettled: () => {
-        rollbackSnapshotRef.current = null 
-      }
-    })
-  }
+      })
+    }
 
   // BẢO VỆ KẼ HỞ BẰNG EVENT LISTENER
   useEffect(() => {
