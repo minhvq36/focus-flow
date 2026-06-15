@@ -860,13 +860,18 @@ GET    /api/tasks/quota/today    → { used, limit }
 
 ### Garden
 ```
-GET    /api/garden/list          ← chỉ trả list gardens (meta, không có placements)
-GET    /api/garden/@:username    ← public view // TODO: Dont use username, userid instead?
-POST   /api/garden/place         { inventory_id, grid_x, grid_y }
-DELETE /api/garden/place/:id
-PATCH  /api/garden/place/:id     { grid_x, grid_y }
-POST   /api/garden/water/:id     ← dùng nước tưới (tốn 1 lọ)
-POST   /api/garden/expand        ← level 20, tốn bạc theo công thức
+GET    /api/garden/                    ✓ Get user's all gardens (list with meta)
+GET    /api/garden/{id}                ✓ Get garden by user_garden_id (detailed + placements)
+POST   /api/garden/{id}/placements     ✓ Place single item
+POST   /api/garden/{id}/placements/batch ✓ Place multiple items (batch)
+DELETE /api/garden/{id}/placements     ✓ Remove multiple items (batch)
+
+PLANNED (Not yet implemented):
+GET    /api/garden/@:username          Public view
+PATCH  /api/garden/{id}/placements/:id Move/rotate item
+POST   /api/garden/{id}/water/:id      Use watering can
+POST   /api/garden/20/expand           Expand level 20 (+5×5, cost in silver)
+GET    /api/garden/{id}/stats          Get garden value, rarity distribution
 ```
 
 ### Inventory

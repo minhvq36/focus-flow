@@ -244,7 +244,7 @@ wire ./cmd/server
 - [ ] CORS - Hardcoded to localhost:5173 (needs .env for prod)
 
 **✅ Completed (Full Implementation):**
-- [x] `internal/garden/` - handler.go, service.go (GetUserGardenList, GetUserGardenByID), repository.go
+- [x] `internal/garden/` - handler.go (all placement endpoints), service.go (GetUserGardenList, GetUserGardenByID, PlaceItem, PlaceItemsBatch, RemoveItemsBatch), repository.go (batch operations with CTE)
 - [x] `internal/reward/` - roll.go (tier-based RNG, exp calculation), models.go, penalty.go (SelectPenaltyItem)
 
 **❌ Not Yet Started (Stubs only):**
@@ -485,69 +485,63 @@ Level 20+:   700-1,200 silver
 
 **Key Operations:**
 
-#### GetGarden
-- **Input:** user_id, garden_index
-- **Output:**
-  ```json
-  {
-    "id": "uuid",
-    "garden_index": 5,
-    "grid_size": 9,
-    "expansion_level": 0,
-    "placements": [
-      {
-        "id": "uuid",
-        "grid_x": 2,
-        "grid_y": 3,
-        "rotation": 0,
-        "health_status": "healthy",
-        "item": {
-          "id": "uuid",
-          "name": "Rose",
-          "asset_key": "flower_rose_red",
-          "rarity": "common"
-        }
-      }
-    ],
-    "empty_slots": 42,
-    "total_slots": 81,
-    "next_level_preview": { ... }
-  }
-  ```
-
-#### PlaceItem
-- **Input:** user_id, garden_index, inventory_id, grid_x, grid_y, rotation=0
-- **Logic:**
-  1. Validate inventory_id belongs to user
-  2. Validate grid position within bounds
-  3. Validate no overlap with existing placement
-  4. Get item dimensions (width, height) from items table
-  5. Validate placement doesn't exceed garden boundaries
-  6. Check inventory.is_placed = false
-  7. Create garden_placement record (trigger sets is_placed=true)
-  8. Check if all slots now filled:
-     - If yes → unlock next level (garden_index+1)
-     - Create feed event: level_up
-- **Output:** placement_id, 201 Created
-
-#### RemovePlacement
-- **Input:** placement_id
-- **Logic:**
-  1. Delete garden_placement (trigger sets is_placed=false)
-- **Output:** 204 No Content
-
-#### RepositionItem
-- **Input:** placement_id, new_grid_x, new_grid_y, new_rotation
-- **Logic:**
-  1. Validate new position available
-  2. Update garden_placement
-- **Output:** updated placement
-
-#### ExpandLevel20
+#### GetUserGardenList
 - **Input:** user_id
 - **Logic:**
-  1. Check user at garden_index=20
-  2. Calculate expansion cost: 1000 × (1.5 ^ expansion_level)
+  1. Query all user_gardens joined with gardens table
+  2. Sort by garden_index ASC
+- **Output:** GardenListItem[] with fields: id, garden_id, garden_index, expansion_level, is_expandable, can_expand
+
+#### GetUserGardenByID
+- **Input:** user_id, user_garden_id
+- **Logic:**
+  1. Validate user_garden_id belongs to user
+  2. Fetch user_garden with garden metadata (grid_size, garden_index, expansion_level, is_expandable)
+  3. Fetch all placements for this garden
+  4. Calculate current_grid_size from base_size + expansion_level × 5
+- **Output:** GardenResponse with placements, grid info, watering status
+
+#### PlaceItem (Single)
+- **Input:** user_id, user_garden_id, inventory_id, grid_x, grid_y, rotation (0/90/180/270)
+- **Logic:**
+  1. Wrapper around PlaceItemsBatch with single item
+  2. Delegates to batch logic
+- **Output:** PlacementResponse with placement details, 201 Created
+- **Errors:** ValidationError (overlap, out of bounds), NotFoundError (garden/inventory)
+
+#### PlaceItemsBatch
+- **Input:** user_id, user_garden_id, items[] (inventory_id, grid_x, grid_y, rotation)
+- **Logic:**
+  1. Start transaction, lock user_garden (FOR UPDATE)
+  2. Get current grid size from base_size + expansion_level
+  3. Fetch inventory items map (O(k))
+  4. Fetch existing placements bounding boxes (O(k))
+  5. For each item in batch (in-memory validation O(k)):
+     a. Check duplicate within request
+     b. Validate inventory exists & not already placed
+     c. Calculate effective dimensions (width, height) based on rotation
+     d. Bounds check: item within grid
+     e. Overlap check: item vs existing + items in batch
+     f. On success: add to createParams, update currentStateBoxes
+     g. On failure: add to results with error reason
+  6. Batch insert placements + update inventory status to 'placed' (pgx.Batch, 1 round-trip)
+  7. Commit transaction
+- **Output:** MultiPlaceResponse with results[] (per-item success/error/placement data), 201 Created
+- **Errors:** NotFoundError (garden), DuplicateError (race condition 23505)
+
+#### RemoveItemsBatch
+- **Input:** user_id, user_garden_id, inventory_ids[]
+- **Logic:**
+  1. Sanitize input: remove duplicate IDs
+  2. Start transaction, lock user_garden (FOR UPDATE)
+  3. Execute CTE query:
+     a. Filter valid_inventory: must belong to user, status != 'on_market'
+     b. Delete garden_placements for valid_inventory
+     c. Update inventory status to 'in_bag'
+     d. Return deleted inventory_ids
+  4. Commit transaction
+- **Output:** MultiRemoveResponse with successful_inventory_ids[], 200 OK
+- **Errors:** NotFoundError (garden)
   3. Validate wallet has enough silver
   4. Debit silver
   5. Increment garden.expansion_level
@@ -853,13 +847,13 @@ GET    /api/tasks/:id/notes      Get all notes
 ### 4.2 Garden Management
 
 ```
-GET    /api/gardens/:index              Get garden layout
-POST   /api/gardens/:index/place        Place item on grid
-DELETE /api/gardens/:index/placements/:id Remove placement
-PATCH  /api/gardens/:index/placements/:id Move/rotate item
-POST   /api/gardens/20/expand           Expand level 20 (+5×5, cost in silver)
-GET    /api/gardens/:index/stats        Get garden stats (value, rarity dist)
-GET    /api/gardens/public/:username    Get public garden view (read-only)
+GET    /api/garden/                     Get user's all gardens (list)
+GET    /api/garden/{id}                 Get garden by user_garden_id (detailed view)
+POST   /api/garden/{id}/placements      Place single item on grid
+POST   /api/garden/{id}/placements/batch Place multiple items (batch) on grid
+DELETE /api/garden/{id}/placements      Remove multiple items (batch) from grid
+
+(✓ Implemented | ✗ Planned | ○ Not Yet Started)
 ```
 
 ### 4.3 Inventory & Shop
