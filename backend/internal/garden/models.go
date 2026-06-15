@@ -174,3 +174,14 @@ func (b BoundingBox) Overlaps(other BoundingBox) bool {
 func (b BoundingBox) IsWithinBounds(gridSize int) bool {
 	return b.X >= 0 && b.Y >= 0 && b.X+b.W <= gridSize && b.Y+b.H <= gridSize
 }
+
+// --- Models cho tính năng Remove (Shovel) ---
+
+type MultiRemoveRequest struct {
+	UserGardenID string   `json:"-"`
+	InventoryIDs []string `json:"inventory_ids" validate:"required,min=1"`
+}
+
+type MultiRemoveResponse struct {
+	SuccessfulInventoryIDs []string `json:"successful_inventory_ids"`
+}

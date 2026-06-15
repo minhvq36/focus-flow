@@ -270,3 +270,50 @@ func (r *Repository) CreatePlacementsAndUpdateInventory(ctx context.Context, tx 
 
 	return results, nil
 }
+
+// TODO: When add on_market, need to delete garden_placements for defensive
+func (r *Repository) RemovePlacementsAndUpdateInventory(ctx context.Context, tx pgx.Tx, userGardenID string, inventoryIDs []string, userID string) ([]string, error) {
+	if len(inventoryIDs) == 0 {
+		return nil, nil
+	}
+
+	query := `
+		WITH valid_inventory AS (
+			SELECT id FROM public.inventory 
+			WHERE id = ANY($1) 
+			  AND user_id = $2 
+			  AND status != 'on_market'
+		),
+		deleted_placements AS (
+			DELETE FROM public.garden_placements
+			WHERE user_garden_id = $3 
+			  AND inventory_id IN (SELECT id FROM valid_inventory)
+			RETURNING inventory_id
+		)
+		UPDATE public.inventory
+		SET status = 'in_bag'
+		WHERE id IN (SELECT inventory_id FROM deleted_placements)
+		RETURNING id;
+	`
+
+	rows, err := tx.Query(ctx, query, inventoryIDs, userID, userGardenID)
+	if err != nil {
+		return nil, fmt.Errorf("remove placements CTE failed: %w", err)
+	}
+	defer rows.Close()
+
+	var successfulIDs []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("scan removed inventory_id: %w", err)
+		}
+		successfulIDs = append(successfulIDs, id)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows iteration error in remove placements: %w", err)
+	}
+
+	return successfulIDs, nil
+}
