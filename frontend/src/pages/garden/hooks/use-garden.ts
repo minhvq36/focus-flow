@@ -21,7 +21,7 @@ export function useGarden(id: string | null) {
     queryKey: ['garden', id],
     queryFn: () => api.get<GardenResponse>(`/api/garden/${id}`),
     enabled: !!id,
-    staleTime: 1000 * 60 * 5,
+    staleTime: 1000 * 60 * 3,
   })
 }
 

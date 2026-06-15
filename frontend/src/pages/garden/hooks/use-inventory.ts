@@ -6,6 +6,6 @@ export function useInventoryBag() {
   return useQuery({
     queryKey: ['inventory', 'bag'],
     queryFn: () => api.get<InBagItem[]>('/api/inventory/bag'),
-    staleTime: 1000 * 60 * 5,
+    staleTime: 1000 * 60 * 3,
   })
 }
