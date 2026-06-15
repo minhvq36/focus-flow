@@ -11,7 +11,7 @@
   "back_to_tasks": "Quay lại nhiệm vụ",
   "toast": {
     "task_incomplete_title": "Nhiệm vụ chưa hoàn thành",
-    "task_incomplete_desc": "Vui lòng hoàn thành tất cả việc nhỏ trước khi nộp.",
+    "task_incomplete_desc": "Vui lòng hoàn thành danh sách việc trước khi nộp.",
     "failed_reset_timer": "Không thể đặt lại bộ đếm thời gian."
   },
   "todos": {
@@ -52,7 +52,7 @@
     "discard": "Hủy"
   },
   "extend_time": {
-    "trigger": "+ Kéo dài thời gian",
+    "trigger": "+ Thêm thời gian",
     "error_invalid": "Nhập số từ 1–120",
     "error_min": "Tối thiểu là 1 phút",
     "error_max": "Tối đa là 120 phút",
