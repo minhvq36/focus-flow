@@ -18,6 +18,7 @@ type RepositoryInterface interface {
 	GetInventoryItemsMap(ctx context.Context, inventoryIDs []string, userID string) (map[string]InventoryItemDetails, error)
 	GetPlacementsBoundingBoxesTx(ctx context.Context, tx pgx.Tx, userGardenID string) ([]BoundingBox, error)
 	CreatePlacementsAndUpdateInventory(ctx context.Context, tx pgx.Tx, params []CreatePlacementParams, userID string) ([]Placement, error)
+	RemovePlacementsAndUpdateInventory(ctx context.Context, tx pgx.Tx, userGardenID string, inventoryIDs []string, userID string) ([]string, error)
 }
 
 type Service struct {
@@ -294,4 +295,57 @@ func (s *Service) PlaceItem(ctx context.Context, userID string, req PlaceRequest
 	}
 
 	return res.Placement, nil
+}
+
+// Xóa/Thu hồi nhiều Items vào kho (Dùng cho cả Single Click và Quét Vùng)
+func (s *Service) RemoveItemsBatch(ctx context.Context, userID string, req MultiRemoveRequest) (*MultiRemoveResponse, error) {
+	// 1. Sanitize Input: Lọc bỏ các ID trùng lặp (Phòng trường hợp FE quét vùng bị overlap dẫn đến gửi 2 ID giống nhau)
+	capacity := len(req.InventoryIDs)
+	uniqueIDsMap := make(map[string]bool, capacity)
+	cleanInventoryIDs := make([]string, 0, capacity)
+	for _, id := range req.InventoryIDs {
+		if !uniqueIDsMap[id] {
+			uniqueIDsMap[id] = true
+			cleanInventoryIDs = append(cleanInventoryIDs, id)
+		}
+	}
+
+	if len(cleanInventoryIDs) == 0 {
+		return &MultiRemoveResponse{SuccessfulInventoryIDs: []string{}}, nil
+	}
+
+	// 2. Bắt đầu Transaction
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("RemoveItemsBatch begin tx: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	// 3. Lock Garden (Ngăn Race condition với Placement/Move)
+	// Dùng '_' bỏ qua baseSize và expansionLevel vì ta không cần check out-of-bounds khi xóa
+	_, _, err = s.repo.LockUserGarden(ctx, tx, req.UserGardenID, userID)
+	if err != nil {
+		return nil, err // apperr.NotFoundError đã được wrap trong repo
+	}
+
+	// 4. Gọi DB thực thi Xóa và Cập nhật 1 phát ăn luôn (CTE)
+	successfulIDs, err := s.repo.RemovePlacementsAndUpdateInventory(ctx, tx, req.UserGardenID, cleanInventoryIDs, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	// 5. Commit Transaction
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("RemoveItemsBatch commit tx: %w", err)
+	}
+
+	// 6. Trả về cho FE danh sách những ID thực sự được gỡ, để FE update UI
+	// Nếu FE gửi 5 cái, nhưng DB chỉ xóa được 3 cái, thì mảng này có length = 3
+	if successfulIDs == nil {
+		successfulIDs = []string{} // Tránh trả về null trong JSON
+	}
+
+	return &MultiRemoveResponse{
+		SuccessfulInventoryIDs: successfulIDs,
+	}, nil
 }

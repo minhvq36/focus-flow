@@ -18,6 +18,7 @@ type ServiceInterface interface {
 	GetUserGardenByID(ctx context.Context, userGardenID, userID string) (*GardenResponse, error)
 	PlaceItem(ctx context.Context, userID string, req PlaceRequest) (*PlacementResponse, error)
 	PlaceItemsBatch(ctx context.Context, userID string, req MultiPlaceRequest) (*MultiPlaceResponse, error)
+	RemoveItemsBatch(ctx context.Context, userID string, req MultiRemoveRequest) (*MultiRemoveResponse, error)
 }
 
 type Handler struct {
@@ -140,6 +141,40 @@ func (h *Handler) PlaceItemsBatch(w http.ResponseWriter, r *http.Request) {
 			response.NotFound(w, "Resource")
 		default:
 			h.log.Error("PlaceItemsBatch failed", "user_id", userID, "error", err.Error())
+			response.InternalError(w)
+		}
+		return
+	}
+
+	response.Success(w, result)
+}
+func (h *Handler) RemoveItemsBatch(w http.ResponseWriter, r *http.Request) {
+	userID, ok := auth.GetUserID(r.Context())
+	if !ok {
+		response.Unauthorized(w)
+		return
+	}
+
+	var req MultiRemoveRequest
+	if ok := request.BindAndValidate(w, r, &req); !ok {
+		return
+	}
+
+	req.UserGardenID = chi.URLParam(r, "id")
+	if req.UserGardenID == "" {
+		response.BadRequest(w, "INVALID_ID", "Garden ID is required")
+		return
+	}
+
+	result, err := h.service.RemoveItemsBatch(r.Context(), userID, req)
+	if err != nil {
+		switch {
+		case errors.Is(err, apperr.ErrValidation):
+			response.BadRequest(w, "VALIDATION_ERROR", err.Error())
+		case errors.Is(err, apperr.ErrNotFound):
+			response.NotFound(w, "Resource")
+		default:
+			h.log.Error("RemoveItemsBatch failed", "user_id", userID, "error", err.Error())
 			response.InternalError(w)
 		}
 		return
