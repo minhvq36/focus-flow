@@ -2,6 +2,7 @@ import { MousePointer2, Shovel, Backpack, Store } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { InventoryModal } from './inventory-modal'
 import { usePlacementStore } from '@/store/placement-store'
+import { ImageWithFallback } from '@/components/ui/image-with-fallback'
 
 export function GardenToolbar() {
   const { activeTool, setTool } = usePlacementStore()
@@ -45,7 +46,8 @@ export function GardenToolbar() {
             onClick={() => setTool('cursor')} 
           />
           <ToolButton 
-            icon={<Shovel size={24} />} 
+            imageSrc="/shovel-cursor.png"
+            fallbackIcon={<Shovel size={24} />}
             label="Shovel" 
             isActive={activeTool === 'shovel'} 
             onClick={() => setTool('shovel')}
@@ -77,8 +79,34 @@ export function GardenToolbar() {
 }
 
 // --- Các Component nhỏ gọn hỗ trợ giao diện ---
-// (Giữ nguyên như cũ của bạn)
-function ToolButton({ icon, label, isActive, onClick, shortcut }: { icon: React.ReactNode, label: string, isActive: boolean, onClick: () => void, shortcut?: string }) {
+function ToolButton({ 
+  icon, 
+  imageSrc,
+  fallbackIcon,
+  label, 
+  isActive, 
+  onClick, 
+  shortcut 
+}: { 
+  icon?: React.ReactNode,
+  imageSrc?: string,
+  fallbackIcon?: React.ReactNode,
+  label: string, 
+  isActive: boolean, 
+  onClick: () => void, 
+  shortcut?: string 
+}) {
+  const displayIcon = imageSrc ? (
+    <ImageWithFallback
+      src={imageSrc}
+      alt={label}
+      fallback={fallbackIcon || icon}
+      className="w-6 h-6"
+    />
+  ) : (
+    icon
+  )
+
   return (
     <button
       onClick={onClick}
@@ -90,7 +118,7 @@ function ToolButton({ icon, label, isActive, onClick, shortcut }: { icon: React.
         }
       `}
     >
-      {icon}
+      {displayIcon}
       
       {/* Thêm khối này để render huy hiệu phím tắt (badge) giống như MenuButton */}
       {shortcut && (
