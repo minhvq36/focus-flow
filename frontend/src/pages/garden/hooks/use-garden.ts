@@ -77,10 +77,13 @@ export function useBatchRemoveItems(gardenId: string | null) {
       const success = data.successful_inventory_ids?.length || 0
 
       if (success === 0 && requested > 0) {
-        toast.error("Failed to remove items.")
+        toast.warning("Failed to remove items.")
       } else if (success < requested) {
         toast.warning(`Removed ${success}/${requested} items. Some items could not be removed.`)
       }
+    },
+    onError: () => {
+      toast.error("Failed to remove items. Please check the connection and try again.")
     }
   })
 }

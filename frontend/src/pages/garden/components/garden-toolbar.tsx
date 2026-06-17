@@ -69,7 +69,7 @@ export function GardenToolbar() {
           <MenuButton 
             icon={<Store size={24} />} 
             label="Shop" 
-            onClick={() => console.log('Mở Shop')} 
+            onClick={() => console.log('Open Shop')} 
             shortcut="S"
           />
         </div>
