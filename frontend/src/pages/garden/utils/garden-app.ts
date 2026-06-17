@@ -1,6 +1,6 @@
 import { Application, Container, Rectangle, FederatedPointerEvent } from 'pixi.js'
 
-export const MIN_ZOOM = 0.25
+export const MIN_ZOOM = 0.32 // TODO: Check change to flex min zoom based on map current size
 export const MAX_ZOOM = 3.0
 
 export interface GardenAppOptions {
