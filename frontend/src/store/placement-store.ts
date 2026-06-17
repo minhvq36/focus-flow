@@ -9,19 +9,29 @@ interface PlacementStore {
   clearPlacement: () => void
   consumeActiveItem: () => void 
   restoreActiveItem: (item: InBagItem | null) => void // ✅ Đã thêm khai báo hàm này
+  activeTool: 'cursor' | 'shovel'                 // <-- THÊM DÒNG NÀY
+  setTool: (tool: 'cursor' | 'shovel') => void    // <-- THÊM DÒNG NÀY
 }
 
 export const usePlacementStore = create<PlacementStore>((set) => ({
+  activeTool: 'cursor',
   activeItem: null,
   rotation: 0,
+
+  setTool: (tool) => set((state) => {
+    if (tool === 'shovel') {
+      return { activeTool: tool, activeItem: null, rotation: 0 }
+    }
+    return { activeTool: tool }
+  }),
   
-  setActiveItem: (item) => set({ activeItem: item, rotation: 0 }),
+  setActiveItem: (item) => set({ activeItem: item, rotation: 0, activeTool: 'cursor' }),
   
   rotateItem: () => set((state) => ({ 
     rotation: (state.rotation + 90) % 360 
   })),
   
-  clearPlacement: () => set({ activeItem: null, rotation: 0 }),
+  clearPlacement: () => set({ activeItem: null, rotation: 0, activeTool: 'cursor' }),
 
   // Hàm này sẽ được gọi ngay khi người dùng click chuột để đặt đồ
   consumeActiveItem: () => set((state) => {

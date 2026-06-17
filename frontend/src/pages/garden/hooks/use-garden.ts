@@ -1,6 +1,6 @@
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { api } from '@/lib/api'
-import type { GardenListItem, GardenResponse, PlaceItemReq, MultiPlaceResponse } from '@/types/garden'
+import type { GardenListItem, GardenResponse, PlaceItemReq, MultiPlaceResponse, MultiRemoveReq, MultiRemoveResponse } from '@/types/garden'
 import { toast } from 'sonner'
 
 // ============================================================
@@ -60,5 +60,27 @@ export function useBatchPlaceItems(gardenId: string | null) {
       }
     },
     // onSettled đã chuyển sang index.tsx để tránh duplicate và đảm bảo đúng thứ tự
+  })
+}
+
+// ============================================================
+// DELETE /api/garden/:id/placements — Batch Remove Items
+// ============================================================
+export function useBatchRemoveItems(gardenId: string | null) {
+  return useMutation({
+    mutationFn: async (payload: MultiRemoveReq) => {
+      // Truyền trực tiếp payload vào tham số thứ 2 (giống hệt post/patch)
+      return api.delete<MultiRemoveResponse>(`/api/garden/${gardenId}/placements`, payload)
+    },
+    onSuccess: (data, variables) => {
+      const requested = variables.inventory_ids.length
+      const success = data.successful_inventory_ids?.length || 0
+
+      if (success === 0 && requested > 0) {
+        toast.error("Failed to remove items.")
+      } else if (success < requested) {
+        toast.warning(`Removed ${success}/${requested} items. Some items could not be removed.`)
+      }
+    }
   })
 }

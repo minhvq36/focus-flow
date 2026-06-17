@@ -1,9 +1,10 @@
 import { MousePointer2, Shovel, Backpack, Store } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { InventoryModal } from './inventory-modal'
+import { usePlacementStore } from '@/store/placement-store'
 
 export function GardenToolbar() {
-  const [activeTool, setActiveTool] = useState<'cursor' | 'shovel'>('cursor')
+  const { activeTool, setTool } = usePlacementStore()
   const [isInventoryOpen, setIsInventoryOpen] = useState(false)
 
   // Xử lý phím tắt
@@ -17,7 +18,7 @@ export function GardenToolbar() {
         setIsInventoryOpen(prev => !prev) // Toggle túi đồ
       }
       if (e.code === 'KeyD') {
-        setActiveTool('shovel')
+        setTool('shovel')
       }
     }
 
@@ -39,15 +40,15 @@ export function GardenToolbar() {
         <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-xl">
           <ToolButton 
             icon={<MousePointer2 size={24} />} 
-            label="Con trỏ" 
+            label="Cursor" 
             isActive={activeTool === 'cursor'} 
-            onClick={() => setActiveTool('cursor')} 
+            onClick={() => setTool('cursor')} 
           />
           <ToolButton 
             icon={<Shovel size={24} />} 
-            label="Nhổ cây" 
+            label="Shovel" 
             isActive={activeTool === 'shovel'} 
-            onClick={() => setActiveTool('shovel')} 
+            onClick={() => setTool('shovel')} 
           />
         </div>
 
@@ -58,13 +59,13 @@ export function GardenToolbar() {
         <div className="flex items-center gap-1 p-1">
           <MenuButton 
             icon={<Backpack size={24} />} 
-            label="Túi đồ" 
+            label="Inventory" 
             onClick={() => setIsInventoryOpen(!isInventoryOpen)} 
             shortcut="E"
           />
           <MenuButton 
             icon={<Store size={24} />} 
-            label="Cửa hàng" 
+            label="Shop" 
             onClick={() => console.log('Mở Shop')} 
             shortcut="S"
           />

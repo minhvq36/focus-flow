@@ -75,3 +75,11 @@ export interface BatchPlacementItemResult {
 export interface MultiPlaceResponse {
   results: BatchPlacementItemResult[]
 }
+
+export interface MultiRemoveReq {
+  inventory_ids: string[]
+}
+
+export interface MultiRemoveResponse {
+  successful_inventory_ids: string[]
+}
