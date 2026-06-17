@@ -18,6 +18,7 @@ import { GardenTabs } from './components/garden-tabs'
 import { LoadingOverlay } from './components/loading-overlay'
 import { TilePopup } from './components/tile-popup'
 import { GardenToolbar } from './components/garden-toolbar'
+import { GardenTooltip } from './components/garden-tooltip'
 
 import { usePlacementStore } from '@/store/placement-store'
 import { toast } from 'sonner'
@@ -415,42 +416,7 @@ export default function Garden() {
         />
       )}
 
-      {/* Box hướng dẫn phím tắt (Chỉ hiện khi cầm Item) */}
-      {activeItem && (
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 px-6 py-2.5 bg-slate-900/80 backdrop-blur-md text-white text-sm font-medium rounded-full shadow-lg pointer-events-none flex items-center gap-3 animate-in slide-in-from-bottom-4">
-          <div className="flex gap-1.5 items-center">
-            <span className="bg-slate-700 px-2 py-0.5 rounded text-amber-400 font-mono">R</span> Rotate
-          </div>
-          <div className="w-1 h-1 bg-slate-500 rounded-full" />
-          <div className="flex gap-1.5 items-center">
-            <span className="bg-slate-700 px-2 py-0.5 rounded text-amber-400 font-mono">ESC</span> Cancel
-          </div>
-          <div className="w-1 h-1 bg-slate-500 rounded-full" />
-          <div className="flex gap-1.5 items-center">
-            <span className="bg-slate-700 px-2 py-0.5 rounded text-amber-400 font-mono">Shift</span> Batch Place
-          </div>
-          <div className="ml-2 pl-3 border-l border-slate-600 font-bold text-amber-400">
-            Left: {activeItem.instance_ids?.length || 0}
-          </div>
-        </div>
-      )}
-
-      {/* ✅ Box hướng dẫn phím tắt (Chỉ hiện khi cầm Xẻng) */}
-      {activeTool === 'shovel' && (
-        <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-20 px-6 py-2.5 bg-red-950/80 border border-red-500/30 backdrop-blur-md text-white text-sm font-medium rounded-full shadow-lg pointer-events-none flex items-center gap-3 animate-in slide-in-from-bottom-4">
-          <div className="flex gap-1.5 items-center">
-            <span className="bg-red-900 px-2 py-0.5 rounded text-red-300 font-mono">Click</span> Remove 1 Item
-          </div>
-          <div className="w-1 h-1 bg-red-500/50 rounded-full" />
-          <div className="flex gap-1.5 items-center">
-            <span className="bg-red-900 px-2 py-0.5 rounded text-red-300 font-mono">Shift + Click 2 Points</span> Area Remove
-          </div>
-          <div className="w-1 h-1 bg-red-500/50 rounded-full" />
-          <div className="flex gap-1.5 items-center">
-            <span className="bg-red-900 px-2 py-0.5 rounded text-red-300 font-mono">ESC</span> Cancel Tool
-          </div>
-        </div>
-      )}
+      <GardenTooltip activeItem={activeItem} activeTool={activeTool} />
       
     </div>
   )
