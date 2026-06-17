@@ -348,6 +348,24 @@ export default function Garden() {
     if (gardenGridRef.current && isCanvasReady) {
       gardenGridRef.current.setPlacementMode(activeItem, rotation)
       gardenGridRef.current.setTool(activeTool) // Báo cho Grid biết tay đang cầm gì
+    if (gardenAppRef.current && gardenAppRef.current.app) {
+        const canvas = gardenAppRef.current.app.canvas
+        if (canvas instanceof HTMLCanvasElement) {
+          
+          if (activeTool === 'shovel') {
+            // 1. Đang dùng xẻng -> Ép ra hình xẻng lập tức
+            canvas.style.cursor = "url('/shovel-cursor.png') 14 64, auto"
+            
+          } else if (activeItem) {
+            // 2. Đang cầm hạt giống -> Ép ra chuột thường lập tức
+            canvas.style.cursor = "default" 
+            
+          } else {
+            // 3. Trạng thái bình thường (ESC) -> Xóa style ép buộc
+            canvas.style.cursor = "" 
+          } 
+        }
+      } 
     }
   }, [activeItem, rotation, activeTool, isCanvasReady])
 
