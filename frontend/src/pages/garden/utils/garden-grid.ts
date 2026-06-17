@@ -22,6 +22,8 @@ const COLOR = {
   BP_INVALID:       0xf87171,
   BP_OCCUPIED:      0x64748b,
   BP_DIM:           0x6ea543,
+  // Thêm màu cho vùng xóa
+  REMOVE_AREA:      0xfca5a5, 
 } as const
 
 export class GardenGrid extends Container {
@@ -41,17 +43,24 @@ export class GardenGrid extends Container {
   private objectLayer = new Container()
 
   private currentPlacements: PlacementResponse[] = []
+  
+  // Placement Tool states
   private ghostSprite: Sprite | null = null
   private ghostShadow: Container | null = null
   private activeItem: InBagItem | null = null
   private activeRotation: number = 0
   private isValidPlacement: boolean = false
-
   private occupiedTiles = new Set<string>() 
   private currentFootprint = new Set<string>() 
 
-  // ✅ isShift thêm vào signature
+  // Shovel Tool states
+  private currentTool: 'cursor' | 'shovel' = 'cursor'
+  private selectionStart: { col: number; row: number } | null = null
+  private removeFootprint = new Set<string>()
+  private itemsToRemove = new Set<string>()
+
   onRequestPlace?: (col: number, row: number, item: InBagItem, rotation: number, isShift: boolean) => void
+  onRequestRemoveBatch?: (inventoryIds: string[]) => void
   onTileClick?: (col: number, row: number, placement: PlacementResponse | null) => void
   onTileHover?: (col: number, row: number) => void
   getIsDragging?: () => boolean
@@ -108,27 +117,35 @@ export class GardenGrid extends Container {
       }
     }
 
+    this.calculateOccupiedTiles()
     this.redrawAllTiles()
+    this.updateSpriteTints()
 
-    if (this.activeItem) {
-      this.calculateOccupiedTiles()
+    if (this.activeItem && this.lastHoveredCol >= 0 && this.ghostSprite) {
+      const isRotated = this.activeRotation === 90 || this.activeRotation === 270
+      const effW = isRotated ? this.activeItem.height : this.activeItem.width
+      const effH = isRotated ? this.activeItem.width : this.activeItem.height
 
-      if (this.lastHoveredCol >= 0 && this.ghostSprite) {
-        const isRotated = this.activeRotation === 90 || this.activeRotation === 270
-        const effW = isRotated ? this.activeItem.height : this.activeItem.width
-        const effH = isRotated ? this.activeItem.width : this.activeItem.height
-
-        this.isValidPlacement = !this.checkCollision(
-          this.lastHoveredCol,
-          this.lastHoveredRow,
-          effW,
-          effH
-        )
-        this.ghostSprite.tint = this.isValidPlacement ? 0xffffff : 0xff4444
-      }
-
-      this.redrawAllTiles()
+      this.isValidPlacement = !this.checkCollision(this.lastHoveredCol, this.lastHoveredRow, effW, effH)
+      this.ghostSprite.tint = this.isValidPlacement ? 0xffffff : 0xff4444
     }
+  }
+
+  // Set tool globally (Cursor vs Shovel)
+  public setTool(tool: 'cursor' | 'shovel') {
+    this.currentTool = tool
+    if (tool === 'cursor') {
+      this.abortRemoveSelection()
+    }
+  }
+
+  // Cancel ongoing area selection (Triggered by ESC or Shift KeyUp)
+  public abortRemoveSelection() {
+    this.selectionStart = null
+    this.removeFootprint.clear()
+    this.itemsToRemove.clear()
+    this.updateSpriteTints()
+    this.redrawAllTiles()
   }
 
   public markTileOccupied(col: number, row: number, effW: number, effH: number): void {
@@ -150,12 +167,7 @@ export class GardenGrid extends Container {
   }
 
   public async setPlacementMode(item: InBagItem | null, rotation: number) {
-    if (
-      item !== null &&
-      this.activeItem !== null &&
-      this.activeItem.asset_key === item.asset_key &&
-      this.activeRotation === rotation
-    ) {
+    if (item !== null && this.activeItem !== null && this.activeItem.asset_key === item.asset_key && this.activeRotation === rotation) {
       this.activeItem = item
       return 
     }
@@ -227,12 +239,80 @@ export class GardenGrid extends Container {
     return false
   }
 
+  // Calculate AABB intersection for Area Delete
+  private calculateRemoveArea(endCol: number, endRow: number, isSingle: boolean = false) {
+    this.removeFootprint.clear()
+    this.itemsToRemove.clear()
+
+    let minX = endCol, maxX = endCol, minY = endRow, maxY = endRow
+    
+    if (!isSingle && this.selectionStart) {
+      minX = Math.min(this.selectionStart.col, endCol)
+      maxX = Math.max(this.selectionStart.col, endCol)
+      minY = Math.min(this.selectionStart.row, endRow)
+      maxY = Math.max(this.selectionStart.row, endRow)
+    }
+
+    // 1. Highlight affected tiles
+    for (let r = minY; r <= Math.min(maxY, this.gridSize - 1); r++) {
+      for (let c = minX; c <= Math.min(maxX, this.gridSize - 1); c++) {
+        if (isInBounds(c, r, this.gridSize)) {
+          this.removeFootprint.add(`${c}_${r}`)
+        }
+      }
+    }
+
+    // 2. Find intersecting items
+    for (const p of this.currentPlacements) {
+      const w = p.effective_width || p.item_width || 1
+      const h = p.effective_height || p.item_height || 1
+      
+      const itemMinX = p.grid_x
+      const itemMaxX = p.grid_x + w - 1
+      const itemMinY = p.grid_y
+      const itemMaxY = p.grid_y + h - 1
+
+      // AABB overlap check
+      const intersects = itemMinX <= maxX && itemMaxX >= minX && itemMinY <= maxY && itemMaxY >= minY
+
+      if (intersects) {
+        this.itemsToRemove.add(p.inventory_id)
+      }
+    }
+
+    this.updateSpriteTints()
+    this.redrawAllTiles()
+  }
+
+  private updateSpriteTints() {
+    for (const p of this.currentPlacements) {
+      const sprite = this.placementSprites.get(`${p.grid_x}_${p.grid_y}`)
+      if (sprite) {
+        // Red tint if item is marked for removal
+        sprite.tint = this.itemsToRemove.has(p.inventory_id) ? 0xff4444 : 0xffffff
+      }
+    }
+  }
+
   private handleHover(col: number, row: number): void {
     if (!isInBounds(col, row, this.gridSize)) return
 
     this.lastHoveredCol = col
     this.lastHoveredRow = row
 
+    // Shovel Hover Logic
+    if (this.currentTool === 'shovel') {
+      if (this.selectionStart) {
+        // Drawing Box
+        this.calculateRemoveArea(col, row, false)
+      } else {
+        // Single Hover
+        this.calculateRemoveArea(col, row, true)
+      }
+      return
+    }
+
+    // Placement Hover Logic
     if (this.activeItem && this.ghostSprite) {
       this.ghostSprite.visible = true
       if (this.ghostShadow) this.ghostShadow.visible = true
@@ -266,6 +346,7 @@ export class GardenGrid extends Container {
       return
     }
 
+    // Default Select Hover Logic
     if (this.hoveredTile) {
       const prev = this.hoveredTile
       this.hoveredTile = null
@@ -280,6 +361,13 @@ export class GardenGrid extends Container {
     this.lastHoveredCol = -1
     this.lastHoveredRow = -1
 
+    if (this.currentTool === 'shovel' && !this.selectionStart) {
+      this.removeFootprint.clear()
+      this.itemsToRemove.clear()
+      this.updateSpriteTints()
+      this.redrawAllTiles()
+    }
+
     if (this.activeItem) {
       if (this.ghostSprite) this.ghostSprite.visible = false
       if (this.ghostShadow) this.ghostShadow.visible = false
@@ -292,16 +380,41 @@ export class GardenGrid extends Container {
       })
       return
     }
+
     const prev = this.hoveredTile
     this.hoveredTile = null
     if (prev) this.drawTileSpecific(prev.col, prev.row)
   }
 
-  // ✅ Thêm isShift vào handleClick
   private handleClick(col: number, row: number, placement: PlacementResponse | null, isShift: boolean = false): void {
     if (this.getIsDragging?.()) return
     if (!isInBounds(col, row, this.gridSize)) return
 
+    // Shovel Click Logic
+    if (this.currentTool === 'shovel') {
+      if (isShift) {
+        if (!this.selectionStart) {
+          // Point A: Start Drawing
+          this.selectionStart = { col, row }
+          this.calculateRemoveArea(col, row, false)
+        } else {
+          // Point B: Finish Drawing & Emit
+          const idsToDrop = Array.from(this.itemsToRemove)
+          if (idsToDrop.length > 0) {
+            this.onRequestRemoveBatch?.(idsToDrop)
+          }
+          this.abortRemoveSelection() // Reset UI
+        }
+      } else {
+        // Single Click Delete
+        if (this.itemsToRemove.size > 0) {
+          this.onRequestRemoveBatch?.(Array.from(this.itemsToRemove))
+        }
+      }
+      return
+    }
+
+    // Placement Logic
     if (this.activeItem) {
       const isRotated = this.activeRotation === 90 || this.activeRotation === 270
       const effW = isRotated ? this.activeItem.height : this.activeItem.width
@@ -309,12 +422,12 @@ export class GardenGrid extends Container {
       const canPlace = !this.checkCollision(col, row, effW, effH)
       
       if (canPlace) {
-        // ✅ Truyền isShift lên index.tsx
         this.onRequestPlace?.(col, row, this.activeItem, this.activeRotation, isShift)
       }
       return
     }
 
+    // Default Logic
     if (this.selectedTile?.col === col && this.selectedTile?.row === row) {
       this.selectedTile = null
     } else {
@@ -348,7 +461,9 @@ export class GardenGrid extends Container {
     const key = `${col}_${row}`
     let fillColor: number
     
-    if (this.activeItem) {
+    if (this.currentTool === 'shovel' && this.removeFootprint.has(key)) {
+      fillColor = COLOR.REMOVE_AREA
+    } else if (this.activeItem) {
       if (this.currentFootprint.has(key)) {
         fillColor = this.isValidPlacement ? COLOR.BP_VALID : COLOR.BP_INVALID
       } else if (this.occupiedTiles.has(key)) {
@@ -383,7 +498,6 @@ export class GardenGrid extends Container {
 
     g.on('pointerover', () => this.handleHover(col, row))
     g.on('pointerout',  () => this.handleHoverOut(col, row))
-    // ✅ Lấy isShift trực tiếp từ PixiJS FederatedPointerEvent
     g.on('pointertap',  (e) => this.handleClick(col, row, placement, e.shiftKey))
     return g
   }

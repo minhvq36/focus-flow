@@ -2,7 +2,14 @@ import { useEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { GardenApp } from './utils/garden-app'
 import { GardenGrid } from './utils/garden-grid'
-import { useGardenList, useGarden, getLastGardenId, setLastGardenId, useBatchPlaceItems } from './hooks/use-garden'
+import { 
+  useGardenList, 
+  useGarden, 
+  getLastGardenId, 
+  setLastGardenId, 
+  useBatchPlaceItems,
+  useBatchRemoveItems // ✅ Thêm import mới
+} from './hooks/use-garden'
 import type { PlacementResponse, GardenResponse, PlaceItemReq } from '@/types/garden'
 import type { InBagItem } from '@/types/inventory'
 
@@ -62,9 +69,12 @@ export default function Garden() {
     placement: PlacementResponse | null
   } | null>(null)
 
-  const { activeItem, rotation, clearPlacement, consumeActiveItem } = usePlacementStore()
+  // ✅ Lấy thêm activeTool từ store
+  const { activeItem, rotation, activeTool, clearPlacement, consumeActiveItem } = usePlacementStore()
   
   const batchMutation = useBatchPlaceItems(activeGardenId)
+  const removeMutation = useBatchRemoveItems(activeGardenId) // ✅ Init Remove Mutation
+
   const batchQueueRef = useRef<PlaceItemReq[]>([])
   
   const rollbackSnapshotRef = useRef<{ 
@@ -141,14 +151,24 @@ export default function Garden() {
     })
   }
 
+  // ✅ Xử lý nhả Shift / Blur window để Hủy thao tác
   useEffect(() => {
     const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.key === 'Shift') flushBatchQueue()
+      if (e.key === 'Shift') {
+        flushBatchQueue()
+        // Ngừng vẽ vùng xóa nếu đang dùng xẻng
+        if (gardenGridRef.current) {
+          gardenGridRef.current.abortRemoveSelection()
+        }
+      }
     }
 
     const handleWindowBlur = () => {
       flushBatchQueue()
       clearPlacement()
+      if (gardenGridRef.current) {
+        gardenGridRef.current.abortRemoveSelection()
+      }
     }
 
     window.addEventListener('keyup', handleKeyUp)
@@ -178,13 +198,41 @@ export default function Garden() {
           setSelectedTile({ col, row, placement })
         }
 
-        // ✅ Bỏ async, nhận isShift từ tham số
+        // ==========================================
+        // ✅ XỬ LÝ LỆNH XÓA (SINGLE & BATCH) TỪ GRID
+        // ==========================================
+        grid.onRequestRemoveBatch = (inventoryIds: string[]) => {
+          if (!activeGardenId || inventoryIds.length === 0) return
+
+          // 1. Optimistic Update: Xóa ngay lập tức trên UI
+          queryClient.setQueryData<GardenResponse>(['garden', activeGardenId], (old) => {
+            if (!old) return old
+            return {
+              ...old,
+              placements: old.placements.filter(p => !inventoryIds.includes(p.inventory_id))
+            }
+          })
+
+          // 2. Gửi API
+          removeMutation.mutate({ inventory_ids: inventoryIds }, {
+            onError: (err) => {
+              console.error("Remove failed:", err)
+              // Rollback: Fetch lại toàn bộ map nếu lỗi
+              queryClient.invalidateQueries({ queryKey: ['garden', activeGardenId] })
+            },
+            onSettled: () => {
+              // Cập nhật lại UI và Túi đồ sau khi xóa thành công
+              queryClient.invalidateQueries({ queryKey: ['garden', activeGardenId] })
+              queryClient.invalidateQueries({ queryKey: ['inventory', 'bag'] })
+            }
+          })
+        }
+
         grid.onRequestPlace = (col, row, item, rot, isShift) => {
           if (!item.instance_ids || item.instance_ids.length === 0) return
 
           const instanceId = item.instance_ids[0]
 
-          // ✅ Guard chống duplicate trong cùng batch
           const alreadyQueued = batchQueueRef.current.some(q => q.inventory_id === instanceId)
           if (alreadyQueued) return
 
@@ -193,7 +241,6 @@ export default function Garden() {
           const effH = isRotated ? item.width : item.height
           grid.markTileOccupied(col, row, effW, effH)
 
-          // ✅ Bỏ await, fire-and-forget
           if (batchQueueRef.current.length === 0) {
             queryClient.cancelQueries({ queryKey: ['garden', activeGardenId] })
             queryClient.cancelQueries({ queryKey: ['inventory', 'bag'] })
@@ -247,7 +294,6 @@ export default function Garden() {
             }).filter(invItem => invItem.quantity > 0)
           })
 
-          // ✅ Dùng isShift từ tham số, không dùng window.event
           if (isShift) {
             consumeActiveItem()
           } else {
@@ -296,11 +342,13 @@ export default function Garden() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [garden, isCanvasReady])
 
+  // ✅ Đưa activeTool vào để Sync với Grid
   useEffect(() => {
     if (gardenGridRef.current && isCanvasReady) {
       gardenGridRef.current.setPlacementMode(activeItem, rotation)
+      gardenGridRef.current.setTool(activeTool) // Báo cho Grid biết tay đang cầm gì
     }
-  }, [activeItem, rotation, isCanvasReady])
+  }, [activeItem, rotation, activeTool, isCanvasReady])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -309,9 +357,17 @@ export default function Garden() {
       if ((e.target as HTMLElement)?.isContentEditable) return
 
       const { activeItem, rotateItem, clearPlacement } = usePlacementStore.getState()
+      
+      // ✅ Nhấn ESC để Hủy tool
+      if (e.code === 'Escape') {
+        clearPlacement() // Hàm này tự đưa tool về cursor
+        if (gardenGridRef.current) {
+          gardenGridRef.current.abortRemoveSelection() // Hủy vẽ vùng xóa nếu có
+        }
+      }
+
       if (!activeItem) return
       if (e.code === 'KeyR') rotateItem()
-      if (e.code === 'Escape') clearPlacement()
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
@@ -334,7 +390,11 @@ export default function Garden() {
   return (
     <div className="relative w-[90vw] md:w-[85vw] max-w-6xl min-w-[320px] md:min-w-[500px] h-[85vh] min-h-[500px] mx-auto my-8 border border-border rounded-xl shadow-sm overflow-hidden bg-background">
       
-      <div ref={containerRef} className="absolute inset-0" />
+      {/* ✅ Thêm style con trỏ chuột tạm thời khi xài xẻng */}
+      <div 
+        ref={containerRef} 
+        className={`absolute inset-0 ${activeTool === 'shovel' ? 'cursor-crosshair' : ''}`} 
+      />
 
       <RecenterButton onRecenter={handleRecenter} />
 
@@ -355,21 +415,39 @@ export default function Garden() {
         />
       )}
 
+      {/* Box hướng dẫn phím tắt (Chỉ hiện khi cầm Item) */}
       {activeItem && (
         <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 px-6 py-2.5 bg-slate-900/80 backdrop-blur-md text-white text-sm font-medium rounded-full shadow-lg pointer-events-none flex items-center gap-3 animate-in slide-in-from-bottom-4">
           <div className="flex gap-1.5 items-center">
-            <span className="bg-slate-700 px-2 py-0.5 rounded text-amber-400 font-mono">R</span> Xoay
+            <span className="bg-slate-700 px-2 py-0.5 rounded text-amber-400 font-mono">R</span> Rotate
           </div>
           <div className="w-1 h-1 bg-slate-500 rounded-full" />
           <div className="flex gap-1.5 items-center">
-            <span className="bg-slate-700 px-2 py-0.5 rounded text-amber-400 font-mono">ESC</span> Huỷ
+            <span className="bg-slate-700 px-2 py-0.5 rounded text-amber-400 font-mono">ESC</span> Cancel
           </div>
           <div className="w-1 h-1 bg-slate-500 rounded-full" />
           <div className="flex gap-1.5 items-center">
-            <span className="bg-slate-700 px-2 py-0.5 rounded text-amber-400 font-mono">Shift</span> Đặt liên tục
+            <span className="bg-slate-700 px-2 py-0.5 rounded text-amber-400 font-mono">Shift</span> Batch Place
           </div>
           <div className="ml-2 pl-3 border-l border-slate-600 font-bold text-amber-400">
-            Còn lại: {activeItem.instance_ids?.length || 0}
+            Left: {activeItem.instance_ids?.length || 0}
+          </div>
+        </div>
+      )}
+
+      {/* ✅ Box hướng dẫn phím tắt (Chỉ hiện khi cầm Xẻng) */}
+      {activeTool === 'shovel' && (
+        <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-20 px-6 py-2.5 bg-red-950/80 border border-red-500/30 backdrop-blur-md text-white text-sm font-medium rounded-full shadow-lg pointer-events-none flex items-center gap-3 animate-in slide-in-from-bottom-4">
+          <div className="flex gap-1.5 items-center">
+            <span className="bg-red-900 px-2 py-0.5 rounded text-red-300 font-mono">Click</span> Remove 1 Item
+          </div>
+          <div className="w-1 h-1 bg-red-500/50 rounded-full" />
+          <div className="flex gap-1.5 items-center">
+            <span className="bg-red-900 px-2 py-0.5 rounded text-red-300 font-mono">Shift + Click 2 Points</span> Area Remove
+          </div>
+          <div className="w-1 h-1 bg-red-500/50 rounded-full" />
+          <div className="flex gap-1.5 items-center">
+            <span className="bg-red-900 px-2 py-0.5 rounded text-red-300 font-mono">ESC</span> Cancel Tool
           </div>
         </div>
       )}
