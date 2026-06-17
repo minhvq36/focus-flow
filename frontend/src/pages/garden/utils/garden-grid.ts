@@ -120,6 +120,7 @@ export class GardenGrid extends Container {
     this.calculateOccupiedTiles()
     this.redrawAllTiles()
     this.updateSpriteTints()
+    this.updateCursorStyle()
 
     if (this.activeItem && this.lastHoveredCol >= 0 && this.ghostSprite) {
       const isRotated = this.activeRotation === 90 || this.activeRotation === 270
@@ -137,6 +138,21 @@ export class GardenGrid extends Container {
     if (tool === 'cursor') {
       this.abortRemoveSelection()
     }
+    this.updateCursorStyle()
+  }
+
+  private updateCursorStyle() {
+    let cursorStyle = 'pointer' // Mặc định: Bàn tay (khi click chọn ô bình thường)
+
+    if (this.currentTool === 'shovel') {
+      cursorStyle = "url('/shovel-cursor.png') 14 64, auto" // Ép dùng xẻng
+    } else if (this.activeItem) {
+      cursorStyle = 'default' // Khi đang cầm Item để đặt: Chuột mũi tên bình thường
+    }
+
+    this.tiles.forEach(tile => {
+      tile.cursor = cursorStyle
+    })
   }
 
   // Cancel ongoing area selection (Triggered by ESC or Shift KeyUp)
@@ -174,6 +190,7 @@ export class GardenGrid extends Container {
     
     this.activeItem = item
     this.activeRotation = rotation
+    this.updateCursorStyle()
 
     if (this.ghostSprite) { this.ghostSprite.destroy(); this.ghostSprite = null }
     if (this.ghostShadow) { this.ghostShadow.destroy(); this.ghostShadow = null }
@@ -288,8 +305,9 @@ export class GardenGrid extends Container {
     for (const p of this.currentPlacements) {
       const sprite = this.placementSprites.get(`${p.grid_x}_${p.grid_y}`)
       if (sprite) {
-        // Red tint if item is marked for removal
-        sprite.tint = this.itemsToRemove.has(p.inventory_id) ? 0xff4444 : 0xffffff
+        const isRemoving = this.itemsToRemove.has(p.inventory_id)
+        sprite.tint = isRemoving ? 0xff4444 : 0xffffff
+        sprite.alpha = isRemoving ? 0.8 : 1.0 
       }
     }
   }
@@ -494,7 +512,7 @@ export class GardenGrid extends Container {
 
     this.drawTile(g, col, row, placement, false)
     g.eventMode = 'static'
-    g.cursor = 'pointer'
+    // g.cursor = 'pointer'
 
     g.on('pointerover', () => this.handleHover(col, row))
     g.on('pointerout',  () => this.handleHoverOut(col, row))

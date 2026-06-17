@@ -48,7 +48,8 @@ export function GardenToolbar() {
             icon={<Shovel size={24} />} 
             label="Shovel" 
             isActive={activeTool === 'shovel'} 
-            onClick={() => setTool('shovel')} 
+            onClick={() => setTool('shovel')}
+            shortcut="D" 
           />
         </div>
 
@@ -77,12 +78,12 @@ export function GardenToolbar() {
 
 // --- Các Component nhỏ gọn hỗ trợ giao diện ---
 // (Giữ nguyên như cũ của bạn)
-function ToolButton({ icon, label, isActive, onClick }: { icon: React.ReactNode, label: string, isActive: boolean, onClick: () => void }) {
+function ToolButton({ icon, label, isActive, onClick, shortcut }: { icon: React.ReactNode, label: string, isActive: boolean, onClick: () => void, shortcut?: string }) {
   return (
     <button
       onClick={onClick}
-      title={label}
-      className={`relative p-3 rounded-xl transition-all duration-200 ease-in-out flex items-center justify-center
+      title={`${label} ${shortcut ? `(${shortcut})` : ''}`}
+      className={`group relative p-3 rounded-xl transition-all duration-200 ease-in-out flex items-center justify-center
         ${isActive 
           ? 'bg-primary text-primary-foreground shadow-inner scale-95' 
           : 'bg-background text-foreground hover:bg-muted hover:-translate-y-1 shadow-sm' 
@@ -90,6 +91,13 @@ function ToolButton({ icon, label, isActive, onClick }: { icon: React.ReactNode,
       `}
     >
       {icon}
+      
+      {/* Thêm khối này để render huy hiệu phím tắt (badge) giống như MenuButton */}
+      {shortcut && (
+        <span className="absolute -bottom-2 -right-2 bg-background text-muted-foreground text-[10px] font-bold px-1.5 py-0.5 rounded-md border border-border shadow-sm group-hover:scale-110 transition-transform">
+          {shortcut}
+        </span>
+      )}
     </button>
   )
 }

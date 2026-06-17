@@ -394,7 +394,7 @@ export default function Garden() {
       {/* ✅ Thêm style con trỏ chuột tạm thời khi xài xẻng */}
       <div 
         ref={containerRef} 
-        className={`absolute inset-0 ${activeTool === 'shovel' ? 'cursor-crosshair' : ''}`} 
+        className={`absolute inset-0 ${activeTool === 'shovel' ? "cursor-[url('/shovel-cursor.png')_14_64,_auto]" : ""}`} 
       />
 
       <RecenterButton onRecenter={handleRecenter} />
