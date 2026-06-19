@@ -162,3 +162,8 @@ alter table public.reward_rolls enable row level security;
 create policy "allow_read_for_owner" on public.reward_rolls
     for select to authenticated
     using ( (select auth.uid()) = user_id );
+
+alter table public.economy_transactions enable row level security;
+create policy "allow_read_for_owner" on public.economy_transactions
+    for select to authenticated
+    using ( (select auth.uid()) = user_id );
