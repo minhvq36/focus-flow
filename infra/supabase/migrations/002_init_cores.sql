@@ -26,9 +26,6 @@ create table if not exists public.items (
     height int default 1 check (height > 0),
     width int default 1 check (width > 0),
     silver_price int DEFAULT NULL CHECK (silver_price > 0),
-    gold_price int DEFAULT NULL CHECK (gold_price > 0),
-    buyback_silver int DEFAULT NULL CHECK (buyback_silver > 0),
-    buyback_gold int DEFAULT NULL CHECK (buyback_gold > 0),
     is_purchasable boolean default true, -- for app shop selling
     can_wilt boolean default false,
     unlock_condition jsonb default null,
@@ -37,6 +34,7 @@ create table if not exists public.items (
 );
 
 create unique index if not exists items_asset_key_idx on public.items(asset_key);
+CREATE INDEX idx_items_shop ON public.items(type) WHERE is_purchasable = true AND silver_price IS NOT NULL;
 
 create table if not exists public.gardens (
     id uuid primary key default gen_random_uuid(),
