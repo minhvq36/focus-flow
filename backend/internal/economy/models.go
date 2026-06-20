@@ -112,5 +112,7 @@ const (
 	ActionShopBuy  = "shop_buy"
 	ActionShopSell = "shop_sell"
 
-	SilverBuybackRate = 0.5 // Bán lại nhận 50%
+	SilverBuybackRate    = 0.5
+	BuybackGoldLegendary = 1
+	BuybackGoldEternal   = 2
 )
