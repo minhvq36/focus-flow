@@ -10,7 +10,7 @@ import (
 
 // Khai báo Interface để Service gọi xuống Repo (Dễ Mock khi viết Unit Test)
 type RepositoryInterface interface {
-	GetUserBalances(ctx context.Context, userID string) (int64, int, error)
+	GetUserWallet(ctx context.Context, userID string) (*UserWallet, error)
 	GetPurchasableItems(ctx context.Context) ([]Item, error)
 	GetInventoryForSale(ctx context.Context, userID string) ([]InventoryItemDetail, error)
 }
@@ -32,14 +32,14 @@ func NewService(repo RepositoryInterface, log *logger.Logger) *Service {
 // ==========================================
 
 func (s *Service) GetWallet(ctx context.Context, userID string) (*WalletResponse, error) {
-	silver, gold, err := s.repo.GetUserBalances(ctx, userID)
+	userWallet, err := s.repo.GetUserWallet(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("GetWallet: %w", err)
 	}
 
 	return &WalletResponse{
-		SilverBalance: silver,
-		GoldBalance:   gold,
+		SilverBalance: userWallet.SilverBalance,
+		GoldBalance:   userWallet.GoldBalance,
 	}, nil
 }
 
