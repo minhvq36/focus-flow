@@ -62,6 +62,8 @@ func (s *Service) GetShopItems(ctx context.Context) ([]ShopItemResponse, error) 
 			Type:        item.Type,
 			Rarity:      item.Rarity,
 			AssetKey:    item.AssetKey,
+			Height:      item.Height,
+			Width:       item.Width,
 			SilverPrice: *item.SilverPrice,
 		})
 	}

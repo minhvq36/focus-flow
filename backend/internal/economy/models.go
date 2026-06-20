@@ -109,6 +109,8 @@ type ShopItemResponse struct {
 	Type        string `json:"type"`
 	Rarity      string `json:"rarity"`
 	AssetKey    string `json:"asset_key"`
+	Height      int    `json:"height"`
+	Width       int    `json:"width"`
 	SilverPrice int    `json:"silver_price"`
 }
 
