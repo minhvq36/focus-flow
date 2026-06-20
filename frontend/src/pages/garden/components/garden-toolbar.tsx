@@ -1,12 +1,14 @@
 import { MousePointer2, Shovel, Backpack, Store } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { InventoryModal } from './inventory-modal'
+import { ShopModal } from './shop-modal'
 import { usePlacementStore } from '@/store/placement-store'
 import { ImageWithFallback } from '@/components/ui/image-with-fallback'
 
 export function GardenToolbar() {
   const { activeTool, setTool } = usePlacementStore()
   const [isInventoryOpen, setIsInventoryOpen] = useState(false)
+  const [isShopOpen, setIsShopOpen] = useState(false)
 
   // Xử lý phím tắt
   useEffect(() => {
@@ -17,6 +19,9 @@ export function GardenToolbar() {
 
       if (e.code === 'KeyE') {
         setIsInventoryOpen(prev => !prev) // Toggle túi đồ
+      }
+      if (e.code === 'KeyS') {
+        setIsShopOpen(prev => !prev)
       }
       if (e.code === 'KeyD') {
         setTool('shovel')
@@ -33,6 +38,10 @@ export function GardenToolbar() {
       <InventoryModal 
         isOpen={isInventoryOpen} 
         onClose={() => setIsInventoryOpen(false)} 
+      />
+      <ShopModal 
+        isOpen={isShopOpen} 
+        onClose={() => setIsShopOpen(false)} 
       />
 
       <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 p-2 bg-background/80 backdrop-blur-md border border-border rounded-2xl shadow-xl z-10">
@@ -69,7 +78,7 @@ export function GardenToolbar() {
           <MenuButton 
             icon={<Store size={24} />} 
             label="Shop" 
-            onClick={() => console.log('Open Shop')} 
+            onClick={() => setIsShopOpen(!isShopOpen)}
             shortcut="S"
           />
         </div>
