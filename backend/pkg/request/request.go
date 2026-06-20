@@ -12,13 +12,10 @@ import (
 	"github.com/minhvq36/focus-flow/backend/pkg/response"
 )
 
-// Khởi tạo một instance duy nhất cho toàn bộ app để tiết kiệm bộ nhớ
 var validate = validator.New()
 
 func init() {
 	validate = validator.New()
-
-	// Dạy validator: Hãy dùng tag `json` làm tên field báo lỗi thay vì tên Struct Go
 	validate.RegisterTagNameFunc(func(fld reflect.StructField) string {
 		name := strings.SplitN(fld.Tag.Get("json"), ",", 2)[0]
 		if name == "-" || name == "" {
@@ -28,8 +25,6 @@ func init() {
 	})
 }
 
-// BindAndValidate đọc JSON từ request, map vào struct và chạy kiểm tra tag validate
-// Trả về true nếu thành công, false nếu có lỗi (đã tự động trả HTTP error)
 func BindAndValidate(w http.ResponseWriter, r *http.Request, dest interface{}) bool {
 	// 1. Parse JSON
 	if err := json.NewDecoder(r.Body).Decode(dest); err != nil {
@@ -37,7 +32,6 @@ func BindAndValidate(w http.ResponseWriter, r *http.Request, dest interface{}) b
 		return false
 	}
 
-	// 2. Validate struct tags
 	if err := validate.Struct(dest); err != nil {
 		msg := FormatValidationError(err)
 		response.BadRequest(w, "VALIDATION_ERROR", msg)
@@ -47,7 +41,6 @@ func BindAndValidate(w http.ResponseWriter, r *http.Request, dest interface{}) b
 	return true
 }
 
-// FormatValidationError dịch lỗi của thư viện validator thành chuỗi dễ đọc
 func FormatValidationError(err error) string {
 	var errs validator.ValidationErrors
 	if !errors.As(err, &errs) {
@@ -56,7 +49,6 @@ func FormatValidationError(err error) string {
 
 	var messages []string
 	for _, e := range errs {
-		// e.Field() trả về tên field trong Struct (VD: Title, AddMinutes)
 		switch e.Tag() {
 		case "required":
 			messages = append(messages, fmt.Sprintf("'%s' is required", e.Field()))
@@ -64,11 +56,12 @@ func FormatValidationError(err error) string {
 			messages = append(messages, fmt.Sprintf("'%s' must be at least %s", e.Field(), e.Param()))
 		case "max":
 			messages = append(messages, fmt.Sprintf("'%s' must be at most %s", e.Field(), e.Param()))
+		case "uuid":
+			messages = append(messages, fmt.Sprintf("'%s' must be a valid UUID", e.Field()))
 		default:
 			messages = append(messages, fmt.Sprintf("'%s' failed on '%s' validation", e.Field(), e.Tag()))
 		}
 	}
 
-	// Trả về chuỗi lỗi: "'Title' is required, 'AddMinutes' must be at most 120"
 	return strings.Join(messages, ", ")
 }

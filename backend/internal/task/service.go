@@ -173,6 +173,7 @@ func (s *Service) PauseTask(ctx context.Context, taskID, userID string) error {
 	return err
 }
 
+// TODO: IMPORTANT: Add repo economy transaction audit web submit task
 func (s *Service) SubmitTask(ctx context.Context, taskID, userID string) (*SubmitResult, error) {
 	// 1. Validate state trước khi mở tx
 	task, err := s.repo.GetByID(ctx, taskID, userID)
