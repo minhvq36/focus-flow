@@ -246,10 +246,11 @@ wire ./cmd/server
 **✅ Completed (Full Implementation):**
 - [x] `internal/garden/` - handler.go (all placement endpoints), service.go (GetUserGardenList, GetUserGardenByID, PlaceItem, PlaceItemsBatch, RemoveItemsBatch), repository.go (batch operations with CTE)
 - [x] `internal/reward/` - roll.go (tier-based RNG, exp calculation), models.go, penalty.go (SelectPenaltyItem)
+- [x] `internal/economy/` - handler.go (3 endpoints), service.go (GetWallet, GetShopItems, GetSellableItems), repository.go (wallet & shop queries), models.go (all DTO types)
 
 **❌ Not Yet Started (Stubs only):**
 - [ ] `internal/session/` - Skeleton only, no Redis integration for timer state
-- [ ] `internal/shop/` - Models exist, logic empty
+- [ ] `internal/shop/` - BuyItem, SellItem logic not implemented
 - [ ] `internal/marketplace/` - Models exist, logic empty
 - [ ] `internal/social/` - Models exist (feed.go, friends.go, leaderboard.go), logic empty
 - [ ] `internal/search/` - Elasticsearch integration not started
@@ -568,13 +569,13 @@ Level 20+:   700-1,200 silver
 
 ---
 
-### 4.5 Shop Service
+### 4.5 Shop Service (❌ Not Yet Started - Buy/Sell logic)
 
-**Key Operations:**
+**Implemented Read Operations:**
+- `GetShopItems()` - Fetch all purchasable items from items table (is_purchasable=true, silver_price NOT NULL)
+- `GetSellableItems(user_id)` - Fetch user's inventory items that can be sold back
 
-#### GetShopCatalog
-- **Input:** currency_filter='silver|gold|all'
-- **Output:** items[] with prices, availability
+**Key Operations (TODO):**
 
 #### BuyItem
 - **Input:** user_id, item_id, quantity=1
@@ -856,14 +857,17 @@ DELETE /api/garden/{id}/placements      Remove multiple items (batch) from grid
 (✓ Implemented | ✗ Planned | ○ Not Yet Started)
 ```
 
-### 4.3 Inventory & Shop
+### 4.3 Inventory & Shop (Economy)
 
 ```
-GET    /api/inventory                   List user inventory (available items)
-GET    /api/inventory/placed            List placed items (optimization?)
-POST   /api/shop/buy                    Buy item from shop (silver/gold)
-POST   /api/shop/sell                   Sell item back to shop
-GET    /api/shop/catalog                Get shop items (filter by currency)
+✅ IMPLEMENTED:
+GET    /api/economy/wallet              Get silver/gold balance
+GET    /api/economy/shop/buy            Get purchasable items (shop catalog)
+GET    /api/economy/shop/sell           Get sellable items from inventory
+
+⏳ TODO:
+POST   /api/economy/shop/buy            Buy item from shop (silver)
+POST   /api/economy/shop/sell           Sell item back to shop
 POST   /api/consumables/watering/buy    Buy watering cans
 POST   /api/consumables/watering/use    Use watering can on placement
 ```
@@ -878,12 +882,12 @@ POST   /api/marketplace/listings/:id/buy Buy legendary
 DELETE /api/marketplace/listings/:id    Cancel listing
 ```
 
-### 4.5 Economy
+### 4.5 Economy (Transactions & Conversion)
 
 ```
-GET    /api/wallet                      Get currency balances
-GET    /api/wallet/transactions         Get transaction history
-POST   /api/wallet/convert              Convert gold to silver (1 gold = 10k silver)
+⏳ TODO:
+GET    /api/economy/transactions        Get transaction history
+POST   /api/economy/convert             Convert gold to silver (1 gold = 10k silver)
 ```
 
 ### 4.6 Social

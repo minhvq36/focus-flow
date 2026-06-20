@@ -238,26 +238,28 @@ type                varchar(50) NOT NULL
                     CHECK (type IN ('flower', 'structure', 'decoration', 'path'))
 rarity              varchar(50) NOT NULL
                     CHECK (rarity IN ('common', 'uncommon', 'rare', 'epic', 'legendary', 'eternal'))
-asset_key           varchar(255) NOT NULL
+asset_key           varchar(255) NOT NULL UNIQUE
 height              int DEFAULT 1 CHECK > 0
 width               int DEFAULT 1 CHECK > 0
-silver_price        int DEFAULT NULL CHECK > 0  -- shop buy price (silver)
-gold_price          int DEFAULT NULL CHECK > 0  -- reserved for future use
-buyback_silver      int DEFAULT NULL CHECK > 0  -- shop sell-back price (silver)
-buyback_gold        int DEFAULT NULL CHECK > 0  -- reserved for future use
-is_purchasable      boolean DEFAULT true
-can_wilt            boolean DEFAULT false        -- only true for flowers/plants
+silver_price        int DEFAULT NULL CHECK > 0  -- shop buy price (silver, NULL = not purchasable)
+is_purchasable      boolean DEFAULT true        -- controls visibility in shop
+can_wilt            boolean DEFAULT false       -- only true for flowers/plants
 unlock_condition    jsonb DEFAULT NULL
+details             jsonb DEFAULT NULL          -- extra metadata (e.g. color, effect)
 created_at          timestamptz
 ```
 
+**Index:**
+- `idx_items_shop` — (type) WHERE is_purchasable=true AND silver_price NOT NULL
+
 **Logic:**
-- `silver_price` NULL → item not for sale
-- Common→Rare can be purchased by silver
-- Epic cannot be purchased (only obtained as reward)
-- Legendary cannot be purchased (only obtained as reward, traded via marketplace)
-- `buyback_silver` = typically 50% of silver_price
+- `silver_price` NULL → item not for sale (reward only)
+- Common→Rare can be purchased by silver (is_purchasable=true)
+- Epic cannot be purchased (is_purchasable=false, reward only)
+- Legendary cannot be purchased (is_purchasable=false, reward + marketplace P2P)
+- Sellback price: 50% of silver_price (calculated by backend, not stored)
 - `can_wilt` TRUE for flowers/plants, FALSE for structures/decorations
+- `details` stores rarity-specific metadata (colors, animations, etc.)
 
 #### `inventory` (user-owned items)
 ```sql
