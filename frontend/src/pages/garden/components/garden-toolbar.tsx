@@ -72,13 +72,15 @@ export function GardenToolbar() {
           <MenuButton 
             icon={<Backpack size={24} />} 
             label="Inventory" 
+            isActive={isInventoryOpen} /* TRUYỀN THÊM isActive */
             onClick={() => setIsInventoryOpen(!isInventoryOpen)} 
             shortcut="E"
           />
           <MenuButton 
             icon={<Store size={24} />} 
             label="Shop" 
-            onClick={() => setIsShopOpen(!isShopOpen)}
+            isActive={isShopOpen} /* TRUYỀN THÊM isActive */
+            onClick={() => setIsShopOpen(!isShopOpen)} 
             shortcut="S"
           />
         </div>
@@ -87,7 +89,7 @@ export function GardenToolbar() {
   )
 }
 
-// --- Các Component nhỏ gọn hỗ trợ giao diện ---
+// --- CẬP NHẬT: ToolButton (Xóa focus ring) ---
 function ToolButton({ 
   icon, 
   imageSrc,
@@ -120,7 +122,8 @@ function ToolButton({
     <button
       onClick={onClick}
       title={`${label} ${shortcut ? `(${shortcut})` : ''}`}
-      className={`group relative p-3 rounded-xl transition-all duration-200 ease-in-out flex items-center justify-center
+      /* THÊM: focus:outline-none focus-visible:outline-none để diệt viền xám */
+      className={`group relative p-3 rounded-xl transition-all duration-200 ease-in-out flex items-center justify-center focus:outline-none focus-visible:outline-none
         ${isActive 
           ? 'bg-primary text-primary-foreground shadow-inner scale-95' 
           : 'bg-background text-foreground hover:bg-muted hover:-translate-y-1 shadow-sm' 
@@ -128,8 +131,6 @@ function ToolButton({
       `}
     >
       {displayIcon}
-      
-      {/* Thêm khối này để render huy hiệu phím tắt (badge) giống như MenuButton */}
       {shortcut && (
         <span className="absolute -bottom-2 -right-2 bg-background text-muted-foreground text-[10px] font-bold px-1.5 py-0.5 rounded-md border border-border shadow-sm group-hover:scale-110 transition-transform">
           {shortcut}
@@ -139,14 +140,35 @@ function ToolButton({
   )
 }
 
-function MenuButton({ icon, label, onClick, shortcut }: { icon: React.ReactNode, label: string, onClick: () => void, shortcut?: string }) {
+// --- CẬP NHẬT: MenuButton (Thêm trạng thái Active & Xóa focus ring) ---
+function MenuButton({ 
+  icon, 
+  label, 
+  isActive, 
+  onClick, 
+  shortcut 
+}: { 
+  icon: React.ReactNode, 
+  label: string, 
+  isActive?: boolean, 
+  onClick: () => void, 
+  shortcut?: string 
+}) {
   return (
     <button
       onClick={onClick}
       title={`${label} ${shortcut ? `(${shortcut})` : ''}`}
-      className="group relative p-3 rounded-xl bg-amber-500/10 text-amber-600 hover:bg-amber-500 hover:text-white transition-all duration-200 hover:-translate-y-1 shadow-sm border border-amber-500/20"
+      className={`group relative p-3 rounded-xl transition-all duration-200 shadow-sm border focus:outline-none focus-visible:outline-none flex items-center justify-center ${
+        isActive
+          // Đang mở: Nền giống lúc hover (amber-500), lún xuống (scale-95), đổ bóng trong (shadow-inner)
+          ? 'bg-amber-500 text-white border-amber-500 shadow-inner scale-95' 
+          // Bình thường: Cam nhạt, hover nhảy lên, hover đổi màu
+          : 'bg-amber-500/10 text-amber-600 border-amber-500/20 hover:bg-amber-500 hover:text-white hover:-translate-y-1' 
+      }`}
     >
       {icon}
+      
+      {/* Badge Phím tắt: LUÔN LUÔN giữ màu nguyên bản của theme */}
       {shortcut && (
         <span className="absolute -bottom-2 -right-2 bg-background text-muted-foreground text-[10px] font-bold px-1.5 py-0.5 rounded-md border border-border shadow-sm group-hover:scale-110 transition-transform">
           {shortcut}
