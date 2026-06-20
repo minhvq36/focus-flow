@@ -38,16 +38,36 @@ type EconomyTransaction struct {
 	CreatedAt    time.Time `db:"created_at"`
 }
 
-// Struct dùng để JOIN giữa Inventory và Items (Dùng cho tab Sell)
-type InventoryItemDetail struct {
-	InventoryID   string    `db:"inventory_id"`
-	ItemID        string    `db:"item_id"`
-	Name          string    `db:"name"`
-	Type          string    `db:"type"`
-	Rarity        string    `db:"rarity"`
-	AssetKey      string    `db:"asset_key"`
-	OriginalPrice *int      `db:"silver_price"`
-	AcquiredAt    time.Time `db:"acquired_at"`
+type SellableInventoryRow struct {
+	ItemID        string   `db:"item_id"`
+	Name          string   `db:"name"`
+	Type          string   `db:"type"`
+	Rarity        string   `db:"rarity"`
+	AssetKey      string   `db:"asset_key"`
+	Height        int      `db:"height"`
+	Width         int      `db:"width"`
+	OriginalPrice *int     `db:"silver_price"`
+	Quantity      int      `db:"quantity"`
+	InstanceIDs   []string `db:"instance_ids"`
+}
+
+// ==========================================
+// 3. RESPONSE TYPES (Trả về cho Frontend)
+// ==========================================
+
+// Cập nhật lại: Đổi InventoryID thành ItemID, thêm Quantity và InstanceIDs
+type SellableItemResponse struct {
+	ItemID        string   `json:"item_id"`
+	Name          string   `json:"name"`
+	Type          string   `json:"type"`
+	Rarity        string   `json:"rarity"`
+	AssetKey      string   `json:"asset_key"`
+	Height        int      `json:"height"`
+	Width         int      `json:"width"`
+	Quantity      int      `json:"quantity"`     // Số lượng hiện có
+	InstanceIDs   []string `json:"instance_ids"` // Danh sách ID thực tế để gọi API bán
+	BuybackSilver int      `json:"buyback_silver"`
+	BuybackGold   int      `json:"buyback_gold"`
 }
 
 // ==========================================
@@ -90,18 +110,6 @@ type ShopItemResponse struct {
 	Rarity      string `json:"rarity"`
 	AssetKey    string `json:"asset_key"`
 	SilverPrice int    `json:"silver_price"`
-}
-
-// Trả về cho Tab "Sell" trong Shop (Hiển thị kho đồ đang có)
-type SellableItemResponse struct {
-	InventoryID   string `json:"inventory_id"`
-	ItemID        string `json:"item_id"`
-	Name          string `json:"name"`
-	Type          string `json:"type"`
-	Rarity        string `json:"rarity"`
-	AssetKey      string `json:"asset_key"`
-	BuybackSilver int    `json:"buyback_silver"` // Tính toán bằng Go
-	BuybackGold   int    `json:"buyback_gold"`   // Tính toán bằng Go
 }
 
 // ==========================================

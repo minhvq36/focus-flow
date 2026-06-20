@@ -89,39 +89,55 @@ func (r *Repository) GetPurchasableItems(ctx context.Context) ([]Item, error) {
 // ==========================================
 
 // GetInventoryForSale lấy đồ trong túi để hiển thị lên Shop
-func (r *Repository) GetInventoryForSale(ctx context.Context, userID string) ([]InventoryItemDetail, error) {
-	rows, err := r.db.Query(ctx, `
+func (r *Repository) GetInventoryForSale(ctx context.Context, userID string) ([]SellableInventoryRow, error) {
+	query := `
 		SELECT 
-			inv.id AS inventory_id,
 			i.id AS item_id,
 			i.name,
 			i.type,
 			i.rarity,
 			i.asset_key,
+			i.height,
+			i.width,
 			i.silver_price,
-			inv.acquired_at
+			COUNT(inv.id) AS quantity,
+			array_agg(inv.id::text) AS instance_ids
 		FROM public.inventory inv
 		JOIN public.items i ON i.id = inv.item_id
 		WHERE inv.user_id = $1 AND inv.status = 'in_bag'
-		ORDER BY inv.acquired_at DESC
-	`, userID)
+		GROUP BY i.id, i.name, i.type, i.rarity, i.asset_key, i.height, i.width, i.silver_price
+		ORDER BY i.type, i.name;
+	`
 
+	rows, err := r.db.Query(ctx, query, userID)
 	if err != nil {
 		return nil, fmt.Errorf("query inventory for sale: %w", err)
 	}
 	defer rows.Close()
 
-	var details []InventoryItemDetail
+	var details []SellableInventoryRow
 	for rows.Next() {
-		var d InventoryItemDetail
+		var d SellableInventoryRow
 		if err := rows.Scan(
-			&d.InventoryID, &d.ItemID, &d.Name, &d.Type,
-			&d.Rarity, &d.AssetKey, &d.OriginalPrice, &d.AcquiredAt,
+			&d.ItemID,
+			&d.Name,
+			&d.Type,
+			&d.Rarity,
+			&d.AssetKey,
+			&d.Height,
+			&d.Width,
+			&d.OriginalPrice,
+			&d.Quantity,
+			&d.InstanceIDs,
 		); err != nil {
-			return nil, fmt.Errorf("scan inventory detail row: %w", err)
+			return nil, fmt.Errorf("scan grouped inventory row: %w", err)
 		}
 		details = append(details, d)
 	}
 
-	return details, rows.Err()
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows iteration error in inventory for sale: %w", err)
+	}
+
+	return details, nil
 }

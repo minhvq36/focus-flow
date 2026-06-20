@@ -24,6 +24,7 @@ func (r *Repository) GetUserBagItems(ctx context.Context, userID string) ([]InBa
 			i.id AS item_id,
 			i.name,
 			i.type,
+			i.rarity,
 			i.asset_key,
 			i.width,
 			i.height,
@@ -32,7 +33,7 @@ func (r *Repository) GetUserBagItems(ctx context.Context, userID string) ([]InBa
 		FROM public.inventory inv
 		JOIN public.items i ON i.id = inv.item_id
 		WHERE inv.user_id = $1 AND inv.status = 'in_bag'
-		GROUP BY i.id, i.name, i.type, i.asset_key, i.width, i.height
+		GROUP BY i.id, i.name, i.type, i.rarity, i.asset_key, i.width, i.height
 		ORDER BY i.type, i.name;
 	`
 
@@ -49,6 +50,7 @@ func (r *Repository) GetUserBagItems(ctx context.Context, userID string) ([]InBa
 			&item.ItemID,
 			&item.Name,
 			&item.Type,
+			&item.Rarity,
 			&item.AssetKey,
 			&item.Width,
 			&item.Height,

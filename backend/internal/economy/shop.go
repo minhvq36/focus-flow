@@ -12,7 +12,7 @@ import (
 type RepositoryInterface interface {
 	GetUserWallet(ctx context.Context, userID string) (*UserWallet, error)
 	GetPurchasableItems(ctx context.Context) ([]Item, error)
-	GetInventoryForSale(ctx context.Context, userID string) ([]InventoryItemDetail, error)
+	GetInventoryForSale(ctx context.Context, userID string) ([]SellableInventoryRow, error)
 }
 
 type Service struct {
@@ -74,24 +74,32 @@ func (s *Service) GetShopItems(ctx context.Context) ([]ShopItemResponse, error) 
 // ==========================================
 
 func (s *Service) GetSellableItems(ctx context.Context, userID string) ([]SellableItemResponse, error) {
-	inventory, err := s.repo.GetInventoryForSale(ctx, userID)
+	inventoryRows, err := s.repo.GetInventoryForSale(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("GetSellableItems: %w", err)
 	}
 
-	result := make([]SellableItemResponse, 0, len(inventory))
-	for _, item := range inventory {
+	// Tránh trả về null cho FE nếu kho đồ trống
+	if inventoryRows == nil {
+		return []SellableItemResponse{}, nil
+	}
 
-		// Gọi Helper function để tính giá
-		buybackSilver, buybackGold := calculateBuybackPrice(item.OriginalPrice, item.Rarity)
+	result := make([]SellableItemResponse, 0, len(inventoryRows))
+	for _, row := range inventoryRows {
+
+		// Gọi Helper function để tính giá mua lại
+		buybackSilver, buybackGold := calculateBuybackPrice(row.OriginalPrice, row.Rarity)
 
 		result = append(result, SellableItemResponse{
-			InventoryID:   item.InventoryID,
-			ItemID:        item.ItemID,
-			Name:          item.Name,
-			Type:          item.Type,
-			Rarity:        item.Rarity,
-			AssetKey:      item.AssetKey,
+			ItemID:        row.ItemID,
+			Name:          row.Name,
+			Type:          row.Type,
+			Rarity:        row.Rarity,
+			AssetKey:      row.AssetKey,
+			Height:        row.Height,
+			Width:         row.Width,
+			Quantity:      row.Quantity,
+			InstanceIDs:   row.InstanceIDs,
 			BuybackSilver: buybackSilver,
 			BuybackGold:   buybackGold,
 		})

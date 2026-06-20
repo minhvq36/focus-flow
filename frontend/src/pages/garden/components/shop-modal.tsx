@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { X, Loader2, Store, ShoppingCart, Coins, CircleDollarSign } from 'lucide-react'
 import { useWallet, useShopItems, useSellableItems } from '../hooks/use-economy'
 import { getAssetUrl } from '@/lib/storage'
+import type { ShopItemResponse, SellableItemResponse } from '@/types/economy'
 
 interface ShopModalProps {
   isOpen: boolean
@@ -13,7 +14,7 @@ type TabType = 'buy' | 'sell'
 export function ShopModal({ isOpen, onClose }: ShopModalProps) {
   const [activeTab, setActiveTab] = useState<TabType>('buy')
 
-  // Fetch Data
+  // Fetch Data trực tiếp từ Backend (Không cần useMemo nữa vì BE đã gom sẵn)
   const { data: wallet } = useWallet()
   const { data: buyItems, isLoading: loadingBuy } = useShopItems()
   const { data: sellItems, isLoading: loadingSell } = useSellableItems()
@@ -27,12 +28,10 @@ export function ShopModal({ isOpen, onClose }: ShopModalProps) {
         isOpen ? 'opacity-100 visible' : 'opacity-0 invisible pointer-events-none'
       }`}
     >
-      {/* Backdrop mờ phía sau để focus vào Shop */}
       <div className="absolute inset-0 bg-slate-900/20 backdrop-blur-sm" onClick={onClose} />
 
-      {/* Main Panel - Rộng rãi hơn Inventory (w-full max-w-3xl) */}
       <div 
-        className={`relative w-full max-w-3xl h-[80vh] min-h-[500px] flex flex-col bg-white/95 backdrop-blur-xl border border-slate-200 rounded-3xl shadow-2xl transition-transform duration-300 ease-out ${
+        className={`relative w-full max-w-5xl h-[80vh] min-h-[500px] flex flex-col bg-white/95 backdrop-blur-xl border border-slate-200 rounded-3xl shadow-2xl transition-transform duration-300 ease-out ${
           isOpen ? 'scale-100 translate-y-0' : 'scale-95 translate-y-8'
         }`}
       >
@@ -70,9 +69,9 @@ export function ShopModal({ isOpen, onClose }: ShopModalProps) {
         <div className="flex p-4 gap-2 bg-white/50 border-b border-slate-100">
           <button
             onClick={() => setActiveTab('buy')}
-            className={`flex-1 py-2.5 rounded-xl font-bold transition-all ${
+            className={`flex-1 py-2.5 rounded-xl font-bold transition-all focus:outline-none ${
               activeTab === 'buy' 
-                ? 'bg-amber-500 text-white shadow-md shadow-amber-500/20' 
+                ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/20' 
                 : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
             }`}
           >
@@ -80,9 +79,9 @@ export function ShopModal({ isOpen, onClose }: ShopModalProps) {
           </button>
           <button
             onClick={() => setActiveTab('sell')}
-            className={`flex-1 py-2.5 rounded-xl font-bold transition-all ${
+            className={`flex-1 py-2.5 rounded-xl font-bold transition-all focus:outline-none ${
               activeTab === 'sell' 
-                ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/20' 
+                ? 'bg-amber-500 text-white shadow-md shadow-amber-500/20' 
                 : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
             }`}
           >
@@ -94,7 +93,7 @@ export function ShopModal({ isOpen, onClose }: ShopModalProps) {
         <div className="p-4 overflow-y-auto flex-1 custom-scrollbar scroll-smooth">
           {isLoading ? (
             <div className="flex flex-col items-center justify-center h-full text-slate-500">
-              <Loader2 className="animate-spin mb-4 text-amber-500" size={40} />
+              <Loader2 className="animate-spin mb-4 text-emerald-500" size={40} />
               <p className="font-medium text-lg">Loading items...</p>
             </div>
           ) : !items || items.length === 0 ? (
@@ -103,37 +102,56 @@ export function ShopModal({ isOpen, onClose }: ShopModalProps) {
               <p className="font-medium text-lg">Nothing to show here</p>
             </div>
           ) : (
-            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-4">
-              {/* @ts-ignore - Ignore type warning temporarily since items can be Buy or Sell type */}
-              {items.map((item: any) => {
-                const imageUrl = getAssetUrl(item.asset_key)
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-4">
+              {items.map((item) => {
                 const isBuy = activeTab === 'buy'
+                
+                // Ép kiểu để TypeScript gợi ý code chuẩn xác
+                const buyItem = item as ShopItemResponse
+                const sellItem = item as SellableItemResponse
+                
+                const imageUrl = getAssetUrl(item.asset_key)
 
                 return (
                   <div 
-                    key={isBuy ? item.id : item.inventory_id} 
-                    className="relative group bg-slate-50 border border-slate-200 rounded-2xl p-3 flex flex-col items-center gap-2 hover:bg-white hover:border-amber-400 transition-all cursor-pointer shadow-sm hover:shadow-lg"
+                    key={isBuy ? buyItem.id : sellItem.item_id} 
+                    className={`relative group bg-slate-50 border border-slate-200 rounded-2xl p-3 flex flex-col items-center gap-2 hover:bg-white transition-all cursor-pointer shadow-sm hover:shadow-lg ${
+                      isBuy ? 'hover:border-emerald-400' : 'hover:border-amber-400'
+                    }`}
                   >
-                    {/* Image Area */}
-                    <div className="w-full aspect-square bg-slate-100/50 rounded-xl flex items-center justify-center p-2 mb-1">
+                    {/* Ảnh và xử lý lỗi */}
+                    <div className="w-full aspect-square bg-slate-100/50 rounded-xl flex items-center justify-center p-2 mb-1 relative">
                       <img 
                         src={imageUrl} 
                         alt={item.name}
                         className="w-[80%] h-[80%] object-contain group-hover:scale-110 transition-transform duration-300 drop-shadow-md"
+                        onError={(e) => {
+                          const emptyImage = 'data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw=='
+                          if (e.currentTarget.src !== emptyImage) {
+                            e.currentTarget.src = emptyImage
+                          }
+                        }}
                       />
+                      
+                      {/* Badge số lượng (Sử dụng trực tiếp sellItem.quantity từ Backend) */}
+                      {!isBuy && sellItem.quantity > 1 && (
+                        <div className="absolute -bottom-2 -right-2 bg-amber-500 text-white text-[11px] font-bold px-1.5 py-0.5 rounded-md border-2 border-white shadow-sm z-10">
+                          x{sellItem.quantity}
+                        </div>
+                      )}
                     </div>
                     
                     {/* Item Name */}
-                    <div className="text-sm font-bold text-slate-700 text-center line-clamp-1 w-full">
+                    <div className="text-sm font-bold text-slate-700 text-center line-clamp-1 w-full" title={item.name}>
                       {item.name}
                     </div>
 
                     {/* Price Badge */}
                     <div className={`w-full py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 text-sm font-bold border ${
-                      isBuy ? 'bg-amber-50 border-amber-200 text-amber-700' : 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                      isBuy ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-amber-50 border-amber-200 text-amber-700'
                     }`}>
                       <CircleDollarSign size={16} />
-                      {isBuy ? item.silver_price : item.buyback_silver}
+                      {isBuy ? buyItem.silver_price : sellItem.buyback_silver}
                     </div>
                   </div>
                 )

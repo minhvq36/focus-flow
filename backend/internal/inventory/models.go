@@ -5,6 +5,7 @@ type InBagItem struct {
 	ItemID   string `json:"item_id"`
 	Name     string `json:"name"`
 	Type     string `json:"type"`
+	Rarity   string `json:"rarity"`
 	AssetKey string `json:"asset_key"`
 	Width    int    `json:"width"`
 	Height   int    `json:"height"`
