@@ -14,7 +14,6 @@ type TabType = 'buy' | 'sell'
 export function ShopModal({ isOpen, onClose }: ShopModalProps) {
   const [activeTab, setActiveTab] = useState<TabType>('buy')
 
-  // Fetch Data trực tiếp từ Backend (Không cần useMemo nữa vì BE đã gom sẵn)
   const { data: wallet } = useWallet()
   const { data: buyItems, isLoading: loadingBuy } = useShopItems()
   const { data: sellItems, isLoading: loadingSell } = useSellableItems()
@@ -106,20 +105,18 @@ export function ShopModal({ isOpen, onClose }: ShopModalProps) {
               {items.map((item) => {
                 const isBuy = activeTab === 'buy'
                 
-                // Ép kiểu để TypeScript gợi ý code chuẩn xác
                 const buyItem = item as ShopItemResponse
                 const sellItem = item as SellableItemResponse
-                
                 const imageUrl = getAssetUrl(item.asset_key)
 
                 return (
                   <div 
                     key={isBuy ? buyItem.id : sellItem.item_id} 
+                    // Chỗ này sau này bác ném onClick={() => openItemDetail(item)} vào đây
                     className={`relative group bg-slate-50 border border-slate-200 rounded-2xl p-3 flex flex-col items-center gap-2 hover:bg-white transition-all cursor-pointer shadow-sm hover:shadow-lg ${
                       isBuy ? 'hover:border-emerald-400' : 'hover:border-amber-400'
                     }`}
                   >
-                    {/* Ảnh và xử lý lỗi */}
                     <div className="w-full aspect-square bg-slate-100/50 rounded-xl flex items-center justify-center p-2 mb-1 relative">
                       <img 
                         src={imageUrl} 
@@ -133,7 +130,6 @@ export function ShopModal({ isOpen, onClose }: ShopModalProps) {
                         }}
                       />
                       
-                      {/* Badge số lượng (Sử dụng trực tiếp sellItem.quantity từ Backend) */}
                       {!isBuy && sellItem.quantity > 1 && (
                         <div className="absolute -bottom-2 -right-2 bg-amber-500 text-white text-[11px] font-bold px-1.5 py-0.5 rounded-md border-2 border-white shadow-sm z-10">
                           x{sellItem.quantity}
@@ -141,17 +137,58 @@ export function ShopModal({ isOpen, onClose }: ShopModalProps) {
                       )}
                     </div>
                     
-                    {/* Item Name */}
                     <div className="text-sm font-bold text-slate-700 text-center line-clamp-1 w-full" title={item.name}>
                       {item.name}
                     </div>
 
-                    {/* Price Badge */}
-                    <div className={`w-full py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 text-sm font-bold border ${
-                      isBuy ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-amber-50 border-amber-200 text-amber-700'
-                    }`}>
-                      <CircleDollarSign size={16} />
-                      {isBuy ? buyItem.silver_price : sellItem.buyback_silver}
+                    {/* === KHU VỰC HIỂN THỊ NÚT MUA/BÁN === */}
+                    <div className="w-full flex gap-1.5 mt-auto">
+                      {isBuy ? (
+                        // TAB MUA: Màu xanh
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            console.log('Mua item:', buyItem.id)
+                          }}
+                          className="group/btn flex-1 py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 text-sm font-bold border bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-500 hover:text-white hover:border-emerald-500 transition-colors focus:outline-none"
+                        >
+                          <CircleDollarSign size={16} className="group-hover/btn:text-white transition-colors" />
+                          {buyItem.silver_price}
+                        </button>
+                      ) : (
+                        // TAB BÁN: 2 Nút (Cùng họ màu Cam nhưng Đậm Nhạt khác nhau)
+                        <>
+                          {/* NÚT BÁN LẤY VÀNG (Màu Blue Premium) */}
+                          {sellItem.buyback_gold > 0 && (
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                console.log('Bán lấy Vàng item:', sellItem.item_id)
+                              }}
+                              // Đổi toàn bộ hệ màu sang Blue (Nền blue-50, viền blue-200, chữ blue-600, hover blue-500)
+                              className="group/btn flex-1 py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 text-sm font-bold border bg-violet-50 border-violet-300 text-violet-800 hover:bg-violet-600 hover:text-white hover:border-violet-600 transition-colors focus:outline-none shadow-sm"
+                            >
+                              {/* Icon vẫn giữ màu Vàng (amber-500) để nổi trên nền xanh */}
+                              <Coins size={16} className="text-amber-500 drop-shadow-sm group-hover/btn:text-white transition-colors" />
+                              {sellItem.buyback_gold}
+                            </button>
+                          )}
+
+                          {/* NÚT BÁN LẤY BẠC (Màu Nhạt Hơn) */}
+                          {(sellItem.buyback_silver > 0 || sellItem.buyback_gold === 0) && (
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                console.log('Bán lấy Bạc item:', sellItem.item_id)
+                              }}
+                              className="group/btn flex-1 py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 text-sm font-bold border bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-400 hover:text-white hover:border-amber-400 transition-colors focus:outline-none"
+                            >
+                              <CircleDollarSign size={16} className="text-slate-500 group-hover/btn:text-white transition-colors" />
+                              {sellItem.buyback_silver}
+                            </button>
+                          )}
+                        </>
+                      )}
                     </div>
                   </div>
                 )
