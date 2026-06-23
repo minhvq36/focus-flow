@@ -11,6 +11,39 @@ interface ShopModalProps {
 
 type TabType = 'buy' | 'sell'
 
+// ==========================================
+// COMPONENT PHỤ: COIN ICON VỚI FALLBACK
+// ==========================================
+function CoinIcon({ 
+  type, 
+  variant = 'single', 
+  className = "" 
+}: { 
+  type: 'silver' | 'gold', 
+  variant?: 'single' | 'pile', 
+  className?: string 
+}) {
+  const [imgError, setImgError] = useState(false)
+
+  if (imgError) {
+    return type === 'gold' 
+      ? <Coins size={16} className={`text-amber-500 drop-shadow-sm ${className}`} /> 
+      : <CircleDollarSign size={16} className={`text-slate-500 ${className}`} />
+  }
+
+  return (
+    <img 
+      src={`/coins/${type}-${variant}.png`}
+      alt={`${type} ${variant}`} 
+      className={`object-contain drop-shadow-sm transition-transform ${className}`}
+      onError={() => setImgError(true)} 
+    />
+  )
+}
+
+// ==========================================
+// COMPONENT CHÍNH: SHOP MODAL
+// ==========================================
 export function ShopModal({ isOpen, onClose }: ShopModalProps) {
   const [activeTab, setActiveTab] = useState<TabType>('buy')
 
@@ -41,16 +74,16 @@ export function ShopModal({ isOpen, onClose }: ShopModalProps) {
             Garden Shop
           </div>
 
-          {/* User Wallet Display */}
+          {/* User Wallet Display (Dùng variant="pile") */}
           {wallet && (
             <div className="hidden sm:flex items-center gap-4 bg-white px-4 py-2 rounded-xl border border-slate-200 shadow-sm">
               <div className="flex items-center gap-1.5 font-bold text-slate-700">
-                <CircleDollarSign size={18} className="text-slate-400" />
+                <CoinIcon type="silver" variant="pile" className="w-6 h-6" />
                 {wallet.silver_balance}
               </div>
               <div className="w-px h-4 bg-slate-200"></div>
               <div className="flex items-center gap-1.5 font-bold text-amber-600">
-                <Coins size={18} className="text-amber-500" />
+                <CoinIcon type="gold" variant="pile" className="w-6 h-6" />
                 {wallet.gold_balance}
               </div>
             </div>
@@ -112,7 +145,6 @@ export function ShopModal({ isOpen, onClose }: ShopModalProps) {
                 return (
                   <div 
                     key={isBuy ? buyItem.id : sellItem.item_id} 
-                    // Chỗ này sau này bác ném onClick={() => openItemDetail(item)} vào đây
                     className={`relative group bg-slate-50 border border-slate-200 rounded-2xl p-3 flex flex-col items-center gap-2 hover:bg-white transition-all cursor-pointer shadow-sm hover:shadow-lg ${
                       isBuy ? 'hover:border-emerald-400' : 'hover:border-amber-400'
                     }`}
@@ -144,7 +176,7 @@ export function ShopModal({ isOpen, onClose }: ShopModalProps) {
                     {/* === KHU VỰC HIỂN THỊ NÚT MUA/BÁN === */}
                     <div className="w-full flex gap-1.5 mt-auto">
                       {isBuy ? (
-                        // TAB MUA: Màu xanh
+                        // TAB MUA
                         <button 
                           onClick={(e) => {
                             e.stopPropagation()
@@ -152,11 +184,11 @@ export function ShopModal({ isOpen, onClose }: ShopModalProps) {
                           }}
                           className="group/btn flex-1 py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 text-sm font-bold border bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-500 hover:text-white hover:border-emerald-500 transition-colors focus:outline-none"
                         >
-                          <CircleDollarSign size={16} className="group-hover/btn:text-white transition-colors" />
+                          <CoinIcon type="silver" className="w-4 h-4 group-hover/btn:scale-110 group-hover/btn:brightness-110" />
                           {buyItem.silver_price}
                         </button>
                       ) : (
-                        // TAB BÁN: 2 Nút (Cùng họ màu Cam nhưng Đậm Nhạt khác nhau)
+                        // TAB BÁN
                         <>
                           {/* NÚT BÁN LẤY VÀNG (Màu Blue Premium) */}
                           {sellItem.buyback_gold > 0 && (
@@ -165,16 +197,14 @@ export function ShopModal({ isOpen, onClose }: ShopModalProps) {
                                 e.stopPropagation()
                                 console.log('Bán lấy Vàng item:', sellItem.item_id)
                               }}
-                              // Đổi toàn bộ hệ màu sang Blue (Nền blue-50, viền blue-200, chữ blue-600, hover blue-500)
                               className="group/btn flex-1 py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 text-sm font-bold border bg-violet-50 border-violet-300 text-violet-800 hover:bg-violet-600 hover:text-white hover:border-violet-600 transition-colors focus:outline-none shadow-sm"
                             >
-                              {/* Icon vẫn giữ màu Vàng (amber-500) để nổi trên nền xanh */}
-                              <Coins size={16} className="text-amber-500 drop-shadow-sm group-hover/btn:text-white transition-colors" />
+                              <CoinIcon type="gold" className="w-4 h-4 group-hover/btn:scale-110 group-hover/btn:brightness-110" />
                               {sellItem.buyback_gold}
                             </button>
                           )}
 
-                          {/* NÚT BÁN LẤY BẠC (Màu Nhạt Hơn) */}
+                          {/* NÚT BÁN LẤY BẠC */}
                           {(sellItem.buyback_silver > 0 || sellItem.buyback_gold === 0) && (
                             <button 
                               onClick={(e) => {
@@ -183,7 +213,7 @@ export function ShopModal({ isOpen, onClose }: ShopModalProps) {
                               }}
                               className="group/btn flex-1 py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 text-sm font-bold border bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-400 hover:text-white hover:border-amber-400 transition-colors focus:outline-none"
                             >
-                              <CircleDollarSign size={16} className="text-slate-500 group-hover/btn:text-white transition-colors" />
+                              <CoinIcon type="silver" className="w-4 h-4 group-hover/btn:scale-110 group-hover/btn:brightness-110" />
                               {sellItem.buyback_silver}
                             </button>
                           )}
