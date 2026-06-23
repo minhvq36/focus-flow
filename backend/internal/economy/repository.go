@@ -141,3 +141,124 @@ func (r *Repository) GetInventoryForSale(ctx context.Context, userID string) ([]
 
 	return details, nil
 }
+
+// ==========================================
+// 4. TRANSACTION SUPPORT (Cho Buy & Sell)
+// ==========================================
+
+func (r *Repository) GetItemByID(ctx context.Context, itemID string) (*Item, error) {
+	var i Item
+	err := r.db.QueryRow(ctx, `
+		SELECT id, name, type, rarity, asset_key, height, width, silver_price, is_purchasable, can_wilt
+		FROM public.items WHERE id = $1
+	`, itemID).Scan(
+		&i.ID, &i.Name, &i.Type, &i.Rarity, &i.AssetKey,
+		&i.Height, &i.Width, &i.SilverPrice, &i.IsPurchasable, &i.CanWilt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &i, nil
+}
+
+// GetWalletForUpdate khóa ví của user lại để xử lý cộng/trừ tiền an toàn
+func (r *Repository) GetWalletForUpdate(ctx context.Context, tx pgx.Tx, userID string) (*UserWallet, error) {
+	var wallet UserWallet
+	err := tx.QueryRow(ctx, `
+		SELECT user_id, silver_balance, gold_balance 
+		FROM public.user_wallets 
+		WHERE user_id = $1 FOR UPDATE
+	`, userID).Scan(&wallet.UserID, &wallet.SilverBalance, &wallet.GoldBalance)
+
+	if err != nil {
+		return nil, fmt.Errorf("lock user wallet: %w", err)
+	}
+	return &wallet, nil
+}
+
+// UpdateWalletBalance thực hiện thay đổi số dư (hỗ trợ số âm để trừ)
+func (r *Repository) UpdateWalletBalance(ctx context.Context, tx pgx.Tx, userID string, silverChange int, goldChange int) error {
+	_, err := tx.Exec(ctx, `
+		UPDATE public.user_wallets
+		SET silver_balance = silver_balance + $1,
+		    gold_balance = gold_balance + $2
+		WHERE user_id = $3
+	`, silverChange, goldChange, userID)
+	return err
+}
+
+// RecordTransaction lưu lịch sử biến động số dư
+func (r *Repository) RecordTransaction(ctx context.Context, tx pgx.Tx, txn EconomyTransaction) error {
+	_, err := tx.Exec(ctx, `
+		INSERT INTO public.economy_transactions 
+			(user_id, silver_change, gold_change, action_type, reference_id, description)
+		VALUES ($1, $2, $3, $4, $5, $6)
+	`, txn.UserID, txn.SilverChange, txn.GoldChange, txn.ActionType, txn.ReferenceID, txn.Description)
+	return err
+}
+
+// ==========================================
+// 5. INVENTORY OPERATIONS
+// ==========================================
+
+// AddInventoryItems thêm đồ vào túi và trả về danh sách các UUID vừa tạo
+func (r *Repository) AddInventoryItems(ctx context.Context, tx pgx.Tx, userID, itemID string, quantity int) ([]string, error) {
+	// Dùng batch insert thông qua generate_series
+	rows, err := tx.Query(ctx, `
+		INSERT INTO public.inventory (user_id, item_id, status)
+		SELECT $1, $2, 'in_bag'
+		FROM generate_series(1, $3)
+		RETURNING id
+	`, userID, itemID, quantity)
+
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var newIDs []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		newIDs = append(newIDs, id)
+	}
+	return newIDs, nil
+}
+
+// GetInventoryItemsForUpdate khóa các vật phẩm trong kho trước khi bán
+func (r *Repository) GetInventoryItemsForUpdate(ctx context.Context, tx pgx.Tx, userID string, inventoryIDs []string) ([]LockedInventoryItem, error) {
+	rows, err := tx.Query(ctx, `
+		SELECT inv.id, inv.item_id, i.rarity, i.silver_price
+		FROM public.inventory inv
+		JOIN public.items i ON i.id = inv.item_id
+		WHERE inv.id = ANY($1) 
+		  AND inv.user_id = $2 
+		  AND inv.status = 'in_bag'
+		FOR UPDATE
+	`, inventoryIDs, userID)
+
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var items []LockedInventoryItem
+	for rows.Next() {
+		var item LockedInventoryItem
+		if err := rows.Scan(&item.InventoryID, &item.ItemID, &item.Rarity, &item.SilverPrice); err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+
+// DeleteInventoryItems xóa vật phẩm khỏi túi đồ
+func (r *Repository) DeleteInventoryItems(ctx context.Context, tx pgx.Tx, inventoryIDs []string) error {
+	_, err := tx.Exec(ctx, `
+		DELETE FROM public.inventory WHERE id = ANY($1)
+	`, inventoryIDs)
+	return err
+}

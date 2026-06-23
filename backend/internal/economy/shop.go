@@ -5,25 +5,42 @@ import (
 	"fmt"
 	"math"
 
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/minhvq36/focus-flow/backend/pkg/logger"
 )
 
 // Khai báo Interface để Service gọi xuống Repo (Dễ Mock khi viết Unit Test)
 type RepositoryInterface interface {
+	// --- Các hàm Đọc (Read-only) ---
 	GetUserWallet(ctx context.Context, userID string) (*UserWallet, error)
 	GetPurchasableItems(ctx context.Context) ([]Item, error)
 	GetInventoryForSale(ctx context.Context, userID string) ([]SellableInventoryRow, error)
+	GetItemByID(ctx context.Context, itemID string) (*Item, error)
+
+	// --- Các hàm Ghi (Write) yêu cầu Transaction ---
+	GetWalletForUpdate(ctx context.Context, tx pgx.Tx, userID string) (*UserWallet, error)
+	UpdateWalletBalance(ctx context.Context, tx pgx.Tx, userID string, silverChange int, goldChange int) error
+	RecordTransaction(ctx context.Context, tx pgx.Tx, txn EconomyTransaction) error
+	AddInventoryItems(ctx context.Context, tx pgx.Tx, userID, itemID string, quantity int) ([]string, error)
+	GetInventoryItemsForUpdate(ctx context.Context, tx pgx.Tx, userID string, inventoryIDs []string) ([]LockedInventoryItem, error)
+	DeleteInventoryItems(ctx context.Context, tx pgx.Tx, inventoryIDs []string) error
 }
 
 type Service struct {
-	repo RepositoryInterface
-	log  *logger.Logger
+	db       *pgxpool.Pool
+	repo     RepositoryInterface
+	currency *CurrencyService // Gọi sang Lõi Ví Tiền để thanh toán và ghi log
+	log      *logger.Logger
 }
 
-func NewService(repo RepositoryInterface, log *logger.Logger) *Service {
+// Cập nhật lại constructor để nhận thêm db pool và currency service
+func NewService(db *pgxpool.Pool, repo RepositoryInterface, currency *CurrencyService, log *logger.Logger) *Service {
 	return &Service{
-		repo: repo,
-		log:  log,
+		db:       db,
+		repo:     repo,
+		currency: currency,
+		log:      log,
 	}
 }
 
@@ -109,6 +126,7 @@ func (s *Service) GetSellableItems(ctx context.Context, userID string) ([]Sellab
 
 	return result, nil
 }
+
 func calculateBuybackPrice(originalPrice *int, rarity string) (silver int, gold int) {
 	silver = 0
 	if originalPrice != nil {
@@ -124,4 +142,117 @@ func calculateBuybackPrice(originalPrice *int, rarity string) (silver int, gold 
 	}
 
 	return silver, gold
+}
+
+// ==========================================
+// 4. BUY ITEM PROCESS (User mua đồ)
+// ==========================================
+
+func (s *Service) BuyItem(ctx context.Context, userID string, req BuyRequest) (*BuyResponse, error) {
+	// 1. Validate Item
+	item, err := s.repo.GetItemByID(ctx, req.ItemID)
+	if err != nil {
+		return nil, fmt.Errorf("item not found: %w", err)
+	}
+	if !item.IsPurchasable || item.SilverPrice == nil {
+		return nil, fmt.Errorf("item is not purchasable")
+	}
+
+	totalCost := *item.SilverPrice * req.Quantity
+
+	// 2. Mở TX
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("BuyItem begin tx: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	// 3. Thanh toán tiền (Gọi qua CurrencyService)
+	// Truyền -totalCost vì là trừ tiền
+	desc := fmt.Sprintf("Bought %d x %s", req.Quantity, item.Name)
+	wallet, err := s.currency.ChangeBalance(ctx, tx, userID, -totalCost, 0, ActionShopBuy, desc)
+	if err != nil {
+		return nil, err // Lỗi "not enough silver" sẽ được ném ra từ đây
+	}
+
+	// 4. Giao hàng (Thêm đồ vào kho)
+	newInventoryIDs, err := s.repo.AddInventoryItems(ctx, tx, userID, req.ItemID, req.Quantity)
+	if err != nil {
+		return nil, err
+	}
+
+	// 5. Commit thành công
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("BuyItem commit: %w", err)
+	}
+
+	return &BuyResponse{
+		TotalCost:    totalCost,
+		NewSilver:    wallet.SilverBalance,
+		InventoryIDs: newInventoryIDs,
+	}, nil
+}
+
+// ==========================================
+// 5. SELL ITEMS PROCESS (User bán đồ)
+// ==========================================
+
+func (s *Service) SellItems(ctx context.Context, userID string, req SellBatchRequest) (*SellBatchResponse, error) {
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("SellItems begin tx: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	// 1. Lock đồ trong kho (Chống spam)
+	lockedItems, err := s.repo.GetInventoryItemsForUpdate(ctx, tx, userID, req.InventoryIDs)
+	if err != nil {
+		return nil, err
+	}
+	if len(lockedItems) != len(req.InventoryIDs) {
+		return nil, fmt.Errorf("some items are invalid, already sold or placed")
+	}
+
+	// 2. Tính tiền hoàn trả dựa trên lựa chọn Vàng hay Bạc
+	var totalSilverEarned, totalGoldEarned int
+	for _, item := range lockedItems {
+		silver, gold := calculateBuybackPrice(item.SilverPrice, item.Rarity)
+
+		if req.ReceiveCurrency == "gold" {
+			if gold <= 0 {
+				return nil, fmt.Errorf("item with rarity '%s' cannot be sold for gold", item.Rarity)
+			}
+			totalGoldEarned += gold
+		} else {
+			if silver <= 0 {
+				return nil, fmt.Errorf("item cannot be sold for silver")
+			}
+			totalSilverEarned += silver
+		}
+	}
+
+	// 3. Thu hồi đồ (Xóa khỏi túi)
+	if err := s.repo.DeleteInventoryItems(ctx, tx, req.InventoryIDs); err != nil {
+		return nil, err
+	}
+
+	// 4. Trả tiền cho User (Gọi qua CurrencyService)
+	desc := fmt.Sprintf("Sold %d items for %s", len(req.InventoryIDs), req.ReceiveCurrency)
+	wallet, err := s.currency.ChangeBalance(ctx, tx, userID, totalSilverEarned, totalGoldEarned, ActionShopSell, desc)
+	if err != nil {
+		return nil, err
+	}
+
+	// 5. Commit
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("SellItems commit: %w", err)
+	}
+
+	return &SellBatchResponse{
+		SuccessfulInventoryIDs: req.InventoryIDs,
+		TotalSilverEarned:      totalSilverEarned,
+		TotalGoldEarned:        totalGoldEarned,
+		NewSilver:              wallet.SilverBalance,
+		NewGold:                wallet.GoldBalance,
+	}, nil
 }

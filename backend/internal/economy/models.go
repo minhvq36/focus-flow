@@ -80,17 +80,30 @@ type BuyRequest struct {
 }
 
 type SellBatchRequest struct {
-	InventoryIDs []string `json:"inventory_ids" validate:"required,min=1,dive,uuid"`
+	InventoryIDs    []string `json:"inventory_ids" validate:"required,min=1,dive,uuid"`
+	ReceiveCurrency string   `json:"receive_currency" validate:"required,oneof=silver gold"` // FE gửi lên "silver" hoặc "gold"
 }
 
-// ==========================================
-// 3. RESPONSE TYPES (Trả về cho Frontend)
-// ==========================================
+type BuyResponse struct {
+	TotalCost    int      `json:"total_cost"`
+	NewSilver    int64    `json:"new_silver"`
+	InventoryIDs []string `json:"inventory_ids"` // Trả về ID các item vừa được tạo trong kho
+}
 
 type SellBatchResponse struct {
 	SuccessfulInventoryIDs []string `json:"successful_inventory_ids"`
 	TotalSilverEarned      int      `json:"total_silver_earned"`
 	TotalGoldEarned        int      `json:"total_gold_earned"`
+	NewSilver              int64    `json:"new_silver"`
+	NewGold                int      `json:"new_gold"`
+}
+
+// Dùng để lấy thông tin item trong kho kèm giá trị để tính tiền lúc Sell
+type LockedInventoryItem struct {
+	InventoryID string
+	ItemID      string
+	Rarity      string
+	SilverPrice *int
 }
 
 // ==========================================

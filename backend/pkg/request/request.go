@@ -58,6 +58,9 @@ func FormatValidationError(err error) string {
 			messages = append(messages, fmt.Sprintf("'%s' must be at most %s", e.Field(), e.Param()))
 		case "uuid":
 			messages = append(messages, fmt.Sprintf("'%s' must be a valid UUID", e.Field()))
+		case "oneof":
+			allowedValues := strings.ReplaceAll(e.Param(), " ", ", ")
+			messages = append(messages, fmt.Sprintf("'%s' must be one of: [%s]", e.Field(), allowedValues))
 		default:
 			messages = append(messages, fmt.Sprintf("'%s' failed on '%s' validation", e.Field(), e.Tag()))
 		}
