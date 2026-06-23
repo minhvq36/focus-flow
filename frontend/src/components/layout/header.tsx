@@ -1,28 +1,46 @@
 import { Link, useLocation } from 'react-router-dom'
 import { useEffect, useState, useRef } from "react"
 import { useTranslation } from 'react-i18next'
-import { Sprout } from 'lucide-react'
+import { Sprout, Coins, CircleDollarSign } from 'lucide-react'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { cn } from '@/lib/utils'
 import { useLanguage } from '@/hooks/use-language'
+import { useWallet } from '@/pages/garden/hooks/use-economy'
 
 const tabs = (t: any) => [
   { path: '/garden', label: t('nav.garden') },
   { path: '/tasks',  label: t('nav.tasks')  },
 ]
 
+// ==========================================
+// COMPONENT PHỤ: COIN PILE ICON VỚI FALLBACK
+// ==========================================
+function CoinIcon({ type, className = "" }: { type: 'silver' | 'gold', className?: string }) {
+  const [imgError, setImgError] = useState(false)
+
+  if (imgError) {
+    return type === 'gold' 
+      ? <Coins size={16} className={`text-amber-500 drop-shadow-sm ${className}`} /> 
+      : <CircleDollarSign size={16} className={`text-slate-500 ${className}`} />
+  }
+
+  return (
+    <img 
+      src={`/coins/${type}-pile.png`}
+      alt={`${type} pile`} 
+      className={`object-contain drop-shadow-sm ${className}`}
+      onError={() => setImgError(true)} 
+    />
+  )
+}
+
 function UtcClock() {
   const { currentLang } = useLanguage()
-  
-  // 2. CHỐNG CLS (Giật Layout): Khởi tạo state bằng string có độ dài chuẩn.
-  // Tabular-nums sẽ giúp "00:00:00" chiếm đúng diện tích bằng giờ thật.
   const [timeStr, setTimeStr] = useState("00:00:00")
   const [dateStr, setDateStr] = useState("...") 
-  const [isMounted, setIsMounted] = useState(false) // Dùng để làm hiệu ứng fade-in
+  const [isMounted, setIsMounted] = useState(false) 
 
   useEffect(() => {
-    // 1. TỐI ƯU BỘ NHỚ: Tạo formatter dựa trên ngôn ngữ hiện tại
-    // Khi ngôn ngữ thay đổi, formatter sẽ được tạo lại với locale đúng
     const locale = currentLang === 'vi' ? 'vi-VN' : 'en-US'
     const dateFormatter = new Intl.DateTimeFormat(locale, {
       month: "short",
@@ -35,7 +53,6 @@ function UtcClock() {
     function tick() {
       const now = new Date()
 
-      // Vẫn giữ padStart cho time vì đây là thuật toán O(1) nhẹ nhất của JS
       const hh = String(now.getUTCHours()).padStart(2, "0")
       const mm = String(now.getUTCMinutes()).padStart(2, "0")
       const ss = String(now.getUTCSeconds()).padStart(2, "0")
@@ -44,13 +61,12 @@ function UtcClock() {
       const currentUtcDate = now.getUTCDate()
       if (currentUtcDate !== lastDateNum) {
         lastDateNum = currentUtcDate
-        // Dùng formatter đã cache ở ngoài để format
         setDateStr(dateFormatter.format(now))
       }
     }
 
     tick()
-    setIsMounted(true) // Render xong lần 1 có data thật mới cho hiện
+    setIsMounted(true) 
     const id = setInterval(tick, 1000)
 
     const handleVisibilityChange = () => {
@@ -66,8 +82,6 @@ function UtcClock() {
 
   return (
     <div
-      // 3. UX ĐỈNH CAO: Dùng opacity-0 lúc init để giữ nguyên chỗ trống (chống đẩy Layout),
-      // khi có data thì fade-in mượt mà với duration-300
       className={cn(
         "hidden items-center gap-2 rounded-md px-3 py-1.5 md:flex transition-opacity duration-300",
         isMounted ? "opacity-100" : "opacity-0"
@@ -88,7 +102,6 @@ function LanguageSwitcher() {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
-  // Đóng khi click ra ngoài
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) {
@@ -137,6 +150,9 @@ export default function Header() {
   const { pathname } = useLocation()
   const { t } = useTranslation('common')
   const tabsConfig = tabs(t)
+  
+  // TODO: IMPORTANT: Use other endpoint, like user private
+  const { data: wallet } = useWallet()
 
   return (
     <header className="sticky top-0 z-30 border-b border-border/60 bg-[var(--header-bg)] backdrop-blur-lg backdrop-saturate-150">
@@ -172,10 +188,20 @@ export default function Header() {
         <div className="flex items-center gap-2">
           <UtcClock />
           <LanguageSwitcher />
-          <span className="flex items-center gap-1 text-sm text-foreground/80">🪙 <strong>0</strong></span>
-          <span className="flex items-center gap-1 text-sm text-foreground/80">💛 <strong>0</strong></span>
 
-          <Avatar className="h-8 w-8 cursor-pointer">
+          {/* Ví Tiền Gọn Gàng - Chỉ cách nhau bằng gap, không có hộp viền */}
+          <div className="flex items-center gap-1 ml-1">
+            <span className="flex items-center gap-1 text-sm text-foreground/80">
+              <CoinIcon type="silver" className="w-[18px] h-[18px]" />
+              <strong>{wallet?.silver_balance ?? 0}</strong>
+            </span>
+            <span className="flex items-center gap-1 text-sm text-amber-600">
+              <CoinIcon type="gold" className="w-[18px] h-[18px]" />
+              <strong>{wallet?.gold_balance ?? 0}</strong>
+            </span>
+          </div>
+
+          <Avatar className="h-8 w-8 cursor-pointer ml-1">
             <AvatarFallback className="bg-secondary text-secondary-foreground text-xs font-medium">
               U
             </AvatarFallback>
