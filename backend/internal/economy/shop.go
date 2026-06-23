@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"sort"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -205,6 +206,7 @@ func (s *Service) SellItems(ctx context.Context, userID string, req SellBatchReq
 	defer tx.Rollback(ctx)
 
 	// 1. Lock đồ trong kho (Chống spam)
+	sort.Strings(req.InventoryIDs)
 	lockedItems, err := s.repo.GetInventoryItemsForUpdate(ctx, tx, userID, req.InventoryIDs)
 	if err != nil {
 		return nil, err
