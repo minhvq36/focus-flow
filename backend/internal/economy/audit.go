@@ -7,7 +7,6 @@ import (
 	"github.com/minhvq36/focus-flow/backend/pkg/logger"
 )
 
-// Auditor chịu trách nhiệm ghi log giao dịch
 type Auditor struct {
 	repo RepositoryInterface
 	log  *logger.Logger
@@ -20,11 +19,16 @@ func NewAuditor(repo RepositoryInterface, log *logger.Logger) *Auditor {
 	}
 }
 
-// LogTransaction lưu lại biến động số dư. (Bắt buộc chạy trong 1 transaction)
-func (a *Auditor) LogTransaction(ctx context.Context, tx pgx.Tx, userID string, silverChange, goldChange int, actionType, desc string) error {
-	// Bỏ qua nếu không có biến động tiền tệ
+// Thêm referenceID vào tham số
+func (a *Auditor) LogTransaction(ctx context.Context, tx pgx.Tx, userID string, silverChange, goldChange int, actionType, referenceID, desc string) error {
 	if silverChange == 0 && goldChange == 0 {
 		return nil
+	}
+
+	// Xử lý referenceID thành pointer (bảo vệ trường hợp truyền chuỗi rỗng)
+	var ref *string
+	if referenceID != "" {
+		ref = &referenceID
 	}
 
 	txn := EconomyTransaction{
@@ -32,6 +36,7 @@ func (a *Auditor) LogTransaction(ctx context.Context, tx pgx.Tx, userID string, 
 		SilverChange: silverChange,
 		GoldChange:   goldChange,
 		ActionType:   actionType,
+		ReferenceID:  ref,
 		Description:  desc,
 	}
 

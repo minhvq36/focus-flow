@@ -24,9 +24,12 @@ func setupRoutes(jwks keyfunc.Keyfunc, db *pgxpool.Pool, log *logger.Logger) *ch
 
 	r.Get("/health", healthHandler)
 
+	economyRepo := economy.NewRepository(db, log)
+	economyAuditor := economy.NewAuditor(economyRepo, log)
+
 	r.Group(func(r chi.Router) {
 		r.Use(auth.RequireAuth(jwks))
-		r.Route("/api/tasks", task.Routes(db, log))
+		r.Route("/api/tasks", task.Routes(db, log, economyAuditor))
 		r.Route("/api/garden", garden.Routes(db, log))
 		r.Route("/api/inventory", inventory.Routes(db, log))
 		r.Route("/api/economy", economy.Routes(db, log))

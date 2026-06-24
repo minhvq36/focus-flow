@@ -7,22 +7,19 @@ import (
 	"github.com/minhvq36/focus-flow/backend/pkg/logger"
 )
 
-func Routes(db *pgxpool.Pool, log *logger.Logger) func(r chi.Router) {
+func Routes(db *pgxpool.Pool, log *logger.Logger, economyAuditor EconomyAuditor) func(r chi.Router) {
 	rewardRepo := reward.NewRepository(db, log)
 	rewarder := reward.NewRewarder(db, rewardRepo, log)
 
 	repo := NewRepository(db, log)
-	service := NewService(db, repo, rewarder, log)
+	service := NewService(db, repo, rewarder, economyAuditor, log)
 	handler := NewHandler(service, log)
 
 	return func(r chi.Router) {
 		r.Get("/", handler.GetUserTasks)
 		r.Post("/", handler.CreateTask)
-		// Quota endpoints
 		r.Get("/quota/today", handler.GetQuotaToday)
-		// Task detail and operations
 		r.Get("/{id}", handler.GetTaskByID)
-		// Update todos for a task (autosave)
 		r.Patch("/{id}/todos", handler.UpdateTodos)
 		r.Patch("/{id}/title", handler.EditTaskTitle)
 		r.Post("/{id}/extend", handler.ExtendTask)
@@ -32,7 +29,7 @@ func Routes(db *pgxpool.Pool, log *logger.Logger) func(r chi.Router) {
 		r.Post("/{id}/giveup", handler.GiveUpTask)
 		r.Post("/{id}/resume", handler.ResumeTask)
 		r.Post("/{id}/star", handler.ToggleStar)
-		// Notes endpoints
+
 		r.Get("/{id}/notes", handler.GetNotes)
 		r.Post("/{id}/notes", handler.CreateNote)
 		r.Patch("/{id}/notes/{nid}", handler.UpdateNote)

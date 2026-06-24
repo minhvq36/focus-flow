@@ -33,19 +33,25 @@ type RepositoryInterface interface {
 	GetQuotaToday(ctx context.Context, userID string) (used, limit int, err error)
 }
 
-type Service struct {
-	db       *pgxpool.Pool
-	repo     RepositoryInterface
-	rewarder *reward.Rewarder
-	log      *logger.Logger
+type EconomyAuditor interface {
+	LogTransaction(ctx context.Context, tx pgx.Tx, userID string, silverChange, goldChange int, actionType, referenceID, desc string) error
 }
 
-func NewService(db *pgxpool.Pool, repo RepositoryInterface, rewarder *reward.Rewarder, log *logger.Logger) *Service {
+type Service struct {
+	db             *pgxpool.Pool
+	repo           RepositoryInterface
+	rewarder       *reward.Rewarder
+	economyAuditor EconomyAuditor
+	log            *logger.Logger
+}
+
+func NewService(db *pgxpool.Pool, repo RepositoryInterface, rewarder *reward.Rewarder, economyAuditor EconomyAuditor, log *logger.Logger) *Service {
 	return &Service{
-		db:       db,
-		repo:     repo,
-		rewarder: rewarder,
-		log:      log,
+		db:             db,
+		repo:           repo,
+		rewarder:       rewarder,
+		economyAuditor: economyAuditor,
+		log:            log,
 	}
 }
 
@@ -209,6 +215,11 @@ func (s *Service) SubmitTask(ctx context.Context, taskID, userID string) (*Submi
 	reward, err := s.rewarder.Grant(ctx, tx, userID, taskID, level)
 	if err != nil {
 		return nil, err
+	}
+
+	// 5. Record transaction (economy audit)
+	if err := s.economyAuditor.LogTransaction(ctx, tx, userID, reward.Silver, 0, "task_reward", taskID, "Reward from task submission"); err != nil {
+		return nil, fmt.Errorf("SubmitTask record transaction: %w", err)
 	}
 
 	if err := tx.Commit(ctx); err != nil {

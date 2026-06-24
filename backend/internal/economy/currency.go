@@ -48,7 +48,7 @@ func (cs *CurrencyService) ChangeBalance(ctx context.Context, tx pgx.Tx, userID 
 	}
 
 	// 4. Tự động ghi Log giao dịch
-	if err := cs.auditor.LogTransaction(ctx, tx, userID, silverChange, goldChange, actionType, description); err != nil {
+	if err := cs.auditor.LogTransaction(ctx, tx, userID, silverChange, goldChange, actionType, "", description); err != nil {
 		return nil, fmt.Errorf("failed to audit transaction: %w", err)
 	}
 
