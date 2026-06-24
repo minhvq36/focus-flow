@@ -8,6 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/minhvq36/focus-flow/backend/pkg/apperr"
 	"github.com/minhvq36/focus-flow/backend/pkg/logger"
 )
 
@@ -149,14 +150,14 @@ func calculateBuybackPrice(originalPrice *int, rarity string) (silver int, gold 
 // 4. BUY ITEM PROCESS (User mua đồ)
 // ==========================================
 
-func (s *Service) BuyItem(ctx context.Context, userID string, req BuyRequest) (*BuyResponse, error) {
+func (s *Service) BuyItems(ctx context.Context, userID string, req BuyRequest) (*BuyResponse, error) {
 	// 1. Validate Item
 	item, err := s.repo.GetItemByID(ctx, req.ItemID)
 	if err != nil {
-		return nil, fmt.Errorf("item not found: %w", err)
+		return nil, err
 	}
 	if !item.IsPurchasable || item.SilverPrice == nil {
-		return nil, fmt.Errorf("item is not purchasable")
+		return nil, &apperr.ValidationError{Message: "Item is not purchasable"}
 	}
 
 	totalCost := *item.SilverPrice * req.Quantity
@@ -212,7 +213,7 @@ func (s *Service) SellItems(ctx context.Context, userID string, req SellBatchReq
 		return nil, err
 	}
 	if len(lockedItems) != len(req.InventoryIDs) {
-		return nil, fmt.Errorf("some items are invalid, already sold or placed")
+		return nil, &apperr.ValidationError{Message: "Some items are invalid, already sold, or placed in garden"}
 	}
 
 	// 2. Tính tiền hoàn trả dựa trên lựa chọn Vàng hay Bạc
@@ -222,12 +223,12 @@ func (s *Service) SellItems(ctx context.Context, userID string, req SellBatchReq
 
 		if req.ReceiveCurrency == "gold" {
 			if gold <= 0 {
-				return nil, fmt.Errorf("item with rarity '%s' cannot be sold for gold", item.Rarity)
+				return nil, &apperr.ValidationError{Message: fmt.Sprintf("Item with rarity '%s' cannot be sold for gold", item.Rarity)}
 			}
 			totalGoldEarned += gold
 		} else {
 			if silver <= 0 {
-				return nil, fmt.Errorf("item cannot be sold for silver")
+				return nil, &apperr.ValidationError{Message: "Item cannot be sold for silver"}
 			}
 			totalSilverEarned += silver
 		}

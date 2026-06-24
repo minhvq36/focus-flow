@@ -17,5 +17,7 @@ func Routes(db *pgxpool.Pool, log *logger.Logger) func(r chi.Router) {
 		r.Get("/wallet", handler.GetWallet)
 		r.Get("/shop/buy", handler.GetShopItems)
 		r.Get("/shop/sell", handler.GetSellableItems)
+		r.Post("/shop/buy", handler.Buy)
+		r.Post("/shop/sell", handler.Sell)
 	}
 }

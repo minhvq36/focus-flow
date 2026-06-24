@@ -156,6 +156,9 @@ func (r *Repository) GetItemByID(ctx context.Context, itemID string) (*Item, err
 		&i.Height, &i.Width, &i.SilverPrice, &i.IsPurchasable, &i.CanWilt,
 	)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, &apperr.NotFoundError{Resource: "Item"}
+		}
 		return nil, err
 	}
 	return &i, nil

@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/minhvq36/focus-flow/backend/pkg/apperr"
 	"github.com/minhvq36/focus-flow/backend/pkg/logger"
 )
 
@@ -35,10 +36,10 @@ func (cs *CurrencyService) ChangeBalance(ctx context.Context, tx pgx.Tx, userID 
 
 	// 2. Kiểm tra xem có đủ tiền để trừ không (nếu là số âm)
 	if silverChange < 0 && wallet.SilverBalance < int64(-silverChange) {
-		return nil, fmt.Errorf("not enough silver")
+		return nil, fmt.Errorf("%w: require %d silver, but have %d", apperr.ErrInsufficientBalance, -silverChange, wallet.SilverBalance)
 	}
 	if goldChange < 0 && wallet.GoldBalance < -goldChange {
-		return nil, fmt.Errorf("not enough gold")
+		return nil, fmt.Errorf("%w: require %d gold, but have %d", apperr.ErrInsufficientBalance, -goldChange, wallet.GoldBalance)
 	}
 
 	// 3. Cập nhật số dư trong DB
