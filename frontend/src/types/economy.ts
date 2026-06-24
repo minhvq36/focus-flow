@@ -27,3 +27,13 @@ export interface SellableItemResponse {
   buyback_silver: number;
   buyback_gold: number;
 }
+
+export interface BuyRequest {
+  item_id: string;
+  quantity: number;
+}
+
+export interface SellBatchRequest {
+  inventory_ids: string[];
+  receive_currency: 'silver' | 'gold';
+}

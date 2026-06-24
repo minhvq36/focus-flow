@@ -227,8 +227,10 @@ func (s *Service) SellItems(ctx context.Context, userID string, req SellBatchReq
 			}
 			totalGoldEarned += gold
 		} else {
-			if silver <= 0 {
-				return nil, &apperr.ValidationError{Message: "Item cannot be sold for silver"}
+			if gold > 0 && silver <= 0 {
+				return nil, &apperr.ValidationError{
+					Message: fmt.Sprintf("Premium items (Rarity: %s) can only be sold for Gold, cannot be discarded or sold for Silver", item.Rarity),
+				}
 			}
 			totalSilverEarned += silver
 		}
