@@ -6,7 +6,7 @@ import { usePlacementStore } from '@/store/placement-store'
 import { ImageWithFallback } from '@/components/ui/image-with-fallback'
 
 export function GardenToolbar() {
-  const { activeTool, setTool } = usePlacementStore()
+  const { activeTool, setTool, clearPlacement } = usePlacementStore()
   const [isInventoryOpen, setIsInventoryOpen] = useState(false)
   const [isShopOpen, setIsShopOpen] = useState(false)
 
@@ -21,6 +21,7 @@ export function GardenToolbar() {
         setIsInventoryOpen(prev => !prev) // Toggle túi đồ
       }
       if (e.code === 'KeyS') {
+        clearPlacement()
         setIsShopOpen(prev => !prev)
       }
       if (e.code === 'KeyD') {
@@ -80,7 +81,10 @@ export function GardenToolbar() {
             icon={<Store size={24} />} 
             label="Shop" 
             isActive={isShopOpen} /* TRUYỀN THÊM isActive */
-            onClick={() => setIsShopOpen(!isShopOpen)} 
+            onClick={() => {
+              clearPlacement()
+              setIsShopOpen(!isShopOpen)
+            }}
             shortcut="S"
           />
         </div>

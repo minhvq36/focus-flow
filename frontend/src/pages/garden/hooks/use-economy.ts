@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import type { WalletResponse, ShopItemResponse, SellableItemResponse, BuyRequest, SellBatchRequest } from '@/types/economy'
+import { usePlacementStore } from '@/store/placement-store'
 
 export function useWallet() {
   return useQuery({
@@ -31,6 +32,8 @@ export function useBuyItem() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['economy', 'wallet'] })
       queryClient.invalidateQueries({ queryKey: ['economy', 'shop-sell'] })
+      queryClient.invalidateQueries({ queryKey: ['inventory', 'bag'] })
+      usePlacementStore.getState().clearPlacement()
     },
   })
 }
@@ -43,6 +46,8 @@ export function useSellItem() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['economy', 'wallet'] })
       queryClient.invalidateQueries({ queryKey: ['economy', 'shop-sell'] })
+      queryClient.invalidateQueries({ queryKey: ['inventory', 'bag'] })
+      usePlacementStore.getState().clearPlacement()
     },
   })
 }

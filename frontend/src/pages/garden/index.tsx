@@ -131,7 +131,8 @@ export default function Garden() {
         if (activeGardenId) {
           await Promise.all([
             queryClient.invalidateQueries({ queryKey: ['garden', activeGardenId] }),
-            queryClient.invalidateQueries({ queryKey: ['inventory', 'bag'] })
+            queryClient.invalidateQueries({ queryKey: ['inventory', 'bag'] }),
+            queryClient.invalidateQueries({ queryKey: ['economy', 'shop-sell'] })
           ])
 
           const currentHand = usePlacementStore.getState().activeItem
@@ -222,9 +223,9 @@ export default function Garden() {
               queryClient.invalidateQueries({ queryKey: ['garden', activeGardenId] })
             },
             onSettled: () => {
-              // Cập nhật lại UI và Túi đồ sau khi xóa thành công
               queryClient.invalidateQueries({ queryKey: ['garden', activeGardenId] })
               queryClient.invalidateQueries({ queryKey: ['inventory', 'bag'] })
+              queryClient.invalidateQueries({ queryKey: ['economy', 'shop-sell'] })
             }
           })
         }
