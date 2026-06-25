@@ -252,6 +252,11 @@ created_at          timestamptz
 **Index:**
 - `idx_items_shop` — (type) WHERE is_purchasable=true AND silver_price NOT NULL
 
+**Implementation note (current code):**
+- `public.items` is created by migration `002_init_cores.sql` and is currently used by the shop, inventory bag, and garden placement flows.
+- The backend reads item catalog rows from `public.items` and joins them with `public.inventory` for buy/sell and placement operations.
+- The current repo does not yet implement a separate marketplace table for P2P trade.
+
 **Logic:**
 - `silver_price` NULL → item not for sale (reward only)
 - Common→Rare can be purchased by silver (is_purchasable=true)

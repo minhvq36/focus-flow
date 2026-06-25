@@ -243,14 +243,14 @@ wire ./cmd/server
 - [ ] `cmd/server/wire.go` - Not implemented (services created directly in routes for now)
 - [ ] CORS - Hardcoded to localhost:5173 (needs .env for prod)
 
-**✅ Completed (Full Implementation):**
-- [x] `internal/garden/` - handler.go (all placement endpoints), service.go (GetUserGardenList, GetUserGardenByID, PlaceItem, PlaceItemsBatch, RemoveItemsBatch), repository.go (batch operations with CTE)
+**✅ Completed (Current implementation):**
+- [x] `internal/garden/` - handler.go (placement endpoints), service.go (list/view/place/remove batch), repository.go (batch operations with CTE)
 - [x] `internal/reward/` - roll.go (tier-based RNG, exp calculation), models.go, penalty.go (SelectPenaltyItem)
-- [x] `internal/economy/` - handler.go (3 endpoints), service.go (GetWallet, GetShopItems, GetSellableItems), repository.go (wallet & shop queries), models.go (all DTO types)
+- [x] `internal/economy/` - wallet read, shop buy/sell endpoints, buyback pricing, transaction recording, and balance updates are implemented
+- [x] `internal/inventory/` - bag listing is implemented and used by the garden/shop UI
 
-**❌ Not Yet Started (Stubs only):**
+**⏳ Partial / Needs Work:**
 - [ ] `internal/session/` - Skeleton only, no Redis integration for timer state
-- [ ] `internal/shop/` - BuyItem, SellItem logic not implemented
 - [ ] `internal/marketplace/` - Models exist, logic empty
 - [ ] `internal/social/` - Models exist (feed.go, friends.go, leaderboard.go), logic empty
 - [ ] `internal/search/` - Elasticsearch integration not started
@@ -259,6 +259,8 @@ wire ./cmd/server
 - [ ] `pkg/cache/redis.go` - Redis client (not wired)
 - [ ] `pkg/realtime/supabase.go` - Supabase Realtime (not wired)
 - [ ] `pkg/metrics/` - Prometheus integration
+
+**Note:** The current repo uses `internal/economy` for buy/sell logic rather than a separate `internal/shop` package.
 
 ---
 

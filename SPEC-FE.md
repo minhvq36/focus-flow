@@ -22,7 +22,13 @@
 
 ---
 
-## 2. Project Structure
+## 2. Current Implementation Status (minimal)
+
+- The garden shop UI is already wired to the backend via the shop modal in `src/pages/garden/components/shop-modal.tsx` and economy hooks in `src/pages/garden/hooks/use-economy.ts`.
+- Wallet, shop buy/sell, inventory bag listing, and garden placement are implemented in the current codebase.
+- Marketplace, social feed/leaderboard, onboarding, and advanced realtime features remain not implemented or still stubbed.
+
+## 3. Project Structure
 
 ```
 /src
