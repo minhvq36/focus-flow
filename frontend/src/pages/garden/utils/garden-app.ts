@@ -1,6 +1,6 @@
 import { Application, Container, Rectangle, FederatedPointerEvent } from 'pixi.js'
 
-export const MIN_ZOOM = 0.32 // TODO: Check change to flex min zoom based on map current size
+// Đã bỏ MIN_ZOOM ở đây, chỉ giữ lại MAX_ZOOM
 export const MAX_ZOOM = 3.0
 
 export interface GardenAppOptions {
@@ -22,7 +22,6 @@ export class GardenApp {
 
   private gridCols = 0
 
-  // THÊM: Lưu lại kích thước vật lý gốc của toàn bộ lưới
   private mapBaseWidth = 0
   private mapBaseHeight = 0
 
@@ -46,8 +45,16 @@ export class GardenApp {
   get fitZoom(): number { return this._fitZoom }
   public get isDragging(): boolean { return this.dragState.hasDragged }
 
+  // THÊM: Tính toán MIN_ZOOM linh hoạt dựa trên size của map (gridCols)
+  private get minZoom(): number {
+    if (this.gridCols <= 0) return 1.0;
+    const calculatedZoom = Math.sqrt(5 / this.gridCols);
+    return Math.min(1.0, calculatedZoom);
+  }
+
   setZoom(newZoom: number, pivotX?: number, pivotY?: number): void {
-    const clamped = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, newZoom))
+    // Sử dụng this.minZoom động thay vì hằng số
+    const clamped = Math.min(MAX_ZOOM, Math.max(this.minZoom, newZoom))
     if (clamped === this._zoom) return
 
     const cx = pivotX ?? this.app.screen.width / 2
@@ -72,9 +79,9 @@ export class GardenApp {
     tileHeight: number,
     savedZoom?: number | null,
   ): void {
-    this.gridCols = gridCols
+    // Gán gridCols trước để getter minZoom hoạt động đúng
+    this.gridCols = gridCols 
 
-    // LƯU LẠI KÍCH THƯỚC GỐC
     this.mapBaseWidth = gridCols * tileWidth
     this.mapBaseHeight = gridRows * tileHeight
 
@@ -83,23 +90,21 @@ export class GardenApp {
 
     const f = (size: number) => 1.04 + ((size - 5) / 45) * 1.16;
     this._fitZoom = Math.min(vw / this.mapBaseWidth, vh / this.mapBaseHeight) * f(gridCols)
-    const targetZoom = savedZoom ?? this._fitZoom
+    
+    let targetZoom = savedZoom ?? this._fitZoom
+    
+    // Đảm bảo fitZoom ban đầu cũng không vi phạm luật minZoom/maxZoom
+    targetZoom = Math.min(MAX_ZOOM, Math.max(this.minZoom, targetZoom))
 
     this._zoom = targetZoom
     this.cameraContainer.scale.set(targetZoom)
 
-    // 🛑 VÌ LƯỚI ĐÃ CÓ PIVOT Ở GIỮA -> CHỈ CẦN QUĂNG NÓ RA GIỮA MÀN HÌNH!
     this.cameraContainer.x = vw / 2
-    
-    // VISUAL OFFSET: Nếu bạn thấy đồ vật (cây cối mọc lên trên) làm chóp đảo bị chật đỉnh, 
-    // bạn có thể bù trừ bằng cách +30 hoặc +50 px để hòn đảo tụt xuống một tí xíu cho thuận mắt.
-    // Nếu không muốn, cứ để nguyên vh/2.
     this.cameraContainer.y = (vh / 2)
 
     this.clampCamera()
   }
 
-  // ── THUẬT TOÁN KẸP CAMERA MỚI (DYNAMIC DỰA VÀO ZOOM) ──
   private clampCamera(): void {
     if (this.gridCols === 0) return
 
@@ -112,32 +117,21 @@ export class GardenApp {
     const padX = vw * 0.1
     const padY = vh * 0.1
 
-    // 1. KHÔI PHỤC DRAG CHO MAP NHỎ (Giải quyết Vấn đề 1)
-    // Đảm bảo luôn có một không gian drag tối thiểu bằng với khoảng không màn hình
     const minDragX = Math.max(0, vw / 2 - padX)
     const minDragY = Math.max(0, vh / 2 - padY)
 
-    // 2. KHÔNG GIAN DRAG MAX KHI MAP TO (Zoom vào)
-    // - Trục X giữ nguyên
-    // - Trục Y: Nhân thêm hệ số 0.85 (bóp bớt 15%) vì với map Isometric, phần "chóp trên/chóp dưới" 
-    //   của hình thoi thường ngắn hơn tổng chiều cao của toàn bộ bounding box (vốn chứa cả chiều cao cây cối v.v.)
     const maxDragX = Math.max(minDragX, (currentMapWidth - (vw - 2 * padX)) / 2)
     const maxDragY = Math.max(minDragY, (currentMapHeight * 0.85 - (vh - 2 * padY)) / 2)
 
     const centerX = vw / 2
     const centerY = vh / 2 
 
-    // Tính khoảng cách mà user đang cố kéo camera ra khỏi tâm màn hình
     let dx = this.cameraContainer.x - centerX
     let dy = this.cameraContainer.y - centerY
 
-    // 3. KẸP TỌA ĐỘ BẰNG HÌNH ELIP (Giải quyết Vấn đề 2)
-    // Công thức: (x/a)^2 + (y/b)^2 <= 1
-    // Chặn camera lọt vào 4 góc chết của Bounding Box hình chữ nhật
     if (maxDragX > 0 && maxDragY > 0) {
       const distanceSq = (dx * dx) / (maxDragX * maxDragX) + (dy * dy) / (maxDragY * maxDragY)
       if (distanceSq > 1) {
-        // Nếu camera bị kéo văng ra khỏi Elip an toàn -> kéo giật nó trở lại đúng viền Elip
         const scale = Math.sqrt(1 / distanceSq)
         dx *= scale
         dy *= scale
