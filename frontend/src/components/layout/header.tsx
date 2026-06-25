@@ -3,7 +3,7 @@ import { useEffect, useState, useRef } from "react"
 import { useTranslation } from 'react-i18next'
 import { Sprout, Coins, CircleDollarSign } from 'lucide-react'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { cn } from '@/lib/utils'
+import { cn, formatCurrency } from '@/lib/utils'
 import { useLanguage } from '@/hooks/use-language'
 import { useWallet } from '@/pages/garden/hooks/use-economy'
 
@@ -189,15 +189,14 @@ export default function Header() {
           <UtcClock />
           <LanguageSwitcher />
 
-          {/* Ví Tiền Gọn Gàng - Chỉ cách nhau bằng gap, không có hộp viền */}
           <div className="flex items-center gap-1 ml-1">
             <span className="flex items-center gap-1 text-sm text-foreground/80">
               <CoinIcon type="silver" className="w-[18px] h-[18px]" />
-              <strong>{wallet?.silver_balance ?? 0}</strong>
+              <strong>{formatCurrency(wallet?.silver_balance ?? 0)}</strong>
             </span>
             <span className="flex items-center gap-1 text-sm text-amber-600">
               <CoinIcon type="gold" className="w-[18px] h-[18px]" />
-              <strong>{wallet?.gold_balance ?? 0}</strong>
+              <strong>{formatCurrency(wallet?.gold_balance ?? 0)}</strong>
             </span>
           </div>
 
