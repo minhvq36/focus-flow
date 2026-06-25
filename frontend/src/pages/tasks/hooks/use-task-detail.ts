@@ -73,6 +73,7 @@ export function useTaskDetail(taskId: string) {
     queryClient.invalidateQueries({ queryKey: ['task', taskId] })
     queryClient.invalidateQueries({ queryKey: ['tasks'] })
     queryClient.invalidateQueries({ queryKey: ['quota', 'today'] })
+    queryClient.invalidateQueries({ queryKey: ['economy', 'wallet'] }) 
   }
 
   return {

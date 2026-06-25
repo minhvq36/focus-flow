@@ -108,13 +108,12 @@ export function useTasks(filter: FilterState = DEFAULT_FILTER) {
 
   const submitTaskMutation = useMutation({
     mutationFn: (taskId: string) => 
-      // Sửa lại endpoint này cho đúng với Backend của bạn nhé (post, patch hay put)
       api.post(`/api/tasks/${taskId}/submit`, {}), 
     onSuccess: () => {
-      // Báo queryClient fetch lại list task sau khi submit thành công
       queryClient.invalidateQueries({
         queryKey: ['tasks', filter.dateRange, statusKey, user?.id],
       })
+      queryClient.invalidateQueries({ queryKey: ['economy', 'wallet'] })
     },
   })
 
