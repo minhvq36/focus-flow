@@ -3,13 +3,13 @@ package profile
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/minhvq36/focus-flow/backend/internal/economy"
 	"github.com/minhvq36/focus-flow/backend/pkg/apperr"
 	"github.com/minhvq36/focus-flow/backend/pkg/logger"
+	"github.com/minhvq36/focus-flow/backend/pkg/profanity"
 )
 
 const (
@@ -29,18 +29,20 @@ type EconomyManager interface {
 }
 
 type Service struct {
-	db         *pgxpool.Pool
-	repo       RepositoryInterface
-	economyMgr EconomyManager
-	log        *logger.Logger
+	db              *pgxpool.Pool
+	repo            RepositoryInterface
+	economyMgr      EconomyManager
+	profanityFilter *profanity.Filter
+	log             *logger.Logger
 }
 
-func NewService(db *pgxpool.Pool, repo RepositoryInterface, economyMgr EconomyManager, log *logger.Logger) *Service {
+func NewService(db *pgxpool.Pool, repo RepositoryInterface, economyMgr EconomyManager, pf *profanity.Filter, log *logger.Logger) *Service {
 	return &Service{
-		db:         db,
-		repo:       repo,
-		economyMgr: economyMgr,
-		log:        log,
+		db:              db,
+		repo:            repo,
+		economyMgr:      economyMgr,
+		profanityFilter: pf,
+		log:             log,
 	}
 }
 
@@ -103,16 +105,9 @@ func (s *Service) ChangeDisplayName(ctx context.Context, userID string, params C
 	return nil
 }
 
-// TODO: Change this
 func (s *Service) checkProfanity(text string) error {
-	text = strings.TrimSpace(text)
-
-	badWords := []string{"admin", "mod", "system", "dcm", "dm"} // Thêm list từ cấm của bạn
-	textLower := strings.ToLower(text)
-	for _, word := range badWords {
-		if strings.Contains(textLower, word) {
-			return fmt.Errorf("display name contains inappropriate language")
-		}
+	if s.profanityFilter.IsProfane(text) {
+		return fmt.Errorf("name contains invalid words or violates community standards")
 	}
 	return nil
 }

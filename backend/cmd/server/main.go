@@ -9,6 +9,7 @@ import (
 	"github.com/minhvq36/focus-flow/backend/pkg/config"
 	"github.com/minhvq36/focus-flow/backend/pkg/db"
 	"github.com/minhvq36/focus-flow/backend/pkg/logger"
+	"github.com/minhvq36/focus-flow/backend/pkg/profanity" // Thêm thư viện của bạn
 )
 
 func main() {
@@ -24,7 +25,12 @@ func main() {
 		log.Fatalf("Failed to create JWKS: %v", err)
 	}
 
-	r := setupRoutes(jwks, pool, appLog)
+	pf, err := profanity.NewFilter("data/badwords.txt", "data/whitelist.txt")
+	if err != nil {
+		log.Fatalf("Failed to load profanity filter: %v", err)
+	}
+
+	r := setupRoutes(jwks, pool, appLog, pf)
 
 	appLog.Info("Server running", "port", cfg.Port)
 	if err := http.ListenAndServe(":"+cfg.Port, r); err != nil {
