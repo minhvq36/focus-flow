@@ -61,6 +61,8 @@ func FormatValidationError(err error) string {
 		case "oneof":
 			allowedValues := strings.ReplaceAll(e.Param(), " ", ", ")
 			messages = append(messages, fmt.Sprintf("'%s' must be one of: [%s]", e.Field(), allowedValues))
+		case "url":
+			messages = append(messages, fmt.Sprintf("'%s' must be a valid URL", e.Field()))
 		default:
 			messages = append(messages, fmt.Sprintf("'%s' failed on '%s' validation", e.Field(), e.Tag()))
 		}

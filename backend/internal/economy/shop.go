@@ -172,7 +172,7 @@ func (s *Service) BuyItems(ctx context.Context, userID string, req BuyRequest) (
 	// 3. Thanh toán tiền (Gọi qua CurrencyService)
 	// Truyền -totalCost vì là trừ tiền
 	desc := fmt.Sprintf("Bought %d x %s", req.Quantity, item.Name)
-	wallet, err := s.currency.ChangeBalance(ctx, tx, userID, -totalCost, 0, ActionShopBuy, desc)
+	wallet, err := s.currency.ChangeBalance(ctx, tx, userID, -totalCost, 0, ActionShopBuy, "", desc)
 	if err != nil {
 		return nil, err // Lỗi "not enough silver" sẽ được ném ra từ đây
 	}
@@ -243,7 +243,7 @@ func (s *Service) SellItems(ctx context.Context, userID string, req SellBatchReq
 
 	// 4. Trả tiền cho User (Gọi qua CurrencyService)
 	desc := fmt.Sprintf("Sold %d items for %s", len(req.InventoryIDs), req.ReceiveCurrency)
-	wallet, err := s.currency.ChangeBalance(ctx, tx, userID, totalSilverEarned, totalGoldEarned, ActionShopSell, desc)
+	wallet, err := s.currency.ChangeBalance(ctx, tx, userID, totalSilverEarned, totalGoldEarned, ActionShopSell, "", desc)
 	if err != nil {
 		return nil, err
 	}

@@ -1,9 +1,8 @@
 package profile
 
-import (
-	"time"
-)
+import "time"
 
+// Profile trả về cho client
 type Profile struct {
 	ID          string    `json:"id"`
 	DisplayName string    `json:"display_name"`
@@ -14,8 +13,13 @@ type Profile struct {
 	UpdatedAt   time.Time `json:"updated_at"`
 }
 
+// UpdateProfileParams (Chỉ dành cho Bio, Avatar - Miễn phí)
 type UpdateProfileParams struct {
-	DisplayName *string `json:"display_name"`
-	Bio         *string `json:"bio"`
-	AvatarURL   *string `json:"avatar_url"`
+	Bio       *string `json:"bio" validate:"omitempty,max=255"`
+	AvatarURL *string `json:"avatar_url" validate:"omitempty,url"`
+}
+
+// ChangeNameParams (Dành riêng cho đổi tên - Có thể tốn phí)
+type ChangeNameParams struct {
+	DisplayName string `json:"display_name" validate:"required,min=2,max=50"`
 }

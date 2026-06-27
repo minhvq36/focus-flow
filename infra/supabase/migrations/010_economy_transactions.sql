@@ -4,7 +4,7 @@ create table if not exists public.economy_transactions (
     
     silver_change int not null default 0,
     gold_change int not null default 0,
-    
+    -- TODO: Split gardenshop and other shop?
     action_type varchar(50) not null check (action_type in (
         'task_reward',       -- Nhận từ task
         'shop_buy',          -- Mua đồ hệ thống
@@ -13,7 +13,9 @@ create table if not exists public.economy_transactions (
         'market_sell',       -- Bán P2P
         'market_fee',        -- Phí sàn P2P
         'iap_purchase',      -- Nạp tiền thật
-        'gold_to_silver'     -- Đổi Vàng sang Bạc
+        'gold_to_silver',     -- Đổi Vàng sang Bạc
+        'name_change',        -- Đổi tên
+        'slug_change',        -- Đổi slug
     )),
     
     reference_id uuid,
