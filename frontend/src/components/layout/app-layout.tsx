@@ -1,17 +1,15 @@
 import { Outlet } from 'react-router-dom'
-import { BackgroundCurves } from "@/components/layout/background-curves"
-import Header from './header'
+import Header from '@/components/layout/header'
 
+// Garden có header giống AppLayout nhưng không có max-width wrapper,
+// không có padding — để canvas bên trong tự fullscreen bên dưới header.
 export default function AppLayout() {
   return (
-    <div className="relative flex min-h-screen flex-col">
-      {/* Background in the bottom */}
-      <BackgroundCurves />
-      <div className="relative z-10 flex flex-1 flex-col">
-        <Header />
-        <main className="flex-1">
-          <Outlet />
-        </main>
+    <div className="relative flex flex-col h-screen overflow-hidden">
+      <Header />
+      {/* Canvas + overlay sẽ fill phần còn lại */}
+      <div className="relative flex-1 overflow-hidden">
+        <Outlet />
       </div>
     </div>
   )
