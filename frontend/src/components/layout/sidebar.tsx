@@ -7,17 +7,26 @@ export default function Sidebar() {
   
   const [isHovered, setIsHovered] = useState(false);
 
+  const getBtnStyle = (active: boolean) => 
+    `px-4 py-3 rounded-lg transition-all font-medium flex items-center gap-3 ${
+        active 
+        /* Active state: Flat design, deeper text tone, no shadow */
+        ? 'bg-emerald-100/70 text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-400' 
+        /* Hover & Default state: Muted tones, smooth transition */
+        : 'text-sidebar-foreground/60 hover:bg-emerald-50/60 hover:text-emerald-800 dark:hover:bg-emerald-900/20 dark:hover:text-emerald-400'
+    }`;
+
   return (
     <div
-      /* Outer container managing the hover events */
       className="absolute top-0 left-0 h-full z-40"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
       <div className="absolute top-0 left-0 w-7 h-full bg-transparent z-10" />
 
+      {/* Thẻ kéo (Nút mồi) */}
       <div 
-        className={`absolute left-0 flex items-center justify-center bg-white/60 backdrop-blur-sm border-y border-r border-gray-200 shadow-sm text-gray-400 transition-all duration-300 z-0
+        className={`absolute left-0 flex items-center justify-center bg-white/80 dark:bg-sidebar/80 backdrop-blur-sm border-y border-r border-sidebar-border shadow-sm text-sidebar-foreground/50 transition-all duration-300 z-0
           top-6
           w-6 h-7
           rounded-r-xs
@@ -31,38 +40,39 @@ export default function Sidebar() {
         </svg>
       </div>
 
+      {/* KHUNG SIDEBAR CHÍNH */}
       <aside
-        className={`absolute top-0 left-0 h-full w-64 bg-white/95 backdrop-blur-md border-r shadow-2xl flex flex-col transition-transform duration-300 ease-in-out z-20 ${
+        // ĐIỀU CHỈNH NỀN: Dùng bg-white/95 để sáng sủa. Khi sang dark mode thì tự dùng bg-sidebar
+        className={`absolute top-0 left-0 h-full w-64 bg-white/95 dark:bg-sidebar/95 backdrop-blur-md border-r border-sidebar-border shadow-2xl flex flex-col transition-transform duration-300 ease-in-out z-20 ${
           isHovered ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
         <div className="p-4 flex flex-col gap-2 flex-1 mt-2">
+          
           <button 
             onClick={() => console.log('Leaderboard coming soon...')}
-            className="text-left px-4 py-3 rounded-lg transition-colors font-medium text-gray-600 hover:bg-gray-50"
+            className={`text-left ${getBtnStyle(false)}`}
           >
             Leaderboard
           </button>
 
           <Link 
             to="/profile/me" 
-            className={`px-4 py-3 rounded-lg transition-colors font-medium ${
-              isActive('/profile/me') ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600 hover:bg-gray-50'
-            }`}
+            className={getBtnStyle(isActive('/profile/me'))}
           >
             My Profile
           </Link>
 
           <button 
             onClick={() => console.log('Friends coming soon...')}
-            className="text-left px-4 py-3 rounded-lg transition-colors font-medium text-gray-600 hover:bg-gray-50"
+            className={`text-left ${getBtnStyle(false)}`}
           >
             Friends
           </button>
 
           <button 
             onClick={() => console.log('World Chat coming soon...')}
-            className="text-left px-4 py-3 rounded-lg transition-colors font-medium text-gray-600 hover:bg-gray-50"
+            className={`text-left ${getBtnStyle(false)}`}
           >
             World Chat
           </button>

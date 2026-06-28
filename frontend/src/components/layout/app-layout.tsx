@@ -4,13 +4,10 @@ import Sidebar from '@/components/layout/sidebar'
 
 export default function AppLayout() {
   return (
-    <div className="relative flex flex-col h-screen overflow-hidden bg-gray-50">
+    <div className="relative flex flex-col h-screen overflow-hidden">
       <Header />
-      
-      {/* Vùng relative chứa Sidebar trượt ra và Content chính */}
       <div className="relative flex-1 overflow-hidden flex w-full h-full">
         <Sidebar />
-        
         <main className="flex-1 overflow-y-auto relative w-full h-full">
           <Outlet />
         </main>
