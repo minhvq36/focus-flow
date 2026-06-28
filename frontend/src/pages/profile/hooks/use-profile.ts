@@ -5,6 +5,6 @@ import type { Profile } from '@/types/profile';
 export const useProfile = () => {
   return useQuery({
     queryKey: ['profile', 'me'],
-    queryFn: () => api.get<Profile>('/api/profile/me'),
+    queryFn: () => api.get<Profile>('/api/profile'),
   });
 };

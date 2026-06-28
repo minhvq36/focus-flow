@@ -6,23 +6,19 @@ export const useProfileUpdate = () => {
   const queryClient = useQueryClient();
 
   const updateProfileMutation = useMutation({
-    // Sử dụng api.patch truyền sẵn generic type Profile
     mutationFn: (payload: UpdateProfilePayload) => 
-      api.patch<Profile>('/api/profile/me', payload),
+      api.patch<Profile>('/api/profile', payload),
       
     onSuccess: (updatedProfile) => {
-      // Cập nhật state local ngay lập tức (Optimistic update)
       queryClient.setQueryData(['profile', 'me'], updatedProfile);
     },
   });
 
   const changeNameMutation = useMutation({
-    // Sử dụng api.post
     mutationFn: (payload: ChangeNamePayload) => 
-      api.post<void>('/api/profile/me/change-name', payload),
+      api.post<void>('/api/profile/change-name', payload),
       
     onSuccess: () => {
-      // Vì đổi tên ở DB backend không trả về profile, ta báo cache hết hạn để tự fetch lại
       queryClient.invalidateQueries({ queryKey: ['profile', 'me'] });
     },
   });
