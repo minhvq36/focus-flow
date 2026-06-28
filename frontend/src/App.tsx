@@ -8,6 +8,9 @@ import AppLayout from './components/layout/app-layout'
 import Garden from './pages/garden'
 import Tasks from './pages/tasks'
 import Focus from './pages/focus'
+// Import thêm trang Profile của chúng ta
+import MePage from './pages/profile' 
+
 import { Toaster } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
 
@@ -24,16 +27,18 @@ function App() {
             </Route>
 
             <Route element={<ProtectedRoute />}>
-              {/* Standard pages — có header + layout */}
+              
               <Route element={<TaskLayout />}>
-                <Route path="/" element={<Navigate to="/garden" replace />} /> {/* TODO: Nono, here is the starting page, no navigate */}
+                <Route path="/" element={<Navigate to="/garden" replace />} />
                 <Route path="/tasks" element={<Tasks />} />
               </Route>
 
-              {/* Fullscreen pages */}
+              {/* Thêm Route /me vào AppLayout */}
               <Route element={<AppLayout />}>
                 <Route path="/garden" element={<Garden />} />
+                <Route path="/profile/me" element={<MePage />} /> {/* <--- THÊM DÒNG NÀY */}
               </Route>
+              
               <Route path="/focus/:taskId" element={<Focus />} />
             </Route>
           </Routes>

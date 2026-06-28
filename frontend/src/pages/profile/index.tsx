@@ -7,15 +7,16 @@ export default function MePage() {
   if (isLoading) {
     return (
       <div className="max-w-4xl mx-auto py-8 px-4 flex justify-center">
-        <div className="animate-pulse text-gray-500">Đang tải thông tin...</div>
+        <div className="animate-pulse text-gray-500">Loading profile...</div>
       </div>
     );
   }
 
+    // TODO: No error, just leave it empty. But if error, show error message. If no profile, show "Profile not found"? 
   if (error || !profile) {
     return (
       <div className="max-w-4xl mx-auto py-8 px-4 flex justify-center">
-        <div className="text-red-500">Đã có lỗi xảy ra khi tải profile.</div>
+        <div className="text-red-500">An error occurred while loading the profile.</div>
       </div>
     );
   }
@@ -32,7 +33,7 @@ export default function MePage() {
         <div className="lg:col-span-2 space-y-6">
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 min-h-[300px] flex items-center justify-center text-gray-400 border-dashed">
             {/* <GardenPreview /> */}
-            [Khu vực hiển thị Vườn (Chưa gen)]
+            [Garden Preview (Not generated)]
           </div>
         </div>
 
@@ -40,12 +41,12 @@ export default function MePage() {
         <div className="space-y-6">
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 min-h-[150px] flex items-center justify-center text-gray-400 border-dashed">
              {/* <ProfileStats /> */}
-             [Thống kê Task (Chưa gen)]
+             [Profile Stats (Not generated)]
           </div>
           
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 min-h-[150px] flex items-center justify-center text-gray-400 border-dashed">
              {/* <FrameSelector /> */}
-             [Chọn Khung Avatar (Chưa gen)]
+             [Frame Selector (Not generated)]
           </div>
         </div>
 

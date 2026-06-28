@@ -1,15 +1,19 @@
 import { Outlet } from 'react-router-dom'
 import Header from '@/components/layout/header'
+import Sidebar from '@/components/layout/sidebar'
 
-// Garden có header giống AppLayout nhưng không có max-width wrapper,
-// không có padding — để canvas bên trong tự fullscreen bên dưới header.
 export default function AppLayout() {
   return (
-    <div className="relative flex flex-col h-screen overflow-hidden">
+    <div className="relative flex flex-col h-screen overflow-hidden bg-gray-50">
       <Header />
-      {/* Canvas + overlay sẽ fill phần còn lại */}
-      <div className="relative flex-1 overflow-hidden">
-        <Outlet />
+      
+      {/* Vùng relative chứa Sidebar trượt ra và Content chính */}
+      <div className="relative flex-1 overflow-hidden flex w-full h-full">
+        <Sidebar />
+        
+        <main className="flex-1 overflow-y-auto relative w-full h-full">
+          <Outlet />
+        </main>
       </div>
     </div>
   )
