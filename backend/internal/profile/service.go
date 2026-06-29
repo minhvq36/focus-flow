@@ -14,7 +14,7 @@ import (
 
 const (
 	MaxFreeNameChanges = 2
-	NameChangeCost     = 100000 // Silver
+	NameChangeCost     = 20000 // Silver
 )
 
 type RepositoryInterface interface {
