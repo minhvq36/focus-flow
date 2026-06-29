@@ -45,11 +45,11 @@ export default function ProfileHeader({ profile }: ProfileHeaderProps) {
   };
 
   return (
-    <div className="bg-card/95 backdrop-blur-md rounded-2xl shadow-2xl border border-border p-6 md:p-8 relative">
+    <div className="bg-card/95 backdrop-blur-md rounded-2xl shadow-2xl border border-border p-6 md:p-8 relative overflow-hidden">
       
-      {/* Lưới Texture (Áp dụng riêng cho phần nền của Header để tôn lên thiết kế) */}
+      {/* Lưới Texture tạo cảm giác công nghệ / bản vẽ */}
       <div 
-        className="absolute inset-0 z-0 opacity-5 pointer-events-none rounded-2xl"
+        className="absolute inset-0 z-0 opacity-5 pointer-events-none"
         style={{
           backgroundImage: 'radial-gradient(var(--foreground) 1.5px, transparent 1.5px)',
           backgroundSize: '24px 24px'
@@ -58,7 +58,7 @@ export default function ProfileHeader({ profile }: ProfileHeaderProps) {
 
       <div className="relative z-10 flex flex-col md:flex-row gap-6 md:gap-10 items-start">
         
-        {/* Avatar - Giữ nguyên HTML của bạn (Lòi lên trên) */}
+        {/* Avatar - To bự, lòi lên (HTML chuẩn của bạn) */}
         <div className="relative -mt-16 md:-mt-20 mb-4 md:mb-0">
           <div className="w-32 h-32 md:w-40 md:h-40 rounded-full overflow-hidden bg-white flex-shrink-0 ring-4 ring-white shadow-lg">
             {profile.avatar_url ? (

@@ -15,12 +15,11 @@ export default function MePage() {
   const handleWallpaperChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // FE Validation: Giới hạn 5MB
+      // Giới hạn 5MB
       if (file.size > 5 * 1024 * 1024) {
         alert("Vui lòng chọn ảnh có dung lượng dưới 5MB!");
         return;
       }
-      // Tạo URL tạm thời để preview ảnh vừa chọn
       const previewUrl = URL.createObjectURL(file);
       setWallpaper(previewUrl);
     }
@@ -28,7 +27,7 @@ export default function MePage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-full flex items-center justify-center">
         <div className="animate-pulse text-muted-foreground font-medium">Đang tải hồ sơ...</div>
       </div>
     );
@@ -36,25 +35,30 @@ export default function MePage() {
 
   if (error || !profile) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-full flex items-center justify-center">
         <div className="text-destructive font-medium">Không thể tải thông tin hồ sơ.</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen relative overflow-hidden">
-      {/* 1. Lớp Ảnh nền (Wallpaper) - Fixed đằng sau */}
-      <div className="fixed inset-0 z-[-2] bg-background">
-        <img 
-          src={wallpaper} 
-          alt="Profile Wallpaper" 
-          className="w-full h-full object-cover opacity-90 transition-all duration-500"
-        />
+    // Dùng min-h-full để thẻ div này dài bằng nội dung bên trong thẻ <main>
+    <div className="relative min-h-full w-full flex flex-col">
+      
+      {/* 1. LAYER ẢNH NỀN: Nằm lót dưới cùng của <main> */}
+      <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
+        {/* sticky top-0 giúp ảnh nền đứng im khi ta cuộn chuột đọc nội dung */}
+        <div className="sticky top-0 w-full h-[100dvh]">
+          <img 
+            src={wallpaper} 
+            alt="Profile Wallpaper" 
+            className="w-full h-full object-cover opacity-90 transition-all duration-500"
+          />
+        </div>
       </div>
 
-      {/* 2. Main Container - Width rất bự (max-w-7xl) và pt-32 để không bị che bởi thanh điều hướng (navbar) ở trên */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-32 pb-24 relative z-10">
+      {/* 2. LAYER NỘI DUNG: Nổi lên trên ảnh nền (z-10) */}
+      <div className="max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-12 pb-24 relative z-10 flex-1">
         
         {/* Nút đổi hình nền */}
         <div className="flex justify-end mb-6">
@@ -74,21 +78,21 @@ export default function MePage() {
           </button>
         </div>
 
-        {/* 3. Header Profile (Có avatar lòi lên) */}
+        {/* 3. Header Profile */}
         <ProfileHeader profile={profile} />
 
-        {/* Các tính năng khác (Bài viết, Bạn bè, Lịch sử...) */}
-        <div className="mt-8 bg-card/95 backdrop-blur-md rounded-2xl p-6 md:p-8 border border-border shadow-xl min-h-[400px] relative">
-           {/* Thêm chút texture lưới nhẹ cho các block tính năng */}
+        {/* Các tính năng khác */}
+        <div className="mt-8 bg-card/95 backdrop-blur-md rounded-2xl p-6 md:p-8 border border-border shadow-xl min-h-[400px] relative overflow-hidden">
+           {/* Texture lưới nhẹ lót đáy */}
            <div 
-            className="absolute inset-0 z-0 opacity-[0.03] pointer-events-none rounded-2xl"
+            className="absolute inset-0 z-0 opacity-5 pointer-events-none"
             style={{
               backgroundImage: 'radial-gradient(var(--foreground) 1.5px, transparent 1.5px)',
               backgroundSize: '24px 24px'
             }}
           />
           <div className="relative z-10">
-            <h2 className="text-xl font-bold text-foreground mb-4">Khu vực tính năng (Sẽ làm sau)</h2>
+            <h2 className="text-xl font-bold text-foreground mb-4">Hoạt động gần đây</h2>
             <div className="text-muted-foreground italic text-sm">
               Nội dung các tab...
             </div>
