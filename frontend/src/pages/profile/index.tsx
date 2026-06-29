@@ -1,8 +1,30 @@
+import { useState, useRef } from 'react';
 import { useProfile } from './hooks/use-profile';
 import ProfileHeader from './components/profile-header';
 
 export default function MePage() {
   const { data: profile, isLoading, error } = useProfile();
+
+  // MOCK DATA: Ảnh nền mặc định
+  const defaultWallpaper = "https://images.unsplash.com/photo-1497436072909-60f360e1d4b1?q=80&w=2560&auto=format&fit=crop";
+  const [wallpaper, setWallpaper] = useState(defaultWallpaper);
+  
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Xử lý đổi ảnh nền (Preview FE Only)
+  const handleWallpaperChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // FE Validation: Giới hạn 5MB
+      if (file.size > 5 * 1024 * 1024) {
+        alert("Vui lòng chọn ảnh có dung lượng dưới 5MB!");
+        return;
+      }
+      // Tạo URL tạm thời để preview ảnh vừa chọn
+      const previewUrl = URL.createObjectURL(file);
+      setWallpaper(previewUrl);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -21,39 +43,58 @@ export default function MePage() {
   }
 
   return (
-    <div className="min-h-screen pb-12">
-      {/* Cover Wallpaper - Dùng CSS hoàn toàn, 0 byte storage */}
-      <div className="h-48 md:h-64 w-full relative overflow-hidden bg-background-focus border-b border-border">
-        {/* 1. Các khối mờ chuyển động (Dùng animation blob trong file CSS của bạn) */}
-        <div 
-          className="absolute -top-24 -left-24 w-80 h-80 rounded-full blur-[80px] opacity-60"
-          style={{ backgroundColor: 'var(--primary)', animation: 'blob-1 15s infinite alternate' }} 
+    <div className="min-h-screen relative overflow-hidden">
+      {/* 1. Lớp Ảnh nền (Wallpaper) - Fixed đằng sau */}
+      <div className="fixed inset-0 z-[-2] bg-background">
+        <img 
+          src={wallpaper} 
+          alt="Profile Wallpaper" 
+          className="w-full h-full object-cover opacity-90 transition-all duration-500"
         />
-        <div 
-          className="absolute top-12 -right-12 w-72 h-72 rounded-full blur-[60px] opacity-50"
-          style={{ backgroundColor: 'var(--accent)', animation: 'blob-2 20s infinite alternate' }} 
-        />
-        <div 
-          className="absolute -bottom-32 left-1/3 w-96 h-96 rounded-full blur-[80px] opacity-40"
-          style={{ backgroundColor: 'var(--secondary)', animation: 'blob-3 18s infinite alternate' }} 
-        />
-
-        {/* 2. Texture Overlay (Tạo cảm giác giấy dán tường / Wallpaper lưới) */}
-        <div 
-          className="absolute inset-0 opacity-20"
-          style={{
-            backgroundImage: 'radial-gradient(var(--primary) 1.5px, transparent 1.5px)',
-            backgroundSize: '24px 24px'
-          }}
-        />
-
-        {/* 3. Lớp gradient mờ dần ở dưới đáy để hòa quyện vào body */}
-        <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-background/40 to-transparent" />
       </div>
 
-      {/* Main Container */}
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 -mt-20 relative z-10">
+      {/* 2. Main Container - Width rất bự (max-w-7xl) và pt-32 để không bị che bởi thanh điều hướng (navbar) ở trên */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-32 pb-24 relative z-10">
+        
+        {/* Nút đổi hình nền */}
+        <div className="flex justify-end mb-6">
+          <input 
+            type="file" 
+            accept="image/*" 
+            className="hidden" 
+            ref={fileInputRef}
+            onChange={handleWallpaperChange}
+          />
+          <button 
+            onClick={() => fileInputRef.current?.click()}
+            className="bg-background/80 hover:bg-background backdrop-blur text-sm font-medium px-4 py-2 rounded-lg border border-border shadow-sm flex items-center gap-2 transition-all text-foreground"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+            Đổi hình nền
+          </button>
+        </div>
+
+        {/* 3. Header Profile (Có avatar lòi lên) */}
         <ProfileHeader profile={profile} />
+
+        {/* Các tính năng khác (Bài viết, Bạn bè, Lịch sử...) */}
+        <div className="mt-8 bg-card/95 backdrop-blur-md rounded-2xl p-6 md:p-8 border border-border shadow-xl min-h-[400px] relative">
+           {/* Thêm chút texture lưới nhẹ cho các block tính năng */}
+           <div 
+            className="absolute inset-0 z-0 opacity-[0.03] pointer-events-none rounded-2xl"
+            style={{
+              backgroundImage: 'radial-gradient(var(--foreground) 1.5px, transparent 1.5px)',
+              backgroundSize: '24px 24px'
+            }}
+          />
+          <div className="relative z-10">
+            <h2 className="text-xl font-bold text-foreground mb-4">Khu vực tính năng (Sẽ làm sau)</h2>
+            <div className="text-muted-foreground italic text-sm">
+              Nội dung các tab...
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
   );
