@@ -58,14 +58,13 @@ export default function MePage() {
       </div>
 
       {/* 2. LỚP NỘI DUNG CHÍNH: Đã thêm z-[20] để nó nổi lên trên ảnh nền */}
-      <div className="max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-8 relative z-[20]">
+      <div className="max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-8 relative z-[20]">
         
         {/* Nút đổi hình nền */}
         <div className="flex justify-end mb-6">
           <input type="file" accept="image/*" className="hidden" ref={fileInputRef} onChange={handleWallpaperChange} />
-          <button onClick={() => fileInputRef.current?.click()} className="bg-card/80 hover:bg-card backdrop-blur-md text-sm font-medium px-4 py-2 rounded-lg border border-border shadow-sm flex items-center gap-2 transition-all text-foreground">
+          <button onClick={() => fileInputRef.current?.click()} className="bg-card/80 hover:bg-card backdrop-blur-md text-sm font-medium px-2 py-2 rounded-lg border border-border shadow-sm flex items-center gap-2 transition-all text-foreground">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-            Đổi hình nền
           </button>
         </div>
 
