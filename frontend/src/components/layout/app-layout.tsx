@@ -4,14 +4,15 @@ import Sidebar from '@/components/layout/sidebar'
 
 export default function AppLayout() {
   return (
-    <div className="relative flex flex-col h-screen overflow-hidden">
-      <Header />
-      <div className="relative flex-1 overflow-hidden flex w-full h-full">
-        <Sidebar />
-        <main className="flex-1 overflow-y-auto relative w-full h-full">
-          <Outlet />
-        </main>
+    <div className="relative h-screen w-full overflow-hidden bg-background">
+      <div className="absolute top-0 left-0 right-0 z-50">
+        <Header />
       </div>
+      <Sidebar />
+      <main className="relative z-10 h-full w-full overflow-y-auto pt-16">
+        <Outlet />
+      </main>
+      
     </div>
   )
 }

@@ -7,7 +7,6 @@ export default function Sidebar() {
   
   const [isHovered, setIsHovered] = useState(false);
 
-  // Giữ nguyên hoàn toàn style nút bấm của bạn
   const getBtnStyle = (active: boolean) => 
     `px-4 py-3 rounded-lg transition-all font-medium flex items-center gap-3 ${
         active 
@@ -17,14 +16,14 @@ export default function Sidebar() {
 
   return (
     <div
-      className="absolute top-0 left-0 h-full z-40"
+      // UPGRADE CHÍNH LÀ Ở ĐÂY: Dùng top-16 và bottom-0 để Sidebar lọt thỏm ngay dưới Header
+      className="absolute top-16 bottom-0 left-0 z-40"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      {/* Vùng mồi hover (nới rộng ra một chút để dễ lia chuột trúng hơn) */}
       <div className="absolute top-0 left-0 w-8 h-full bg-transparent z-10" />
 
-      {/* TAY KÉO (NÚT MỒI) - Đã nâng cấp thành dạng Pill (viên thuốc) */}
+      {/* Tay kéo (Giữ nguyên top-6, vì bây giờ nó cách đỉnh của Sidebar chứ không bị che nữa) */}
       <div 
         className={`absolute left-2 top-6 flex items-center justify-center w-8 h-12 rounded-full bg-white/50 dark:bg-sidebar/50 backdrop-blur-lg backdrop-saturate-150 border border-border/60 shadow-md text-foreground/50 transition-all duration-300 ease-out z-0
           ${isHovered ? 'opacity-0 -translate-x-8 scale-90' : 'opacity-100 translate-x-0 scale-100'}
@@ -35,7 +34,7 @@ export default function Sidebar() {
         </svg>
       </div>
 
-      {/* KHUNG SIDEBAR CHÍNH */}
+      {/* Khung Sidebar */}
       <aside
         className={`absolute top-0 left-0 h-full w-64 bg-white/50 dark:bg-sidebar/50 backdrop-blur-lg backdrop-saturate-150 border-r border-border/60 shadow-2xl flex flex-col transition-transform duration-300 ease-out z-20 ${
           isHovered ? 'translate-x-0' : '-translate-x-full'
@@ -43,31 +42,19 @@ export default function Sidebar() {
       >
         <div className="p-4 flex flex-col gap-2 flex-1 mt-2">
           
-          <button 
-            onClick={() => console.log('Leaderboard coming soon...')}
-            className={`text-left ${getBtnStyle(false)}`}
-          >
+          <button onClick={() => console.log('Leaderboard')} className={`text-left ${getBtnStyle(false)}`}>
             Leaderboard
           </button>
 
-          <Link 
-            to="/profile/me" 
-            className={getBtnStyle(isActive('/profile/me'))}
-          >
+          <Link to="/profile/me" className={getBtnStyle(isActive('/profile/me'))}>
             My Profile
           </Link>
 
-          <button 
-            onClick={() => console.log('Friends coming soon...')}
-            className={`text-left ${getBtnStyle(false)}`}
-          >
+          <button onClick={() => console.log('Friends')} className={`text-left ${getBtnStyle(false)}`}>
             Friends
           </button>
 
-          <button 
-            onClick={() => console.log('World Chat coming soon...')}
-            className={`text-left ${getBtnStyle(false)}`}
-          >
+          <button onClick={() => console.log('World Chat')} className={`text-left ${getBtnStyle(false)}`}>
             World Chat
           </button>
 
