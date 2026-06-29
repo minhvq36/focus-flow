@@ -45,7 +45,7 @@ export default function ProfileHeader({ profile }: ProfileHeaderProps) {
   };
 
   return (
-    <div className="bg-card/95 backdrop-blur-md rounded-2xl shadow-2xl border border-border p-6 md:p-8 relative overflow-hidden">
+    <div className="bg-card/95 backdrop-blur-md rounded-2xl shadow-2xl border border-border p-6 md:p-8 relative">
       
       {/* Lưới Texture tạo cảm giác công nghệ / bản vẽ */}
       <div 

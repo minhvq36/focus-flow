@@ -42,61 +42,39 @@ export default function MePage() {
   }
 
   return (
-    // Dùng min-h-full để thẻ div này dài bằng nội dung bên trong thẻ <main>
-    <div className="relative min-h-full w-full flex flex-col">
+    // relative w-full và min-h-full giúp container lấy chiều cao cuộn của thẻ <main>
+    <div className="relative w-full min-h-full pb-24">
       
-      {/* 1. LAYER ẢNH NỀN: Nằm lót dưới cùng của <main> */}
-      <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
-        {/* sticky top-0 giúp ảnh nền đứng im khi ta cuộn chuột đọc nội dung */}
-        <div className="sticky top-0 w-full h-[100dvh]">
-          <img 
-            src={wallpaper} 
-            alt="Profile Wallpaper" 
-            className="w-full h-full object-cover opacity-90 transition-all duration-500"
-          />
-        </div>
+      {/* 1. LỚP ẢNH NỀN: Đã đổi thành z-[10]. 
+          Nó sẽ bung full 100% màn hình, lót dưới Header và đứng im khi cuộn */}
+      <div className="fixed inset-0 z-[10] pointer-events-none">
+        <img 
+          src={wallpaper} 
+          alt="Profile Wallpaper" 
+          className="w-full h-full object-cover opacity-90 transition-all duration-700"
+        />
+        {/* Lớp phủ mờ xíu xiu để chữ dễ đọc hơn */}
+        <div className="absolute inset-0 bg-background/20" />
       </div>
 
-      {/* 2. LAYER NỘI DUNG: Nổi lên trên ảnh nền (z-10) */}
-      <div className="max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-12 pb-24 relative z-10 flex-1">
+      {/* 2. LỚP NỘI DUNG CHÍNH: Đã thêm z-[20] để nó nổi lên trên ảnh nền */}
+      <div className="max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-8 relative z-[20]">
         
         {/* Nút đổi hình nền */}
         <div className="flex justify-end mb-6">
-          <input 
-            type="file" 
-            accept="image/*" 
-            className="hidden" 
-            ref={fileInputRef}
-            onChange={handleWallpaperChange}
-          />
-          <button 
-            onClick={() => fileInputRef.current?.click()}
-            className="bg-background/80 hover:bg-background backdrop-blur text-sm font-medium px-4 py-2 rounded-lg border border-border shadow-sm flex items-center gap-2 transition-all text-foreground"
-          >
+          <input type="file" accept="image/*" className="hidden" ref={fileInputRef} onChange={handleWallpaperChange} />
+          <button onClick={() => fileInputRef.current?.click()} className="bg-card/80 hover:bg-card backdrop-blur-md text-sm font-medium px-4 py-2 rounded-lg border border-border shadow-sm flex items-center gap-2 transition-all text-foreground">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
             Đổi hình nền
           </button>
         </div>
 
-        {/* 3. Header Profile */}
+        {/* Header Profile */}
         <ProfileHeader profile={profile} />
 
-        {/* Các tính năng khác */}
-        <div className="mt-8 bg-card/95 backdrop-blur-md rounded-2xl p-6 md:p-8 border border-border shadow-xl min-h-[400px] relative overflow-hidden">
-           {/* Texture lưới nhẹ lót đáy */}
-           <div 
-            className="absolute inset-0 z-0 opacity-5 pointer-events-none"
-            style={{
-              backgroundImage: 'radial-gradient(var(--foreground) 1.5px, transparent 1.5px)',
-              backgroundSize: '24px 24px'
-            }}
-          />
-          <div className="relative z-10">
-            <h2 className="text-xl font-bold text-foreground mb-4">Hoạt động gần đây</h2>
-            <div className="text-muted-foreground italic text-sm">
-              Nội dung các tab...
-            </div>
-          </div>
+        {/* Tính năng khác */}
+        <div className="mt-8 bg-card/90 backdrop-blur-md rounded-2xl p-6 md:p-8 border border-border shadow-xl min-h-[400px]">
+          <h2 className="text-xl font-bold text-foreground mb-4">Hoạt động gần đây</h2>
         </div>
 
       </div>
