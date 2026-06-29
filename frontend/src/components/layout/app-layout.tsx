@@ -4,7 +4,7 @@ import Sidebar from '@/components/layout/sidebar'
 
 export default function AppLayout() {
   return (
-    <div className="relative h-screen w-full overflow-hidden bg-background">
+    <div className="relative h-screen w-full overflow-hidden">
       <div className="absolute top-0 left-0 right-0 z-50">
         <Header />
       </div>
