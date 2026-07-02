@@ -21,5 +21,5 @@ type UpdateProfileParams struct {
 
 // ChangeNameParams (Dành riêng cho đổi tên - Có thể tốn phí)
 type ChangeNameParams struct {
-	DisplayName string `json:"display_name" validate:"required,min=2,max=50"`
+	DisplayName string `json:"display_name" validate:"required,min=1,max=50"`
 }

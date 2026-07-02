@@ -21,7 +21,7 @@ export default function ProfileHeader({ profile }: ProfileHeaderProps) {
       return;
     }
     
-    if (confirm("Lưu ý: Việc đổi tên có thể tốn phí (hoặc lượt đổi). Bạn có chắc chắn?")) {
+    if (confirm("Note: Changing your name may incur fees (or consume change attempts). Are you sure?")) {
       changeNameMutation.mutate(
         { display_name: name.trim() },
         { 
@@ -85,22 +85,22 @@ export default function ProfileHeader({ profile }: ProfileHeaderProps) {
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="flex-1 px-3 py-2 text-xl font-bold bg-background/50 border-2 border-indigo-500 rounded-lg focus:outline-none"
+                  className="flex-1 px-4 py-2 text-xl font-bold bg-transparent border border-gray-400/30 rounded-lg hover:border-gray-400/50 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all"
                   autoFocus
                 />
                 <div className="flex gap-2">
                   <button 
                     onClick={handleSaveName}
                     disabled={changeNameMutation.isPending}
-                    className="px-6 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+                    className="px-6 py-2 bg-foreground text-background text-sm font-medium rounded-lg hover:opacity-90 disabled:opacity-50"
                   >
-                    {changeNameMutation.isPending ? 'Đang lưu...' : 'Lưu'}
+                    {changeNameMutation.isPending ? 'Saving...' : 'Save'}
                   </button>
                   <button 
                     onClick={() => { setIsEditingName(false); setName(profile.display_name); }}
                     className="px-6 py-2 bg-secondary text-secondary-foreground text-sm font-medium rounded-lg hover:opacity-80"
                   >
-                    Hủy
+                    Cancel
                   </button>
                 </div>
               </div>
@@ -128,8 +128,8 @@ export default function ProfileHeader({ profile }: ProfileHeaderProps) {
                 <textarea 
                   value={bio}
                   onChange={(e) => setBio(e.target.value)}
-                  placeholder="Viết gì đó về bản thân..."
-                  className="w-full px-3 py-2 bg-background/50 text-foreground border-2 border-indigo-500 rounded-lg focus:outline-none resize-none"
+                  placeholder="Write something about yourself..."
+                  className="w-full px-4 py-3 bg-transparent text-foreground border border-gray-400/30 rounded-xl hover:border-gray-400/50 focus:outline-none focus:border-blue-300/60 focus:ring-1 focus:ring-blue-300/20 transition-all resize-none"
                   rows={3}
                   autoFocus
                 />
@@ -139,25 +139,25 @@ export default function ProfileHeader({ profile }: ProfileHeaderProps) {
                     disabled={updateProfileMutation.isPending}
                     className="px-6 py-2 bg-foreground text-background text-sm font-medium rounded-lg hover:opacity-90 disabled:opacity-50"
                   >
-                    {updateProfileMutation.isPending ? 'Đang lưu...' : 'Lưu tiểu sử'}
+                    {updateProfileMutation.isPending ? 'Saving...' : 'Save'}
                   </button>
                   <button 
                     onClick={() => { setIsEditingBio(false); setBio(profile.bio || ''); }}
                     className="px-6 py-2 bg-secondary text-secondary-foreground text-sm font-medium rounded-lg hover:opacity-80"
                   >
-                    Hủy
+                    Cancel
                   </button>
                 </div>
               </div>
             ) : (
               <div className="flex items-start gap-2 max-w-3xl">
                 <p className={`text-muted-foreground whitespace-pre-wrap leading-relaxed text-base md:text-lg ${!profile.bio && 'italic text-opacity-70'}`}>
-                  {profile.bio || "Thêm tiểu sử để mọi người hiểu hơn về bạn..."}
+                  {profile.bio || "Add a bio so people can learn more about you..."}
                 </p>
                 <button 
                   onClick={() => setIsEditingBio(true)}
                   className="opacity-0 group-hover:opacity-100 transition-opacity p-2 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-full flex-shrink-0"
-                  title="Chỉnh sửa tiểu sử"
+                  title="Edit bio"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
                 </button>

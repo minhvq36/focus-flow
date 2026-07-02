@@ -28,7 +28,7 @@ export default function MePage() {
   if (isLoading) {
     return (
       <div className="min-h-full flex items-center justify-center">
-        <div className="animate-pulse text-muted-foreground font-medium">Đang tải hồ sơ...</div>
+        <div className="animate-pulse text-muted-foreground font-medium">Loading profile...</div>
       </div>
     );
   }
@@ -36,7 +36,7 @@ export default function MePage() {
   if (error || !profile) {
     return (
       <div className="min-h-full flex items-center justify-center">
-        <div className="text-destructive font-medium">Không thể tải thông tin hồ sơ.</div>
+        <div className="text-destructive font-medium">Failed to load profile information.</div>
       </div>
     );
   }
@@ -73,7 +73,7 @@ export default function MePage() {
 
         {/* Tính năng khác */}
         <div className="mt-8 bg-card/90 backdrop-blur-md rounded-2xl p-6 md:p-8 border border-border shadow-xl min-h-[400px]">
-          <h2 className="text-xl font-bold text-foreground mb-4">Hoạt động gần đây</h2>
+          <h2 className="text-xl font-bold text-foreground mb-4">Recent Activity</h2>
         </div>
 
       </div>
