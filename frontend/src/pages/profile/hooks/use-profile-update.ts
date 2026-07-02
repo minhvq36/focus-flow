@@ -1,13 +1,14 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import type { Profile, UpdateProfilePayload, ChangeNamePayload } from '@/types/profile';
+import type { Profile, ChangeNamePayload } from '@/types/profile';
 
 export const useProfileUpdate = () => {
   const queryClient = useQueryClient();
 
-  const updateProfileMutation = useMutation({
-    mutationFn: (payload: UpdateProfilePayload) => 
-      api.patch<Profile>('/api/profile', payload),
+  // Đã trỏ đúng vào endpoint PATCH /bio
+  const updateBioMutation = useMutation({
+    mutationFn: (payload: { bio: string }) => 
+      api.patch<Profile>('/api/profile/bio', payload),
       
     onSuccess: (updatedProfile) => {
       queryClient.setQueryData(['profile', 'me'], updatedProfile);
@@ -20,8 +21,10 @@ export const useProfileUpdate = () => {
       
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['profile', 'me'] });
+      queryClient.invalidateQueries({ queryKey: ['economy', 'wallet'] });
+      queryClient.invalidateQueries({ queryKey: ['profile', 'private'] });
     },
   });
 
-  return { updateProfileMutation, changeNameMutation };
+  return { updateBioMutation, changeNameMutation };
 };

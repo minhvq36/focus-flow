@@ -16,3 +16,11 @@ export interface UpdateProfilePayload {
 export interface ChangeNamePayload {
   display_name: string;
 }
+
+export interface UserPrivate {
+  user_id: string;
+  email: string;
+  plan_type: string;
+  name_change_count: number;
+  updated_at: string;
+}
