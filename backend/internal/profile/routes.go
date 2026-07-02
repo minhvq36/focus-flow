@@ -15,6 +15,7 @@ func Routes(db *pgxpool.Pool, log *logger.Logger, economyMgr EconomyManager, pf 
 
 	return func(r chi.Router) {
 		r.Get("/", handler.GetProfile)
+		r.Get("/private", handler.GetUserPrivate)
 		r.Patch("/bio", handler.UpdateBio)
 		r.Patch("/avatar-url", handler.UpdateAvatarURL)
 		r.Post("/change-name", handler.ChangeDisplayName)

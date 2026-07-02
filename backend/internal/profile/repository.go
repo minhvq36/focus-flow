@@ -2,6 +2,7 @@ package profile
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 
@@ -51,7 +52,44 @@ func (r *Repository) GetProfileByID(ctx context.Context, userID string) (*Profil
 }
 
 // ==========================================
-// 2. PROFILE UPDATE OPERATIONS
+// 2. PROFILE PRIVATE DATA OPERATIONS
+// ==========================================
+
+// GetUserPrivate returns the private profile data for a user.
+func (r *Repository) GetUserPrivate(ctx context.Context, userID string) (*UserPrivate, error) {
+	var p UserPrivate
+	var planType sql.NullString
+
+	err := r.db.QueryRow(ctx, `
+		SELECT user_id, email, plan_type, name_change_count, updated_at
+		FROM public.user_private
+		WHERE user_id = $1
+	`, userID).Scan(
+		&p.UserID,
+		&p.Email,
+		&planType,
+		&p.NameChangeCount,
+		&p.UpdatedAt,
+	)
+
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, &apperr.NotFoundError{Resource: "user_private"}
+		}
+		return nil, fmt.Errorf("get user private: %w", err)
+	}
+
+	if planType.Valid {
+		p.PlanType = planType.String
+	} else {
+		p.PlanType = "free"
+	}
+
+	return &p, nil
+}
+
+// ==========================================
+// 3. PROFILE UPDATE OPERATIONS
 // ==========================================
 
 // UpdateBio updates only the profile bio.
@@ -117,7 +155,7 @@ func (r *Repository) GetNameChangeCount(ctx context.Context, userID string) (int
 }
 
 // ==========================================
-// 3. TRANSACTIONAL OPERATIONS
+// 4. TRANSACTIONAL OPERATIONS
 // ==========================================
 
 // UpdateNameAndCount thực hiện đổi tên và tăng biến đếm trong transaction

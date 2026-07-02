@@ -26,7 +26,7 @@ create index if not exists idx_user_frames_frame_id on public.user_frames(frame_
 create table if not exists public.user_private (
     user_id uuid primary key references public.users(id) on delete cascade,
     email varchar(255) unique not null,
-    plan_type text default 'free' references public.plan_quotas(plan_type),
+    plan_type text not null default 'free' references public.plan_quotas(plan_type),
     name_change_count int not null default 0 check (name_change_count >= 0),
     updated_at timestamptz not null default now()
 );

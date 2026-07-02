@@ -19,6 +19,7 @@ const (
 
 type RepositoryInterface interface {
 	GetProfileByID(ctx context.Context, userID string) (*Profile, error)
+	GetUserPrivate(ctx context.Context, userID string) (*UserPrivate, error)
 	UpdateBio(ctx context.Context, userID string, params UpdateBioParams) (*Profile, error)
 	UpdateAvatarURL(ctx context.Context, userID string, params UpdateAvatarURLParams) (*Profile, error)
 	GetNameChangeCount(ctx context.Context, userID string) (int, error)
@@ -53,6 +54,14 @@ func (s *Service) GetProfile(ctx context.Context, userID string) (*Profile, erro
 		return nil, err
 	}
 	return profile, nil
+}
+
+func (s *Service) GetUserPrivate(ctx context.Context, userID string) (*UserPrivate, error) {
+	privateInfo, err := s.repo.GetUserPrivate(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	return privateInfo, nil
 }
 
 func (s *Service) UpdateBio(ctx context.Context, userID string, params UpdateBioParams) (*Profile, error) {

@@ -15,6 +15,7 @@ import (
 // ServiceInterface định nghĩa các hàm mà Handler cần gọi từ Service
 type ServiceInterface interface {
 	GetProfile(ctx context.Context, userID string) (*Profile, error)
+	GetUserPrivate(ctx context.Context, userID string) (*UserPrivate, error)
 	UpdateBio(ctx context.Context, userID string, params UpdateBioParams) (*Profile, error)
 	UpdateAvatarURL(ctx context.Context, userID string, params UpdateAvatarURLParams) (*Profile, error)
 	ChangeDisplayName(ctx context.Context, userID string, params ChangeNameParams) error
@@ -53,6 +54,29 @@ func (h *Handler) GetProfile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response.Success(w, profile)
+}
+
+func (h *Handler) GetUserPrivate(w http.ResponseWriter, r *http.Request) {
+	userID, ok := auth.GetUserID(r.Context())
+	if !ok {
+		response.Unauthorized(w)
+		return
+	}
+
+	h.log.Info("GetUserPrivate", "user_id", userID)
+	privateInfo, err := h.service.GetUserPrivate(r.Context(), userID)
+	if err != nil {
+		switch {
+		case errors.Is(err, apperr.ErrNotFound):
+			response.NotFound(w, "UserPrivate")
+		default:
+			h.log.Error("GetUserPrivate failed", "user_id", userID, "error", err.Error())
+			response.InternalError(w)
+		}
+		return
+	}
+
+	response.Success(w, privateInfo)
 }
 
 func (h *Handler) UpdateBio(w http.ResponseWriter, r *http.Request) {
