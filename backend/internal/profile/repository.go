@@ -54,18 +54,16 @@ func (r *Repository) GetProfileByID(ctx context.Context, userID string) (*Profil
 // 2. PROFILE UPDATE OPERATIONS
 // ==========================================
 
-// UpdateProfile cập nhật Avatar và Bio (Những mục miễn phí)
-func (r *Repository) UpdateProfile(ctx context.Context, userID string, params UpdateProfileParams) (*Profile, error) {
+// UpdateBio updates only the profile bio.
+func (r *Repository) UpdateBio(ctx context.Context, userID string, params UpdateBioParams) (*Profile, error) {
 	query := `
 		UPDATE public.users
-		SET 
-			bio = COALESCE($1, bio),
-			avatar_url = COALESCE($2, avatar_url)
-		WHERE id = $3
+		SET bio = COALESCE($1, bio)
+		WHERE id = $2
 		RETURNING id, display_name, bio, avatar_url, level, created_at, updated_at
 	`
 	var p Profile
-	err := r.db.QueryRow(ctx, query, params.Bio, params.AvatarURL, userID).Scan(
+	err := r.db.QueryRow(ctx, query, params.Bio, userID).Scan(
 		&p.ID, &p.DisplayName, &p.Bio, &p.AvatarURL, &p.Level, &p.CreatedAt, &p.UpdatedAt,
 	)
 
@@ -73,7 +71,30 @@ func (r *Repository) UpdateProfile(ctx context.Context, userID string, params Up
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, &apperr.NotFoundError{Resource: "profile"}
 		}
-		return nil, fmt.Errorf("update profile: %w", err)
+		return nil, fmt.Errorf("update profile bio: %w", err)
+	}
+
+	return &p, nil
+}
+
+// UpdateAvatarURL updates only the profile avatar URL.
+func (r *Repository) UpdateAvatarURL(ctx context.Context, userID string, params UpdateAvatarURLParams) (*Profile, error) {
+	query := `
+		UPDATE public.users
+		SET avatar_url = COALESCE($1, avatar_url)
+		WHERE id = $2
+		RETURNING id, display_name, bio, avatar_url, level, created_at, updated_at
+	`
+	var p Profile
+	err := r.db.QueryRow(ctx, query, params.AvatarURL, userID).Scan(
+		&p.ID, &p.DisplayName, &p.Bio, &p.AvatarURL, &p.Level, &p.CreatedAt, &p.UpdatedAt,
+	)
+
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, &apperr.NotFoundError{Resource: "profile"}
+		}
+		return nil, fmt.Errorf("update profile avatar URL: %w", err)
 	}
 
 	return &p, nil

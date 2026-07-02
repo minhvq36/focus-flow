@@ -19,7 +19,8 @@ const (
 
 type RepositoryInterface interface {
 	GetProfileByID(ctx context.Context, userID string) (*Profile, error)
-	UpdateProfile(ctx context.Context, userID string, params UpdateProfileParams) (*Profile, error)
+	UpdateBio(ctx context.Context, userID string, params UpdateBioParams) (*Profile, error)
+	UpdateAvatarURL(ctx context.Context, userID string, params UpdateAvatarURLParams) (*Profile, error)
 	GetNameChangeCount(ctx context.Context, userID string) (int, error)
 	UpdateNameAndCount(ctx context.Context, tx pgx.Tx, userID, newName string) error
 }
@@ -54,17 +55,26 @@ func (s *Service) GetProfile(ctx context.Context, userID string) (*Profile, erro
 	return profile, nil
 }
 
-func (s *Service) UpdateProfile(ctx context.Context, userID string, params UpdateProfileParams) (*Profile, error) {
+func (s *Service) UpdateBio(ctx context.Context, userID string, params UpdateBioParams) (*Profile, error) {
 	if params.Bio != nil {
 		if err := s.checkProfanity(*params.Bio); err != nil {
 			return nil, &apperr.ValidationError{Message: err.Error()}
 		}
 	}
-	profile, err := s.repo.UpdateProfile(ctx, userID, params)
+	profile, err := s.repo.UpdateBio(ctx, userID, params)
 	if err != nil {
 		return nil, err
 	}
-	s.log.Info("Profile updated", "user_id", userID)
+	s.log.Info("Profile bio updated", "user_id", userID)
+	return profile, nil
+}
+
+func (s *Service) UpdateAvatarURL(ctx context.Context, userID string, params UpdateAvatarURLParams) (*Profile, error) {
+	profile, err := s.repo.UpdateAvatarURL(ctx, userID, params)
+	if err != nil {
+		return nil, err
+	}
+	s.log.Info("Profile avatar updated", "user_id", userID)
 	return profile, nil
 }
 

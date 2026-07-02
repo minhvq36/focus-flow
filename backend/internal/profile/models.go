@@ -13,13 +13,17 @@ type Profile struct {
 	UpdatedAt   time.Time `json:"updated_at"`
 }
 
-// UpdateProfileParams (Chỉ dành cho Bio, Avatar - Miễn phí)
-type UpdateProfileParams struct {
-	Bio       *string `json:"bio" validate:"omitempty,max=255"`
+// UpdateBioParams updates only the user bio.
+type UpdateBioParams struct {
+	Bio *string `json:"bio" validate:"omitempty,max=255"`
+}
+
+// UpdateAvatarURLParams updates only the user avatar URL.
+type UpdateAvatarURLParams struct {
 	AvatarURL *string `json:"avatar_url" validate:"omitempty,url"`
 }
 
-// ChangeNameParams (Dành riêng cho đổi tên - Có thể tốn phí)
+// ChangeNameParams is dedicated to display name changes and may incur a fee.
 type ChangeNameParams struct {
 	DisplayName string `json:"display_name" validate:"required,min=1,max=50"`
 }

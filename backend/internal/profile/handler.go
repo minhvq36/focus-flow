@@ -15,7 +15,8 @@ import (
 // ServiceInterface định nghĩa các hàm mà Handler cần gọi từ Service
 type ServiceInterface interface {
 	GetProfile(ctx context.Context, userID string) (*Profile, error)
-	UpdateProfile(ctx context.Context, userID string, params UpdateProfileParams) (*Profile, error)
+	UpdateBio(ctx context.Context, userID string, params UpdateBioParams) (*Profile, error)
+	UpdateAvatarURL(ctx context.Context, userID string, params UpdateAvatarURLParams) (*Profile, error)
 	ChangeDisplayName(ctx context.Context, userID string, params ChangeNameParams) error
 }
 
@@ -54,20 +55,20 @@ func (h *Handler) GetProfile(w http.ResponseWriter, r *http.Request) {
 	response.Success(w, profile)
 }
 
-func (h *Handler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) UpdateBio(w http.ResponseWriter, r *http.Request) {
 	userID, ok := auth.GetUserID(r.Context())
 	if !ok {
 		response.Unauthorized(w)
 		return
 	}
 
-	var req UpdateProfileParams
+	var req UpdateBioParams
 	if ok := request.BindAndValidate(w, r, &req); !ok {
 		return
 	}
 
-	h.log.Info("UpdateProfile", "user_id", userID)
-	profile, err := h.service.UpdateProfile(r.Context(), userID, req)
+	h.log.Info("UpdateBio", "user_id", userID)
+	profile, err := h.service.UpdateBio(r.Context(), userID, req)
 	if err != nil {
 		switch {
 		case errors.Is(err, apperr.ErrValidation):
@@ -75,7 +76,37 @@ func (h *Handler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, apperr.ErrNotFound):
 			response.NotFound(w, "Profile")
 		default:
-			h.log.Error("UpdateProfile failed", "user_id", userID, "error", err.Error())
+			h.log.Error("UpdateBio failed", "user_id", userID, "error", err.Error())
+			response.InternalError(w)
+		}
+		return
+	}
+
+	response.Success(w, profile)
+}
+
+func (h *Handler) UpdateAvatarURL(w http.ResponseWriter, r *http.Request) {
+	userID, ok := auth.GetUserID(r.Context())
+	if !ok {
+		response.Unauthorized(w)
+		return
+	}
+
+	var req UpdateAvatarURLParams
+	if ok := request.BindAndValidate(w, r, &req); !ok {
+		return
+	}
+
+	h.log.Info("UpdateAvatarURL", "user_id", userID)
+	profile, err := h.service.UpdateAvatarURL(r.Context(), userID, req)
+	if err != nil {
+		switch {
+		case errors.Is(err, apperr.ErrValidation):
+			response.BadRequest(w, "VALIDATION_ERROR", err.Error())
+		case errors.Is(err, apperr.ErrNotFound):
+			response.NotFound(w, "Profile")
+		default:
+			h.log.Error("UpdateAvatarURL failed", "user_id", userID, "error", err.Error())
 			response.InternalError(w)
 		}
 		return
