@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import type { Profile } from '@/types/profile';
 import { useProfileUpdate } from '../hooks/use-profile-update';
 import ChangeNameModal from './change-name-modal';
@@ -15,6 +15,21 @@ export default function ProfileHeader({ profile }: ProfileHeaderProps) {
 
   const [isEditingBio, setIsEditingBio] = useState(false);
   const [bio, setBio] = useState(profile.bio || '');
+
+  const bioRef = useRef<HTMLDivElement>(null);
+  const [isBioScrollable, setIsBioScrollable] = useState(false);
+
+  useEffect(() => {
+    const checkScroll = () => {
+      if (bioRef.current) {
+        setIsBioScrollable(bioRef.current.scrollHeight > bioRef.current.clientHeight);
+      }
+    };
+
+    checkScroll();
+    window.addEventListener('resize', checkScroll);
+    return () => window.removeEventListener('resize', checkScroll);
+  }, [profile.bio, isEditingBio]);
 
   const handleSaveBio = () => {
     if (bio.trim() === (profile.bio || '')) {
@@ -120,20 +135,20 @@ export default function ProfileHeader({ profile }: ProfileHeaderProps) {
                 </div>
               ) : (
                 <>
-                  {/* 
-                    1. `flex-1` giúp vùng này chiếm TOÀN BỘ chiều rộng còn lại -> dễ lăn chuột.
-                    2. Chặn `max-h-[140px]` tương đương 5 dòng.
+                  {/* 1. `flex-1` giúp vùng này chiếm TOÀN BỘ chiều rộng còn lại -> dễ lăn chuột.
+                    2. Chặn `max-h-[140px]` tương đương 5 dòng (vì dòng dưới dùng leading-7 = 28px).
                     3. `mask-image` tạo hiệu ứng mờ dần ở mép dưới để báo hiệu còn text (chữ dài hơn 5 dòng).
                   */}
                   <div 
+                    ref={bioRef}
                     className="flex-1 max-h-[140px] overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
-                    style={{
+                    style={isBioScrollable ? {
                       maskImage: 'linear-gradient(to bottom, black 80%, transparent 100%)',
                       WebkitMaskImage: 'linear-gradient(to bottom, black 80%, transparent 100%)'
-                    }}
+                    } : {}}
                   >
                     <p 
-                      className={`text-muted-foreground whitespace-pre-wrap leading-relaxed text-base md:text-lg ${!profile.bio && 'italic text-opacity-70'}`}
+                      className={`text-muted-foreground whitespace-pre-wrap leading-7 text-base md:text-lg ${!profile.bio && 'italic text-opacity-70'}`}
                       style={{ overflowWrap: 'anywhere' }} // Fix lỗi chữ aaaaaaa dính chùm
                     >
                       {profile.bio || "Add a bio so people can learn more about you..."}

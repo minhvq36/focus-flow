@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import { useUserPrivate } from '../hooks/use-profile';
 import { useProfileUpdate } from '../hooks/use-profile-update';
 import { useWallet } from '@/pages/garden/hooks/use-economy';
+import { formatCurrency } from '@/lib/utils';
 
 interface ChangeNameModalProps {
   isOpen: boolean;
@@ -94,22 +95,30 @@ export default function ChangeNameModal({ isOpen, onClose, currentName }: Change
               <button 
                 onClick={handleSave}
                 disabled={!canSave || changeNameMutation.isPending}
-                className="px-6 py-2.5 rounded-xl font-medium bg-foreground text-background hover:opacity-90 disabled:opacity-50 transition flex items-center gap-2"
+                className="px-5.5 py-2.5 rounded-xl font-medium bg-foreground text-background hover:opacity-90 disabled:opacity-50 transition flex items-center gap-2"
               >
                 {changeNameMutation.isPending ? 'Saving...' : (
                   <>
                     <img src="/coins/silver-single.png" alt="Silver" className="w-[18px] h-[18px]" />
-                    20,000
+                    {formatCurrency(CHANGE_COST)}
                   </>
                 )}
               </button>
             )}
           </div>
           
-          {/* Note nhỏ cho lượt free */}
+          {/* Note nhỏ cho lượt free - Đã fix cứng tối đa 2 dòng, text canh đều siêu đẹp */}
           {isFree && (
-            <p className="text-right text-xs text-muted-foreground/70 italic mr-1 mt-1">
-              {remainingFree} free change{remainingFree > 1 ? 's' : ''} remaining ({changeCount}/{MAX_FREE_CHANGES})
+            <p className="text-right text-xs text-muted-foreground/70 italic mr-1 mt-1 flex flex-col gap-0.5 standard-prose">
+              <span>
+                {remainingFree} free change{remainingFree > 1 ? 's' : ''} remaining ({changeCount}/{MAX_FREE_CHANGES}). After that, you have to pay {formatCurrency(CHANGE_COST)}
+                <img 
+                  src="/coins/silver-single.png" 
+                  alt="Silver" 
+                  className="w-3.5 h-3.5 inline-flex items-center align-middle mx-0.5 -mt-0.5" 
+                />
+                per change.
+              </span>
             </p>
           )}
         </div>
