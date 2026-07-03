@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { toast } from 'sonner';
 import type { Profile } from '@/types/profile';
 import { useProfileUpdate } from '../hooks/use-profile-update';
 import ChangeNameModal from './change-name-modal';
@@ -10,19 +11,21 @@ interface ProfileHeaderProps {
 export default function ProfileHeader({ profile }: ProfileHeaderProps) {
   const { updateBioMutation } = useProfileUpdate();
 
-  // Đổi state quản lý Name thành trạng thái đóng/mở Modal
   const [isNameModalOpen, setIsNameModalOpen] = useState(false);
-
   const [isEditingBio, setIsEditingBio] = useState(false);
   const [bio, setBio] = useState(profile.bio || '');
 
   const bioRef = useRef<HTMLDivElement>(null);
   const [isBioScrollable, setIsBioScrollable] = useState(false);
+  const [isScrolledToBottom, setIsScrolledToBottom] = useState(false);
 
   useEffect(() => {
     const checkScroll = () => {
       if (bioRef.current) {
-        setIsBioScrollable(bioRef.current.scrollHeight > bioRef.current.clientHeight);
+        const { scrollHeight, clientHeight, scrollTop } = bioRef.current;
+        setIsBioScrollable(scrollHeight > clientHeight);
+        // Kiểm tra ngay khi vừa render/resize xem đã ở đáy chưa
+        setIsScrolledToBottom(Math.ceil(scrollTop + clientHeight) >= scrollHeight);
       }
     };
 
@@ -30,6 +33,14 @@ export default function ProfileHeader({ profile }: ProfileHeaderProps) {
     window.addEventListener('resize', checkScroll);
     return () => window.removeEventListener('resize', checkScroll);
   }, [profile.bio, isEditingBio]);
+
+  const handleBioScroll = () => {
+    if (bioRef.current) {
+      const { scrollHeight, clientHeight, scrollTop } = bioRef.current;
+      // Dùng Math.ceil để tránh sai số pixel lẻ của trình duyệt
+      setIsScrolledToBottom(Math.ceil(scrollTop + clientHeight) >= scrollHeight);
+    }
+  };
 
   const handleSaveBio = () => {
     if (bio.trim() === (profile.bio || '')) {
@@ -39,7 +50,15 @@ export default function ProfileHeader({ profile }: ProfileHeaderProps) {
 
     updateBioMutation.mutate(
       { bio: bio.trim() },
-      { onSuccess: () => setIsEditingBio(false) }
+      { 
+        onSuccess: () => {
+          toast.success("Bio updated successfully!");
+          setIsEditingBio(false);
+        },
+        onError: (err: any) => {
+          toast.error(err?.response?.data?.message || "Failed to update bio");
+        }
+      }
     );
   };
 
@@ -72,7 +91,6 @@ export default function ProfileHeader({ profile }: ProfileHeaderProps) {
           </div>
 
           {/* Profile Info Area */}
-          {/* THÊM min-w-0 Ở ĐÂY LÀ QUAN TRỌNG NHẤT ĐỂ FLEXBOX CHO PHÉP CẮT CHỮ */}
           <div className="flex-1 w-full md:pt-2 min-w-0"> 
             
             {/* --- Name Section --- */}
@@ -85,12 +103,10 @@ export default function ProfileHeader({ profile }: ProfileHeaderProps) {
                   {profile.display_name}
                 </h1>
                 
-                {/* THÊM shrink-0 ĐỂ BADGE LEVEL LUÔN GIỮ NGUYÊN KÍCH THƯỚC, KHÔNG BỊ ÉP NHỎ LẠI */}
                 <span className="px-3 py-1 text-sm font-bold text-white bg-indigo-500 rounded-full shadow-sm shrink-0">
                   Lv. {profile.level}
                 </span>
                 
-                {/* THÊM shrink-0 CHO NÚT EDIT NỮA */}
                 <button 
                   onClick={() => setIsNameModalOpen(true)}
                   className="opacity-0 group-hover:opacity-100 transition-opacity p-2 text-muted-foreground hover:text-indigo-600 hover:bg-indigo-50 rounded-full shrink-0"
@@ -135,27 +151,24 @@ export default function ProfileHeader({ profile }: ProfileHeaderProps) {
                 </div>
               ) : (
                 <>
-                  {/* 1. `flex-1` giúp vùng này chiếm TOÀN BỘ chiều rộng còn lại -> dễ lăn chuột.
-                    2. Chặn `max-h-[140px]` tương đương 5 dòng (vì dòng dưới dùng leading-7 = 28px).
-                    3. `mask-image` tạo hiệu ứng mờ dần ở mép dưới để báo hiệu còn text (chữ dài hơn 5 dòng).
-                  */}
                   <div 
                     ref={bioRef}
+                    onScroll={handleBioScroll}
                     className="flex-1 max-h-[140px] overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
-                    style={isBioScrollable ? {
+                    // Mask sẽ áp dụng nếu cuộn được VÀ chưa chạm đáy
+                    style={isBioScrollable && !isScrolledToBottom ? {
                       maskImage: 'linear-gradient(to bottom, black 80%, transparent 100%)',
                       WebkitMaskImage: 'linear-gradient(to bottom, black 80%, transparent 100%)'
                     } : {}}
                   >
                     <p 
                       className={`text-muted-foreground whitespace-pre-wrap leading-7 text-base md:text-lg ${!profile.bio && 'italic text-opacity-70'}`}
-                      style={{ overflowWrap: 'anywhere' }} // Fix lỗi chữ aaaaaaa dính chùm
+                      style={{ overflowWrap: 'anywhere' }}
                     >
                       {profile.bio || "Add a bio so people can learn more about you..."}
                     </p>
                   </div>
                   
-                  {/* Nút Edit luôn bị đẩy sát lề phải nhờ flex-1 của thẻ div bên trên */}
                   <button 
                     onClick={() => setIsEditingBio(true)}
                     className="opacity-0 group-hover:opacity-100 transition-opacity p-2 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-full flex-shrink-0 mt-1"
@@ -171,7 +184,6 @@ export default function ProfileHeader({ profile }: ProfileHeaderProps) {
         </div>
       </div>
 
-      {/* Render Modal ra bên ngoài cấu trúc flex/grid để tránh z-index issue */}
       <ChangeNameModal 
         isOpen={isNameModalOpen} 
         onClose={() => setIsNameModalOpen(false)} 
