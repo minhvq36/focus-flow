@@ -29,3 +29,61 @@ export function formatCurrency(num: number): string {
   const bValue = Math.floor(num / 10_000_000) / 100
   return `${bValue.toLocaleString("en-US", { maximumFractionDigits: 2 })}B`
 }
+
+'use client';
+
+/**
+ * Convert mọi loại ảnh (JPG, PNG) sang chuẩn WebP, tối ưu hiệu năng và độ tin cậy.
+ * @param file File ảnh gốc
+ * @param quality Chất lượng ảnh WebP từ 0 - 1 (Mặc định 0.8). Sẽ được clamp về khoảng [0, 1].
+ * @returns Promise<File> Trả về file ảnh đã convert sang WebP.
+ */
+export const convertToWebP = (file: File, quality = 0.8): Promise<File> => {
+  return new Promise((resolve, reject) => {
+    if (!file.type.startsWith('image/')) {
+      reject(new Error("Selected file is not an image."));
+      return;
+    }
+
+    const safeQuality = Math.min(1, Math.max(0, quality));
+
+    const objectUrl = URL.createObjectURL(file);
+    const img = new Image();
+
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        URL.revokeObjectURL(objectUrl);
+        reject(new Error("Canvas is not supported in this browser."));
+        return;
+      }
+
+      ctx.drawImage(img, 0, 0);
+
+      canvas.toBlob((blob) => {
+        URL.revokeObjectURL(objectUrl);
+        
+        if (!blob) {
+          reject(new Error("Canvas to Blob conversion failed."));
+          return;
+        }
+
+        const newFileName = file.name.replace(/\.[^/.]+$/, ".webp");
+        const webpFile = new File([blob], newFileName, { type: 'image/webp' });
+        
+        resolve(webpFile);
+      }, 'image/webp', safeQuality);
+    };
+
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error("Failed to load image from file."));
+    };
+
+    img.src = objectUrl;
+  });
+};

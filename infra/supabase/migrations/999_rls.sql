@@ -170,6 +170,13 @@ create policy "allow_read_for_owner" on public.economy_transactions
 
 
 -- 4. POLICIES CHO BUCKET 'users'
+CREATE POLICY "Users can view their own files"
+ON storage.objects FOR SELECT 
+TO authenticated
+USING (
+  bucket_id = 'users' AND
+  (regexp_split_to_array(name, '/'))[1] = auth.uid()::text
+);
 
 -- (QUAN TRỌNG NHẤT) CHỈ CHO PHÉP UPLOAD ĐÚNG 2 FILE DUY NHẤT: avatar.webp hoặc wallpaper.webp
 CREATE POLICY "Users can upload exactly 2 predefined files"
