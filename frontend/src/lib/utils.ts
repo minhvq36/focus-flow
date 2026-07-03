@@ -87,3 +87,57 @@ export const convertToWebP = (file: File, quality = 0.8): Promise<File> => {
     img.src = objectUrl;
   });
 };
+
+export const getCroppedWebp = async (
+  imageSrc: string,
+  pixelCrop: { x: number; y: number; width: number; height: number },
+  fileName: string,
+  quality = 0.8
+): Promise<File> => {
+  const image = new Image();
+  image.src = imageSrc;
+  
+  // Đợi ảnh load xong
+  await new Promise((resolve, reject) => {
+    image.onload = resolve;
+    image.onerror = reject;
+  });
+
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+
+  if (!ctx) throw new Error('No 2d context');
+
+  // Đặt kích thước canvas đúng bằng kích thước hình vuông đã crop
+  canvas.width = pixelCrop.width;
+  canvas.height = pixelCrop.height;
+
+  // Vẽ phần ảnh được crop lên canvas
+  ctx.drawImage(
+    image,
+    pixelCrop.x,
+    pixelCrop.y,
+    pixelCrop.width,
+    pixelCrop.height,
+    0,
+    0,
+    pixelCrop.width,
+    pixelCrop.height
+  );
+
+  // Xuất ra WebP
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) {
+          reject(new Error('Canvas is empty'));
+          return;
+        }
+        const newFileName = fileName.replace(/\.[^/.]+$/, ".webp");
+        resolve(new File([blob], newFileName, { type: 'image/webp' }));
+      },
+      'image/webp',
+      Math.min(1, Math.max(0, quality))
+    );
+  });
+};

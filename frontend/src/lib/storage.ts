@@ -4,7 +4,7 @@ export const getAssetUrl = (fileName: string): string => {
   // Trỏ vào bucket 'assets' và thư mục 'items'
   const { data } = supabase.storage
     .from('assets')
-    .getPublicUrl(`items/${fileName}.png`)
+    .getPublicUrl(`/${fileName}.png`)
 
   return data.publicUrl
 }

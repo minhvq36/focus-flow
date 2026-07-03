@@ -3,7 +3,8 @@ import { toast } from 'sonner';
 import type { Profile } from '@/types/profile';
 import { useProfileUpdate } from '../hooks/use-profile-update';
 import ChangeNameModal from './change-name-modal';
-import { convertToWebP } from '@/lib/utils';
+import AvatarCropModal from './avatar-crop-modal';
+import { getCroppedWebp } from '@/lib/utils';
 import { uploadUserImage } from '@/lib/storage';
 
 interface ProfileHeaderProps {
@@ -13,17 +14,24 @@ interface ProfileHeaderProps {
 export default function ProfileHeader({ profile }: ProfileHeaderProps) {
   const { updateBioMutation, updateAvatarMutation } = useProfileUpdate();
 
+  // State cho Tên và Bio
   const [isNameModalOpen, setIsNameModalOpen] = useState(false);
   const [isEditingBio, setIsEditingBio] = useState(false);
   const [bio, setBio] = useState(profile.bio || '');
-
-  const avatarInputRef = useRef<HTMLInputElement>(null);
-  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
 
   const bioRef = useRef<HTMLDivElement>(null);
   const [isBioScrollable, setIsBioScrollable] = useState(false);
   const [isScrolledToBottom, setIsScrolledToBottom] = useState(false);
 
+  // State cho Avatar
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const [isViewingAvatar, setIsViewingAvatar] = useState(false);
+  const [tempImage, setTempImage] = useState<{ src: string, file: File } | null>(null);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+
+  // ==========================================
+  // LOGIC BIO
+  // ==========================================
   useEffect(() => {
     const checkScroll = () => {
       if (bioRef.current) {
@@ -62,45 +70,72 @@ export default function ProfileHeader({ profile }: ProfileHeaderProps) {
   };
 
   // ==========================================
-  // XỬ LÝ UPLOAD AVATAR SIÊU SẠCH
+  // LOGIC AVATAR (CHỌN ẢNH VÀ CROP)
   // ==========================================
-  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     if (file.size > 5 * 1024 * 1024) {
-      toast.error("File is too large. Maximum size is 5MB.");
+      toast.error("Image too large. Please select an image under 5MB.");
+      if (avatarInputRef.current) avatarInputRef.current.value = '';
       return;
     }
+
+    const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    if (!validTypes.includes(file.type)) {
+      toast.error("Incorrect format. Please select a JPG, PNG, or WebP file.");
+      if (avatarInputRef.current) avatarInputRef.current.value = '';
+      return;
+    }
+
+    const objectUrl = URL.createObjectURL(file);
+    setTempImage({ src: objectUrl, file });
+    if (avatarInputRef.current) avatarInputRef.current.value = ''; // Reset input
+  };
+
+  const handleCropConfirm = async (croppedAreaPixels: any) => {
+    if (!tempImage) return;
 
     let toastId: any;
     try {
       setIsUploadingAvatar(true);
       toastId = toast.loading("Processing image..."); 
 
-      const webpFile = await convertToWebP(file);
+      // 1. Cắt ảnh và chuyển thành WebP
+      const webpFile = await getCroppedWebp(tempImage.src, croppedAreaPixels, tempImage.file.name);
+      
       toast.loading("Uploading image...", { id: toastId }); 
       
+      // 2. Upload lên Storage
       const finalAvatarUrl = await uploadUserImage(profile.id, 'avatar', webpFile);
+      
       toast.loading("Saving changes...", { id: toastId }); 
 
+      // 3. Cập nhật Database
       updateAvatarMutation.mutate(
         { avatar_url: finalAvatarUrl },
         {
           onSuccess: () => {
-            toast.success("Avatar updated successfully!", { id: toastId });
+            toast.success("Avatar updated successfully", { id: toastId });
+            handleCloseCrop();
           },
           onError: (err: any) => {
-            toast.error(err?.response?.data?.message || "Failed to save avatar to database", { id: toastId });
+            toast.error(err?.response?.data?.message || "Error saving Avatar", { id: toastId });
+            setIsUploadingAvatar(false);
           }
         }
       );
     } catch (error: any) {
-      toast.error("Failed to upload image", { id: toastId }); 
-    } finally {
+      toast.error("An error occurred while saving image", { id: toastId }); 
       setIsUploadingAvatar(false);
-      if (avatarInputRef.current) avatarInputRef.current.value = '';
     }
+  };
+
+  const handleCloseCrop = () => {
+    if (tempImage) URL.revokeObjectURL(tempImage.src);
+    setTempImage(null);
+    setIsUploadingAvatar(false);
   };
 
   return (
@@ -113,8 +148,16 @@ export default function ProfileHeader({ profile }: ProfileHeaderProps) {
 
         <div className="relative z-10 flex flex-col md:flex-row gap-6 md:gap-10 items-start">
           
-          <div className="relative -mt-16 md:-mt-20 mb-4 md:mb-0 group cursor-pointer" onClick={() => avatarInputRef.current?.click()}>
-            <div className={`w-32 h-32 md:w-40 md:h-40 rounded-full overflow-hidden bg-white flex-shrink-0 ring-4 ring-white shadow-lg transition duration-200 ${isUploadingAvatar ? 'opacity-50' : 'group-hover:opacity-80'}`}>
+          {/* ========================================== */}
+          {/* KHU VỰC AVATAR */}
+          {/* ========================================== */}
+          <div className="relative -mt-16 md:-mt-20 mb-4 md:mb-0 group">
+            
+            {/* Ảnh Avatar - Bấm để Xem */}
+            <div 
+              onClick={() => profile.avatar_url && setIsViewingAvatar(true)}
+              className={`w-32 h-32 md:w-40 md:h-40 rounded-full overflow-hidden bg-white flex-shrink-0 ring-4 ring-white shadow-lg transition duration-200 ${profile.avatar_url ? 'cursor-pointer hover:opacity-90' : ''}`}
+            >
               {profile.avatar_url ? (
                 <img src={profile.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
               ) : (
@@ -124,24 +167,31 @@ export default function ProfileHeader({ profile }: ProfileHeaderProps) {
               )}
             </div>
 
-            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-              <svg className="w-10 h-10 text-white drop-shadow-md" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-            </div>
-
-            <button className="absolute bottom-2 right-2 bg-gray-900 text-white p-2 rounded-full shadow-md hover:bg-gray-800 transition z-10">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+            {/* Nút Đen - Bấm để Đổi Ảnh */}
+            <button 
+              onClick={() => avatarInputRef.current?.click()}
+              className="absolute bottom-2 right-2 bg-gray-900 text-white p-2.5 rounded-full shadow-lg hover:opacity-85 hover:scale-110 transition-all z-10"
+              title="Change Avatar"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path>
+              </svg>
             </button>
 
+            {/* Input Ẩn */}
             <input 
               type="file" 
-              accept="image/png, image/jpeg, image/webp" 
+              accept="image/png, image/jpeg, image/webp, image/gif" 
               className="hidden" 
               ref={avatarInputRef} 
-              onChange={handleAvatarChange} 
-              disabled={isUploadingAvatar}
+              onChange={handleFileSelect} 
             />
           </div>
 
+          {/* ========================================== */}
+          {/* KHU VỰC THÔNG TIN (TÊN & BIO) */}
+          {/* ========================================== */}
           <div className="flex-1 w-full md:pt-2 min-w-0"> 
             
             <div className="flex items-center gap-4 mb-4">
@@ -192,7 +242,43 @@ export default function ProfileHeader({ profile }: ProfileHeaderProps) {
         </div>
       </div>
 
+      {/* ========================================== */}
+      {/* CÁC MODALS OUT-OF-FLOW */}
+      {/* ========================================== */}
+      
+      {/* 1. Modal Đổi Tên */}
       <ChangeNameModal isOpen={isNameModalOpen} onClose={() => setIsNameModalOpen(false)} currentName={profile.display_name} />
+      
+      {/* 2. Modal Crop Ảnh */}
+      <AvatarCropModal 
+        isOpen={!!tempImage} 
+        imageSrc={tempImage?.src || ''} 
+        onClose={handleCloseCrop} 
+        onConfirm={handleCropConfirm} 
+        isProcessing={isUploadingAvatar}
+      />
+
+      {/* 3. Overlay Xem Ảnh To */}
+      {isViewingAvatar && profile.avatar_url && (
+        <div 
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/90 p-4 pt-20 animate-in fade-in duration-200"
+          onClick={() => setIsViewingAvatar(false)}
+        >
+          <img 
+            src={profile.avatar_url} 
+            alt="Avatar Full" 
+            className="max-w-[90vw] max-h-[85vh] object-contain rounded-2xl shadow-2xl pointer-events-auto" 
+            onClick={(e) => e.stopPropagation()} 
+          />
+          <button 
+            className="absolute top-6 right-6 text-white/50 hover:text-white p-2 transition-colors"
+            onClick={() => setIsViewingAvatar(false)}
+            title="Đóng"
+          >
+            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+          </button>
+        </div>
+      )}
     </>
   );
 }
