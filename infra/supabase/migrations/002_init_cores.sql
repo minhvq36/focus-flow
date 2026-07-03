@@ -46,6 +46,24 @@ create table if not exists public.gardens (
     created_at timestamptz default now()
 );
 
+-- 1. TẠO BUCKET 'assets' (Read-only, Admin upload bằng tay)
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('assets', 'assets', true)
+ON CONFLICT (id) DO NOTHING;
+
+-- 2. TẠO BUCKET 'users' (Giới hạn 5MB, chỉ cho phép ảnh)
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+  'users', 
+  'users', 
+  true, 
+  5242880, -- Giới hạn 5MB (5 * 1024 * 1024)
+  ARRAY['image/webp', 'image/jpeg', 'image/png']::text[] -- Tầng 1: Chặn file rác (.exe, .php)
+)
+ON CONFLICT (id) DO UPDATE SET
+  file_size_limit = EXCLUDED.file_size_limit,
+  allowed_mime_types = EXCLUDED.allowed_mime_types;
+
 -- TODO/IMPORTANT: Add Seed data for frames, items, gardens app
 insert into public.plan_quotas (plan_type, daily_task_limit)
 values 
