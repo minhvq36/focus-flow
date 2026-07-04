@@ -82,7 +82,7 @@ export default function ProfileHeader({ profile }: ProfileHeaderProps) {
       return;
     }
 
-    const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
     if (!validTypes.includes(file.type)) {
       toast.error("Incorrect format. Please select a JPG, PNG, or WebP file.");
       if (avatarInputRef.current) avatarInputRef.current.value = '';
