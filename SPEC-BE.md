@@ -243,17 +243,24 @@ wire ./cmd/server
 - [ ] `cmd/server/wire.go` - Not implemented (services created directly in routes for now)
 - [ ] CORS - Hardcoded to localhost:5173 (needs .env for prod)
 
-**❌ Not Yet Started (Stubs only):**
-- [ ] `internal/garden/` - Models exist, service/handlers empty
-- [ ] `internal/reward/` - Models exist, logic empty
-- [ ] `internal/shop/` - Models exist, logic empty
+**✅ Completed (Current implementation):**
+- [x] `internal/garden/` - handler.go (placement endpoints), service.go (list/view/place/remove batch), repository.go (batch operations with CTE)
+- [x] `internal/reward/` - roll.go (tier-based RNG, exp calculation), models.go, penalty.go (SelectPenaltyItem)
+- [x] `internal/economy/` - wallet read, shop buy/sell endpoints, buyback pricing, transaction recording, and balance updates are implemented
+- [x] `internal/inventory/` - bag listing is implemented and used by the garden/shop UI
+
+**⏳ Partial / Needs Work:**
+- [ ] `internal/session/` - Skeleton only, no Redis integration for timer state
 - [ ] `internal/marketplace/` - Models exist, logic empty
-- [ ] `internal/social/` - Models exist, logic empty
-- [ ] `internal/leaderboard/` - Models exist, logic empty
-- [ ] `internal/search/` - Elasticsearch integration
-- [ ] `internal/ai/` - Anthropic integration
+- [ ] `internal/social/` - Models exist (feed.go, friends.go, leaderboard.go), logic empty
+- [ ] `internal/search/` - Elasticsearch integration not started
+- [ ] `internal/ai/` - Anthropic integration not started
+- [ ] `cmd/cronjob/` - Skeleton structure, not implemented (see Section 8)
 - [ ] `pkg/cache/redis.go` - Redis client (not wired)
 - [ ] `pkg/realtime/supabase.go` - Supabase Realtime (not wired)
+- [ ] `pkg/metrics/` - Prometheus integration
+
+**Note:** The current repo uses `internal/economy` for buy/sell logic rather than a separate `internal/shop` package.
 
 ---
 
@@ -271,14 +278,15 @@ wire ./cmd/server
 **Key Operations:**
 
 #### CreateTask
-- **Input:** user_id, title, todos[], duration_min (no penalty_mode from client)
+- **Input:** user_id, title, todos[], registered_duration_min, penalty_mode (boolean: enable/disable per-task penalty)
 - **Logic:**
-  1. Validate todos non-empty
-  2. Create task with status='active', started_at=NOW() (auto-starts immediately)
-  3. penalty_mode captured from user_private at creation (not sent by client)
-  4. Insert into DB (status='active')
-  5. Increment task_daily_quotas (via trigger)
-  6. If quota exceeded → transaction rolls back, return 409 Conflict
+  1. Validate todos non-empty and max 50 items
+  2. Validate title (1-255 chars) and duration_min (25-480 min, cannot exceed 480 at creation)
+  3. Create task with status='active', started_at=NOW() (auto-starts immediately)
+  4. penalty_mode is snapshot from client (stored per-task)
+  5. Insert into DB (status='active')
+  6. Trigger auto-increments task_daily_quotas
+  7. If quota exceeded → transaction rolls back, return 409 Conflict
 - **Output:** task_id, redirect to Focus screen
 - **Note:** Migration 004 automatically sets started_at=NOW() on task creation (timer auto-starts)
 
@@ -303,6 +311,26 @@ wire ./cmd/server
   4. Update DB
 - **Output:** updated task, 200 OK
 - **Note:** Only resumes paused tasks.
+
+#### ResetTask
+- **Input:** task_id
+- **Logic:**
+  1. Fetch task, validate status='active'
+  2. Set started_at = NOW() (reset timer to current time)
+  3. Set actual_duration_sec = 0 (clear accumulated time)
+  4. Keep status='active'
+  5. Update DB
+- **Output:** success message, 200 OK
+- **Note:** Clears elapsed time back to 0. Only works in active state. Timer restarts from 0.
+
+#### ToggleStar
+- **Input:** task_id
+- **Logic:**
+  1. Fetch task, validate user_id ownership
+  2. Toggle is_starred: is_starred = NOT is_starred
+  3. Update DB
+- **Output:** new is_starred value (boolean), 200 OK
+- **Note:** Starred tasks appear at top of task list. Toggle-able anytime (active, paused, or completed).
 
 #### SubmitTask
 - **Input:** task_id
@@ -331,14 +359,14 @@ wire ./cmd/server
 - **Note:** penalty_mode is snapshot at task creation, used at give-up time (not user's current setting)
 
 #### ExtendTask
-- **Input:** task_id, add_minutes (min 1, max 480)
+- **Input:** task_id, add_minutes (min 1, max 120 per extend)
 - **Logic:**
   1. Fetch task, validate status='active' or 'paused'
   2. registered_duration_min += add_minutes
-  3. Validate total registered_duration_min does not exceed 480 minutes
+  3. Validate total registered_duration_min does not exceed 999 minutes
   4. Update DB
 - **Output:** success message
-- **Note:** Each extend must be 1-480 minutes. Total cannot exceed 480 minutes.
+- **Note:** Each extend must be 1-120 minutes. Total cannot exceed 999 minutes.
 
 #### UpdateTodos (Debounced Autosave)
 - **Input:** task_id, todos[]
@@ -384,48 +412,49 @@ wire ./cmd/server
 
 ### 4.2 Reward Service
 
-**Drop Table:**
+**Tier-Based Drop Table (by user level):**
 ```
-Common:     70%  ×1.0 multiplier
-Uncommon:   20%  ×1.0 multiplier
-Rare:        7%  ×1.5 multiplier (higher rarity = higher silver)
-Epic:      2.5%  ×2.0 multiplier
-Legendary: 0.5%  ×2.5 multiplier (capped at ×2.5)
-Eternal:  < 0.5% (reserved for future expansion)
-
-Difficulty multiplier (based on task duration):
-< 30 min:   ×1.0
-30-60 min:  ×1.5
-60-90 min:  ×2.0
-> 90 min:   ×2.5
-
-Final Silver = base(10-50) × difficulty × rarity_multiplier
+Tier 1 (level 1-4):   Common 69.99% | Uncommon 20% | Rare 7% | Epic 2.5% | Legendary 0.5% | Eternal 0.01%
+Tier 2 (level 5-9):   Common 57.99% | Uncommon 22% | Rare 12% | Epic 7.5% | Legendary 0.5% | Eternal 0.01%
+Tier 3 (level 10-14): Common 43.99% | Uncommon 22% | Rare 18% | Epic 15.5% | Legendary 0.5% | Eternal 0.01%
+Tier 4 (level 15-19): Common 27.99% | Uncommon 22% | Rare 22% | Epic 27.5% | Legendary 0.5% | Eternal 0.01%
+Tier 5 (level 20+):   Common 16.49% | Uncommon 20% | Rare 25% | Epic 38% | Legendary 0.5% | Eternal 0.01%
 ```
+
+**Silver Reward by User Level:**
+```
+Level 1-4:   60-120 silver
+Level 5-9:   150-250 silver
+Level 10-14: 280-420 silver
+Level 15-19: 450-650 silver
+Level 20+:   700-1,200 silver
+```
+
+**EXP Per Task (by level):**
+- Level 1: 10 EXP (1 task to level 2)
+- Level 2-3: 20 EXP per task
+- Level 4-7: 35 EXP per task
+- Level 8-11: 55 EXP per task
+- Level 12-16: 75 EXP per task
+- Level 17+: 85 + (level-17)×5 EXP per task
 
 **Key Operations:**
 
 #### RollReward
-- **Input:** task_id, user_id, registered_duration_min
+- **Input:** task_id, user_id, user_level
 - **Logic:**
-  1. Get pity_counter from Redis (`pity:{user_id}`)
-  2. Calculate drop rate:
-     - If pity_counter >= 200 → guaranteed Legendary, reset counter to 0
-     - Else → seeded RNG with seed = `${user_id}:${task_id}:${timestamp}`
-  3. Determine rarity from RNG
-  4. Select random item of that rarity (not sold out)
-  5. Calculate silver earned (base × difficulty × rarity)
-  6. Check rarity:
-     - If Legendary: special animation (confetti), show to user
-     - Else: normal animation
-  7. Create reward_rolls audit record
-  8. Credit user.wallet.silver_balance
-  9. Add to inventory with is_placed=false
-  10. Increment pity counter (or reset if Legendary)
-- **Output:** {item_id, rarity, silver_earned, pity_count}
-
-#### GetPityCounter
-- **Input:** user_id
-- **Output:** current pity counter (0-200)
+  1. Get tier from user_level
+  2. Seeded RNG with seed = `${task_id}:${user_id}:${timestamp_ns}` (HMAC-SHA256 mixing)
+  3. Roll rarity from tier table using weighted distribution (basis points = 10000)
+  4. Attempt to select random item at rolled rarity:
+     - If no item at rarity → fallback to lower rarity (loop: Legendary→Epic→Rare→Uncommon→Common)
+  5. Roll silver amount from level-based range
+  6. Calculate EXP from ExpPerTask(level)
+  7. Create reward_rolls audit record (roll_type='reward')
+  8. Insert item into inventory (status='in_bag')
+  9. Update user_wallets: silver_balance += silver, exp += exp
+  10. Trigger level up if total_exp crosses threshold
+- **Output:** {rolled_rarity, item_rarity, item_id, silver, exp, seed}
 
 ---
 
@@ -434,14 +463,12 @@ Final Silver = base(10-50) × difficulty × rarity_multiplier
 **Apply Penalty Logic:**
 - **Input:** task_id, user_id
 - **Logic:**
-  1. Query garden placements for user (healthy items only)
+  1. Query garden placements for user (all items regardless of health)
   2. If no items → no effect
-  3. Random select 1-3 items (weighted toward lower rarity)
-  4. For each item:
-     - If Legendary → set health_status='wilted', wilted_at=NOW()
-     - Else → delete placement, move inventory.is_placed=false, create removal audit record
+  3. Random select 1 item (weighted toward lower rarity)
+  4. Delete placement, update inventory.status='in_bag', create penalty audit record
   5. Publish realtime event (for UI update)
-- **Output:** removed_items[], wilted_items[]
+- **Output:** removed_item (single item or null if no items)
 
 **Inactive Penalty (cronjob, daily):**
 - **Logic:**
@@ -461,69 +488,63 @@ Final Silver = base(10-50) × difficulty × rarity_multiplier
 
 **Key Operations:**
 
-#### GetGarden
-- **Input:** user_id, garden_index
-- **Output:**
-  ```json
-  {
-    "id": "uuid",
-    "garden_index": 5,
-    "grid_size": 9,
-    "expansion_level": 0,
-    "placements": [
-      {
-        "id": "uuid",
-        "grid_x": 2,
-        "grid_y": 3,
-        "rotation": 0,
-        "health_status": "healthy",
-        "item": {
-          "id": "uuid",
-          "name": "Rose",
-          "asset_key": "flower_rose_red",
-          "rarity": "common"
-        }
-      }
-    ],
-    "empty_slots": 42,
-    "total_slots": 81,
-    "next_level_preview": { ... }
-  }
-  ```
-
-#### PlaceItem
-- **Input:** user_id, garden_index, inventory_id, grid_x, grid_y, rotation=0
-- **Logic:**
-  1. Validate inventory_id belongs to user
-  2. Validate grid position within bounds
-  3. Validate no overlap with existing placement
-  4. Get item dimensions (width, height) from items table
-  5. Validate placement doesn't exceed garden boundaries
-  6. Check inventory.is_placed = false
-  7. Create garden_placement record (trigger sets is_placed=true)
-  8. Check if all slots now filled:
-     - If yes → unlock next level (garden_index+1)
-     - Create feed event: level_up
-- **Output:** placement_id, 201 Created
-
-#### RemovePlacement
-- **Input:** placement_id
-- **Logic:**
-  1. Delete garden_placement (trigger sets is_placed=false)
-- **Output:** 204 No Content
-
-#### RepositionItem
-- **Input:** placement_id, new_grid_x, new_grid_y, new_rotation
-- **Logic:**
-  1. Validate new position available
-  2. Update garden_placement
-- **Output:** updated placement
-
-#### ExpandLevel20
+#### GetUserGardenList
 - **Input:** user_id
 - **Logic:**
-  1. Check user at garden_index=20
-  2. Calculate expansion cost: 1000 × (1.5 ^ expansion_level)
+  1. Query all user_gardens joined with gardens table
+  2. Sort by garden_index ASC
+- **Output:** GardenListItem[] with fields: id, garden_id, garden_index, expansion_level, is_expandable, can_expand
+
+#### GetUserGardenByID
+- **Input:** user_id, user_garden_id
+- **Logic:**
+  1. Validate user_garden_id belongs to user
+  2. Fetch user_garden with garden metadata (grid_size, garden_index, expansion_level, is_expandable)
+  3. Fetch all placements for this garden
+  4. Calculate current_grid_size from base_size + expansion_level × 5
+- **Output:** GardenResponse with placements, grid info, watering status
+
+#### PlaceItem (Single)
+- **Input:** user_id, user_garden_id, inventory_id, grid_x, grid_y, rotation (0/90/180/270)
+- **Logic:**
+  1. Wrapper around PlaceItemsBatch with single item
+  2. Delegates to batch logic
+- **Output:** PlacementResponse with placement details, 201 Created
+- **Errors:** ValidationError (overlap, out of bounds), NotFoundError (garden/inventory)
+
+#### PlaceItemsBatch
+- **Input:** user_id, user_garden_id, items[] (inventory_id, grid_x, grid_y, rotation)
+- **Logic:**
+  1. Start transaction, lock user_garden (FOR UPDATE)
+  2. Get current grid size from base_size + expansion_level
+  3. Fetch inventory items map (O(k))
+  4. Fetch existing placements bounding boxes (O(k))
+  5. For each item in batch (in-memory validation O(k)):
+     a. Check duplicate within request
+     b. Validate inventory exists & not already placed
+     c. Calculate effective dimensions (width, height) based on rotation
+     d. Bounds check: item within grid
+     e. Overlap check: item vs existing + items in batch
+     f. On success: add to createParams, update currentStateBoxes
+     g. On failure: add to results with error reason
+  6. Batch insert placements + update inventory status to 'placed' (pgx.Batch, 1 round-trip)
+  7. Commit transaction
+- **Output:** MultiPlaceResponse with results[] (per-item success/error/placement data), 201 Created
+- **Errors:** NotFoundError (garden), DuplicateError (race condition 23505)
+
+#### RemoveItemsBatch
+- **Input:** user_id, user_garden_id, inventory_ids[]
+- **Logic:**
+  1. Sanitize input: remove duplicate IDs
+  2. Start transaction, lock user_garden (FOR UPDATE)
+  3. Execute CTE query:
+     a. Filter valid_inventory: must belong to user, status != 'on_market'
+     b. Delete garden_placements for valid_inventory
+     c. Update inventory status to 'in_bag'
+     d. Return deleted inventory_ids
+  4. Commit transaction
+- **Output:** MultiRemoveResponse with successful_inventory_ids[], 200 OK
+- **Errors:** NotFoundError (garden)
   3. Validate wallet has enough silver
   4. Debit silver
   5. Increment garden.expansion_level
@@ -550,13 +571,13 @@ Final Silver = base(10-50) × difficulty × rarity_multiplier
 
 ---
 
-### 4.5 Shop Service
+### 4.5 Shop Service (❌ Not Yet Started - Buy/Sell logic)
 
-**Key Operations:**
+**Implemented Read Operations:**
+- `GetShopItems()` - Fetch all purchasable items from items table (is_purchasable=true, silver_price NOT NULL)
+- `GetSellableItems(user_id)` - Fetch user's inventory items that can be sold back
 
-#### GetShopCatalog
-- **Input:** currency_filter='silver|gold|all'
-- **Output:** items[] with prices, availability
+**Key Operations (TODO):**
 
 #### BuyItem
 - **Input:** user_id, item_id, quantity=1
@@ -829,23 +850,26 @@ GET    /api/tasks/:id/notes      Get all notes
 ### 4.2 Garden Management
 
 ```
-GET    /api/gardens/:index              Get garden layout
-POST   /api/gardens/:index/place        Place item on grid
-DELETE /api/gardens/:index/placements/:id Remove placement
-PATCH  /api/gardens/:index/placements/:id Move/rotate item
-POST   /api/gardens/20/expand           Expand level 20 (+5×5, cost in silver)
-GET    /api/gardens/:index/stats        Get garden stats (value, rarity dist)
-GET    /api/gardens/public/:username    Get public garden view (read-only)
+GET    /api/garden/                     Get user's all gardens (list)
+GET    /api/garden/{id}                 Get garden by user_garden_id (detailed view)
+POST   /api/garden/{id}/placements      Place single item on grid
+POST   /api/garden/{id}/placements/batch Place multiple items (batch) on grid
+DELETE /api/garden/{id}/placements      Remove multiple items (batch) from grid
+
+(✓ Implemented | ✗ Planned | ○ Not Yet Started)
 ```
 
-### 4.3 Inventory & Shop
+### 4.3 Inventory & Shop (Economy)
 
 ```
-GET    /api/inventory                   List user inventory (available items)
-GET    /api/inventory/placed            List placed items (optimization?)
-POST   /api/shop/buy                    Buy item from shop (silver/gold)
-POST   /api/shop/sell                   Sell item back to shop
-GET    /api/shop/catalog                Get shop items (filter by currency)
+✅ IMPLEMENTED:
+GET    /api/economy/wallet              Get silver/gold balance
+GET    /api/economy/shop/buy            Get purchasable items (shop catalog)
+GET    /api/economy/shop/sell           Get sellable items from inventory
+
+⏳ TODO:
+POST   /api/economy/shop/buy            Buy item from shop (silver)
+POST   /api/economy/shop/sell           Sell item back to shop
 POST   /api/consumables/watering/buy    Buy watering cans
 POST   /api/consumables/watering/use    Use watering can on placement
 ```
@@ -860,12 +884,12 @@ POST   /api/marketplace/listings/:id/buy Buy legendary
 DELETE /api/marketplace/listings/:id    Cancel listing
 ```
 
-### 4.5 Economy
+### 4.5 Economy (Transactions & Conversion)
 
 ```
-GET    /api/wallet                      Get currency balances
-GET    /api/wallet/transactions         Get transaction history
-POST   /api/wallet/convert              Convert gold to silver (1 gold = 10k silver)
+⏳ TODO:
+GET    /api/economy/transactions        Get transaction history
+POST   /api/economy/convert             Convert gold to silver (1 gold = 10k silver)
 ```
 
 ### 4.6 Social
@@ -950,9 +974,9 @@ Backend translates DB errors to user-friendly messages with original `errcode` i
 
 ---
 
-## 8. Background Jobs (Cronjob Service)
+## 8. Background Jobs (Cronjob Service) — ❌ NOT YET IMPLEMENTED
 
-**Run every 24 hours (midnight UTC):**
+**Planned to run every 24 hours (midnight UTC):**
 1. **Inactive Penalty**
    - Query users WHERE last_login < 7 days ago
    - Wilt 1/4 of their healthy garden items
@@ -966,6 +990,8 @@ Backend translates DB errors to user-friendly messages with original `errcode` i
 3. **Daily Recap Generation** (optional, on-demand)
    - Generate recap for users who log in today
    - Store in daily_recaps table
+
+**Status:** Skeleton structure exists at `cmd/cronjob/main.go` but implementation not started.
 
 ---
 

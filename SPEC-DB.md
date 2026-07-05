@@ -14,11 +14,12 @@
 
 #### `users` (public profile)
 ```sql
-id                  uuid PK
+id                  uuid PK → auth.users(id) [CASCADE delete]
 display_name        varchar(50) NOT NULL CHECK (char_length(trim(display_name)) >= 1)
 bio                 varchar(255)
 avatar_url          text
 active_frame_id     uuid FK → frames(id) [SET NULL on delete]
+level               int DEFAULT 1 CHECK (level > 0)  -- calculated from user_wallets.total_exp
 created_at          timestamptz
 updated_at          timestamptz
 ```
@@ -41,11 +42,12 @@ updated_at          timestamptz
 **Triggers:**
 - `trg_update_user_private_modtime` — auto-update `updated_at`
 
-#### `user_wallets` (currency balances)
+#### `user_wallets` (currency & experience balances)
 ```sql
 user_id             uuid PK → users(id) [CASCADE delete]
 silver_balance      bigint DEFAULT 0 CHECK >= 0
 gold_balance        int DEFAULT 0 CHECK >= 0
+total_exp           int DEFAULT 0 CHECK >= 0  -- cumulative EXP, used to calculate user.level
 updated_at          timestamptz
 ```
 
@@ -53,6 +55,7 @@ updated_at          timestamptz
 - Silver earned only from task completion (cannot buy with real money)
 - Gold earned from IAP only
 - 1 gold = 10,000 silver (one-way conversion)
+- total_exp increases per task submission, level calculated via LevelFromExp(total_exp)
 
 **Triggers:**
 - `trg_update_user_wallets_modtime`
@@ -87,11 +90,12 @@ todos               jsonb NOT NULL DEFAULT []  -- array of {id, text, done, chil
                                                    -- nested structure: max depth 5, max 50 total items
                                                    -- synced via PATCH /api/tasks/:id/todos (debounced)
 penalty_mode        boolean DEFAULT false      -- snapshot of user.penalty_mode at creation
+is_starred          boolean NOT NULL DEFAULT false  -- user can pin task to top of list
 status              text DEFAULT 'active'
                     CHECK (status IN ('active', 'paused', 'submitted', 'given_up'))
-registered_duration_min  int NOT NULL CHECK > 0
+registered_duration_min  int NOT NULL CHECK (BETWEEN 25 AND 999)  -- create: max 480, can extend to 999
 actual_duration_sec int DEFAULT 0 CHECK >= 0
-started_at          timestamptz                -- NULL when paused/submitted
+started_at          timestamptz                -- NULL when paused/submitted/reset
 created_at          timestamptz
 updated_at          timestamptz
 completed_at        timestamptz                -- set when submitted
@@ -111,8 +115,10 @@ deleted_at          timestamptz                -- soft delete, not restored in c
 **Logic Notes:**
 - Task created with status='active' and `started_at` = NOW() (timer auto-starts immediately)
 - When paused, `actual_duration_sec` += (NOW() - started_at), then `started_at` = NULL
+- When reset, `actual_duration_sec` = 0 and `started_at` = NOW() (timer restarts from 0)
 - When submitted/given_up, finalize `actual_duration_sec` and set `completed_at`
 - `penalty_mode` is a per-task snapshot sent by client during task creation (can differ from user's default preference)
+- `is_starred` allows user to pin tasks to top of list in task list view
 - `deleted_at` used for soft delete; restore feature not implemented in current phase
 - **Todo Structure:**
   - Nested array format: `{id, text, done, children: [{id, text, done, children}, ...]}`
@@ -211,13 +217,13 @@ UNIQUE              (user_garden_id, grid_x, grid_y)
 - `inventory_id` UNIQUE globally prevents item placed twice across all gardens
 - `health_status`: 
   - `healthy` (default) — item displays normally, counts toward garden value
-  - `wilted` — item lost luster (from penalty or inactive 7 days), doesn't count toward value
-- `wilted_at` tracks when item was wilted
-- Legendary items can only be wilted (never removed)
-- Common→Epic items removed permanently when penalized
+  - `wilted` — item lost luster (from inactive 7+ days), doesn't count toward value
+- `wilted_at` tracks when item was wilted (only for inactive penalty, not from give-up)
+- Give up task with penalty mode ON deletes placement (inventory moves back to 'in_bag')
+- Inactive penalty (7+ days) wilts items (never deletes)
 
 **Triggers:**
-- `trg_after_garden_placement_change` — syncs `inventory.is_placed` when placement inserted/deleted
+- `trg_after_garden_placement_change` — syncs `inventory.status` when placement inserted/deleted
 - `trg_update_garden_placements_modtime`
 
 ---
@@ -232,40 +238,50 @@ type                varchar(50) NOT NULL
                     CHECK (type IN ('flower', 'structure', 'decoration', 'path'))
 rarity              varchar(50) NOT NULL
                     CHECK (rarity IN ('common', 'uncommon', 'rare', 'epic', 'legendary', 'eternal'))
-asset_key           varchar(255) NOT NULL
+asset_key           varchar(255) NOT NULL UNIQUE
 height              int DEFAULT 1 CHECK > 0
 width               int DEFAULT 1 CHECK > 0
-silver_price        int DEFAULT NULL CHECK > 0  -- shop buy price (silver)
-gold_price          int DEFAULT NULL CHECK > 0  -- reserved for future use
-buyback_silver      int DEFAULT NULL CHECK > 0  -- shop sell-back price (silver)
-buyback_gold        int DEFAULT NULL CHECK > 0  -- reserved for future use
-is_purchasable      boolean DEFAULT true
-can_wilt            boolean DEFAULT false        -- only true for flowers/plants
+silver_price        int DEFAULT NULL CHECK > 0  -- shop buy price (silver, NULL = not purchasable)
+is_purchasable      boolean DEFAULT true        -- controls visibility in shop
+can_wilt            boolean DEFAULT false       -- only true for flowers/plants
 unlock_condition    jsonb DEFAULT NULL
+details             jsonb DEFAULT NULL          -- extra metadata (e.g. color, effect)
 created_at          timestamptz
 ```
 
+**Index:**
+- `idx_items_shop` — (type) WHERE is_purchasable=true AND silver_price NOT NULL
+
+**Implementation note (current code):**
+- `public.items` is created by migration `002_init_cores.sql` and is currently used by the shop, inventory bag, and garden placement flows.
+- The backend reads item catalog rows from `public.items` and joins them with `public.inventory` for buy/sell and placement operations.
+- The current repo does not yet implement a separate marketplace table for P2P trade.
+
 **Logic:**
-- `silver_price` NULL → item not for sale
-- Common→Rare can be purchased by silver
-- Epic cannot be purchased (only obtained as reward)
-- Legendary cannot be purchased (only obtained as reward, traded via marketplace)
-- `buyback_silver` = typically 50% of silver_price
+- `silver_price` NULL → item not for sale (reward only)
+- Common→Rare can be purchased by silver (is_purchasable=true)
+- Epic cannot be purchased (is_purchasable=false, reward only)
+- Legendary cannot be purchased (is_purchasable=false, reward + marketplace P2P)
+- Sellback price: 50% of silver_price (calculated by backend, not stored)
 - `can_wilt` TRUE for flowers/plants, FALSE for structures/decorations
+- `details` stores rarity-specific metadata (colors, animations, etc.)
 
 #### `inventory` (user-owned items)
 ```sql
 id                  uuid PK
 user_id             uuid NOT NULL → users(id) [CASCADE delete]
 item_id             uuid NOT NULL → items(id) [RESTRICT delete]
-is_placed           boolean DEFAULT false      -- optimization for UI filtering
+status              varchar(20) DEFAULT 'in_bag'  -- 'in_bag' | 'placed' | 'on_market'
 acquired_at         timestamptz DEFAULT now()
 ```
 
 **Logic:**
-- `is_placed` is optimized column (prevents SELECT JOIN for filtering)
-- Synced automatically via trigger when `garden_placements` changed
+- `status` tracks item location:
+  - `in_bag` — item in user's inventory (not placed in garden)
+  - `placed` — item currently placed in a garden
+  - `on_market` — item listed on marketplace (Legendary P2P only)
 - User can have multiple copies of same item
+- Synced automatically via trigger when `garden_placements` changed
 
 ---
 
@@ -485,20 +501,20 @@ daily_recaps (
 
 ## 9. Migration Status
 
-### ✅ Migrated
-- `000_utils.sql` — utility functions (fn_set_updated_at)
-- `20260419132646_init_tasks.sql` — tasks table
-- `20260419174325_init_task_notes.sql` — task_notes table
-- `20260419174401_init_quotas.sql` — plan_quotas, task_daily_quotas, fn_enforce_task_quota
-- `20260419191228_init_users.sql` — users, user_private, user_wallets, frames, user_frames
-- `20260420044947_init_items_and_inventory.sql` — items, inventory
-- `20260420113443_init_gardens_and_placements.sql` — gardens, garden_placements
+### ✅ Completed Migrations
+- `001_utils.sql` — utility functions (fn_set_updated_at)
+- `002_init_cores.sql` — items, frames, gardens, plan_quotas lookup tables
+- `003_init_users.sql` — users, user_private, user_wallets tables with triggers
+- `004_init_tasks.sql` — tasks table with state machine and protection triggers
+- `005_init_quotas.sql` — task_daily_quotas table and quota enforcement trigger
+- `006_init_task_notes.sql` — task_notes table (append-only audit trail)
+- `007_init_inventory.sql` — inventory table with item tracking
+- `008_init_gardens_and_placements.sql` — user_gardens and garden_placements tables
+- `009_init_reward_rolls.sql` — reward_rolls table for drop history and pity counter tracking
+- `999_rls.sql` — Row-Level Security policies (status: **not verified** — needs testing)
 
-### ⏳ Planned
-- `add_penalty_mode_to_user_private.sql` — penalty_mode column
-- `init_friendships.sql`
-- `init_marketplace.sql`
-- `init_economy_transactions.sql`
-- `init_reward_rolls.sql`
-- `init_daily_recaps.sql`
-- `init_feed_events.sql`
+### ⏳ Seed Data (Not Yet Implemented)
+- Items catalog (flowers, structures, decorations)
+- Frame cosmetics
+- 20 garden level templates
+- Placeholder user accounts for testing

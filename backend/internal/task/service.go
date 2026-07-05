@@ -20,10 +20,12 @@ type RepositoryInterface interface {
 	UpdateTodos(ctx context.Context, taskID, userID string, req UpdateTodosRequest) error
 	UpdateTitle(ctx context.Context, taskID, userID string, req EditTaskTitleRequest) error
 	Extend(ctx context.Context, taskID, userID string, req ExtendRequest) error
+	ResetTime(ctx context.Context, taskID, userID string) error
 	PauseTask(ctx context.Context, taskID, userID string) (int, error)
 	Submit(ctx context.Context, tx pgx.Tx, taskID, userID string, todos []TodoItem) error
 	GiveUp(ctx context.Context, tx pgx.Tx, taskID, userID string) error
 	ResumeTask(ctx context.Context, taskID, userID string) error
+	ToggleStar(ctx context.Context, taskID, userID string) (bool, error)
 	CreateNote(ctx context.Context, taskID, userID string, req CreateTaskNoteRequest) (*TaskNote, error)
 	GetNotes(ctx context.Context, taskID, userID string) ([]*TaskNote, error)
 	UpdateNote(ctx context.Context, noteID, userID, taskID string, req UpdateTaskNoteRequest) (*TaskNote, error)
@@ -31,19 +33,25 @@ type RepositoryInterface interface {
 	GetQuotaToday(ctx context.Context, userID string) (used, limit int, err error)
 }
 
-type Service struct {
-	db       *pgxpool.Pool
-	repo     RepositoryInterface
-	rewarder *reward.Rewarder
-	log      *logger.Logger
+type EconomyAuditor interface {
+	LogTransaction(ctx context.Context, tx pgx.Tx, userID string, silverChange, goldChange int, actionType, referenceID, desc string) error
 }
 
-func NewService(db *pgxpool.Pool, repo RepositoryInterface, rewarder *reward.Rewarder, log *logger.Logger) *Service {
+type Service struct {
+	db             *pgxpool.Pool
+	repo           RepositoryInterface
+	rewarder       *reward.Rewarder
+	economyAuditor EconomyAuditor
+	log            *logger.Logger
+}
+
+func NewService(db *pgxpool.Pool, repo RepositoryInterface, rewarder *reward.Rewarder, economyAuditor EconomyAuditor, log *logger.Logger) *Service {
 	return &Service{
-		db:       db,
-		repo:     repo,
-		rewarder: rewarder,
-		log:      log,
+		db:             db,
+		repo:           repo,
+		rewarder:       rewarder,
+		economyAuditor: economyAuditor,
+		log:            log,
 	}
 }
 
@@ -130,13 +138,27 @@ func (s *Service) ExtendTask(ctx context.Context, taskID, userID string, req Ext
 		return &apperr.InvalidStateError{Current: string(task.Status), Expected: "active|paused"}
 	}
 
-	// Check total registered duration does not exceed 480 minutes
-	if task.RegisteredDurationMin+req.AddMinutes > 480 {
-		return &apperr.ValidationError{Message: "Total registered duration cannot exceed 480 minutes"}
+	// Check total registered duration does not exceed 999 minutes
+	if task.RegisteredDurationMin+req.AddMinutes > 999 {
+		return &apperr.ValidationError{Message: "Total registered duration cannot exceed 999 minutes"}
 	}
 
 	s.log.Info("ExtendTask", "user_id", userID, "task_id", taskID)
 	return s.repo.Extend(ctx, taskID, userID, req)
+}
+
+func (s *Service) ResetTask(ctx context.Context, taskID, userID string) error {
+	task, err := s.repo.GetByID(ctx, taskID, userID)
+	if err != nil {
+		return err
+	}
+
+	if task.Status != TaskStatusActive {
+		return &apperr.InvalidStateError{Current: string(task.Status), Expected: string(TaskStatusActive)}
+	}
+
+	s.log.Info("ResetTask", "user_id", userID, "task_id", taskID)
+	return s.repo.ResetTime(ctx, taskID, userID)
 }
 
 func (s *Service) PauseTask(ctx context.Context, taskID, userID string) error {
@@ -157,7 +179,7 @@ func (s *Service) PauseTask(ctx context.Context, taskID, userID string) error {
 	return err
 }
 
-// DONE: Use Tx to mark all todos as done
+// TODO: IMPORTANT: Add repo economy transaction audit web submit task
 func (s *Service) SubmitTask(ctx context.Context, taskID, userID string) (*SubmitResult, error) {
 	// 1. Validate state trước khi mở tx
 	task, err := s.repo.GetByID(ctx, taskID, userID)
@@ -193,6 +215,11 @@ func (s *Service) SubmitTask(ctx context.Context, taskID, userID string) (*Submi
 	reward, err := s.rewarder.Grant(ctx, tx, userID, taskID, level)
 	if err != nil {
 		return nil, err
+	}
+
+	// 5. Record transaction (economy audit)
+	if err := s.economyAuditor.LogTransaction(ctx, tx, userID, reward.Silver, 0, "task_reward", taskID, "Reward from task submission"); err != nil {
+		return nil, fmt.Errorf("SubmitTask record transaction: %w", err)
 	}
 
 	if err := tx.Commit(ctx); err != nil {
@@ -255,6 +282,17 @@ func (s *Service) ResumeTask(ctx context.Context, taskID, userID string) error {
 	}
 
 	return s.repo.ResumeTask(ctx, taskID, userID)
+}
+
+func (s *Service) ToggleStar(ctx context.Context, taskID, userID string) (bool, error) {
+	// Verify task exists
+	_, err := s.repo.GetByID(ctx, taskID, userID)
+	if err != nil {
+		return false, err
+	}
+
+	s.log.Info("ToggleStar", "user_id", userID, "task_id", taskID)
+	return s.repo.ToggleStar(ctx, taskID, userID)
 }
 
 func (s *Service) CreateNote(ctx context.Context, taskID, userID string, req CreateTaskNoteRequest) (*TaskNote, error) {

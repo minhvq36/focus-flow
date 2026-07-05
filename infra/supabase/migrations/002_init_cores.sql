@@ -26,9 +26,6 @@ create table if not exists public.items (
     height int default 1 check (height > 0),
     width int default 1 check (width > 0),
     silver_price int DEFAULT NULL CHECK (silver_price > 0),
-    gold_price int DEFAULT NULL CHECK (gold_price > 0),
-    buyback_silver int DEFAULT NULL CHECK (buyback_silver > 0),
-    buyback_gold int DEFAULT NULL CHECK (buyback_gold > 0),
     is_purchasable boolean default true, -- for app shop selling
     can_wilt boolean default false,
     unlock_condition jsonb default null,
@@ -37,6 +34,7 @@ create table if not exists public.items (
 );
 
 create unique index if not exists items_asset_key_idx on public.items(asset_key);
+CREATE INDEX idx_items_shop ON public.items(type) WHERE is_purchasable = true AND silver_price IS NOT NULL;
 
 create table if not exists public.gardens (
     id uuid primary key default gen_random_uuid(),
@@ -48,6 +46,24 @@ create table if not exists public.gardens (
     created_at timestamptz default now()
 );
 
+-- 1. TẠO BUCKET 'assets' (Read-only, Admin upload bằng tay)
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('assets', 'assets', true)
+ON CONFLICT (id) DO NOTHING;
+
+-- 2. TẠO BUCKET 'users' (Giới hạn 5MB, chỉ cho phép ảnh)
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+  'users', 
+  'users', 
+  true, 
+  5242880, -- Giới hạn 5MB (5 * 1024 * 1024)
+  ARRAY['image/webp', 'image/jpeg', 'image/png']::text[] -- Tầng 1: Chặn file rác (.exe, .php)
+)
+ON CONFLICT (id) DO UPDATE SET
+  file_size_limit = EXCLUDED.file_size_limit,
+  allowed_mime_types = EXCLUDED.allowed_mime_types;
+
 -- TODO/IMPORTANT: Add Seed data for frames, items, gardens app
 insert into public.plan_quotas (plan_type, daily_task_limit)
 values 
@@ -57,5 +73,12 @@ values
 on conflict (plan_type) do update set daily_task_limit = excluded.daily_task_limit;
 
 insert into public.gardens (id, garden_index, grid_size, is_expandable)
-values ('00000000-0000-0000-0000-000000000001', 1, 5, false)
+values
+    ('00000000-0000-0000-0000-000000000001', 1, 5, false),
+    ('00000000-0000-0000-0000-000000000002', 2, 7, false),
+    ('00000000-0000-0000-0000-000000000003', 3, 9, false),
+    ('00000000-0000-0000-0000-000000000004', 4, 11, false),
+    ('00000000-0000-0000-0000-000000000005', 5, 15, false),
+    ('00000000-0000-0000-0000-000000000006', 6, 20, false),
+    ('00000000-0000-0000-0000-000000000007', 7, 25, true)
 on conflict do nothing;

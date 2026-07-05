@@ -162,3 +162,55 @@ alter table public.reward_rolls enable row level security;
 create policy "allow_read_for_owner" on public.reward_rolls
     for select to authenticated
     using ( (select auth.uid()) = user_id );
+
+alter table public.economy_transactions enable row level security;
+create policy "allow_read_for_owner" on public.economy_transactions
+    for select to authenticated
+    using ( (select auth.uid()) = user_id );
+
+
+-- 4. POLICIES CHO BUCKET 'users'
+CREATE POLICY "Users can view their own files"
+ON storage.objects FOR SELECT 
+TO authenticated
+USING (
+  bucket_id = 'users' AND
+  (regexp_split_to_array(name, '/'))[1] = auth.uid()::text
+);
+
+-- (QUAN TRỌNG NHẤT) CHỈ CHO PHÉP UPLOAD ĐÚNG 2 FILE DUY NHẤT: avatar.webp hoặc wallpaper.webp
+CREATE POLICY "Users can upload exactly 2 predefined files"
+ON storage.objects FOR INSERT 
+TO authenticated
+WITH CHECK (
+  bucket_id = 'users' AND
+  (
+    -- Ép chính xác đường dẫn file phải là: "id-của-tôi/avatar.webp" hoặc "id-của-tôi/wallpaper.webp"
+    name = (auth.uid()::text || '/avatar.webp') OR
+    name = (auth.uid()::text || '/wallpaper.webp')
+  )
+);
+
+-- Tương tự cho UPDATE (Khi người dùng thay đổi ảnh cũ)
+CREATE POLICY "Users can update exactly 2 predefined files"
+ON storage.objects FOR UPDATE 
+TO authenticated
+USING (
+  bucket_id = 'users' AND
+  (
+    name = (auth.uid()::text || '/avatar.webp') OR
+    name = (auth.uid()::text || '/wallpaper.webp')
+  )
+);
+
+-- Tương tự cho DELETE (Nếu người dùng muốn xóa ảnh đi để dùng avatar mặc định)
+CREATE POLICY "Users can delete exactly 2 predefined files"
+ON storage.objects FOR DELETE 
+TO authenticated
+USING (
+  bucket_id = 'users' AND
+  (
+    name = (auth.uid()::text || '/avatar.webp') OR
+    name = (auth.uid()::text || '/wallpaper.webp')
+  )
+);

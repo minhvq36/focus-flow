@@ -8,11 +8,16 @@ import (
 	chiMiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/minhvq36/focus-flow/backend/internal/auth"
+	"github.com/minhvq36/focus-flow/backend/internal/economy"
+	"github.com/minhvq36/focus-flow/backend/internal/garden"
+	"github.com/minhvq36/focus-flow/backend/internal/inventory"
+	"github.com/minhvq36/focus-flow/backend/internal/profile"
 	"github.com/minhvq36/focus-flow/backend/internal/task"
 	"github.com/minhvq36/focus-flow/backend/pkg/logger"
+	"github.com/minhvq36/focus-flow/backend/pkg/profanity"
 )
 
-func setupRoutes(jwks keyfunc.Keyfunc, db *pgxpool.Pool, log *logger.Logger) *chi.Mux {
+func setupRoutes(jwks keyfunc.Keyfunc, db *pgxpool.Pool, log *logger.Logger, pf *profanity.Filter) *chi.Mux {
 	r := chi.NewRouter()
 
 	r.Use(chiMiddleware.Logger)
@@ -21,9 +26,17 @@ func setupRoutes(jwks keyfunc.Keyfunc, db *pgxpool.Pool, log *logger.Logger) *ch
 
 	r.Get("/health", healthHandler)
 
+	economyRepo := economy.NewRepository(db, log)
+	economyAuditor := economy.NewAuditor(economyRepo, log)
+	currencySvc := economy.NewCurrencyService(economyRepo, economyAuditor, log)
+
 	r.Group(func(r chi.Router) {
 		r.Use(auth.RequireAuth(jwks))
-		r.Route("/api/tasks", task.Routes(db, log))
+		r.Route("/api/tasks", task.Routes(db, log, economyAuditor))
+		r.Route("/api/profile", profile.Routes(db, log, currencySvc, pf))
+		r.Route("/api/garden", garden.Routes(db, log))
+		r.Route("/api/inventory", inventory.Routes(db, log))
+		r.Route("/api/economy", economy.Routes(db, log))
 	})
 
 	return r

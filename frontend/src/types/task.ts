@@ -16,6 +16,7 @@ export interface Task {
   penalty_mode: boolean
   registered_duration_min: number
   actual_duration_sec: number
+  is_starred: boolean
   started_at: string | null
   created_at: string
   updated_at: string
@@ -29,6 +30,7 @@ export interface TaskSummary {
   penalty_mode: boolean
   registered_duration_min: number
   actual_duration_sec: number
+  is_starred: boolean
   started_at: string | null
   created_at: string
   completed_at: string | null

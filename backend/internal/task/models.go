@@ -34,6 +34,7 @@ type Task struct {
 	Status                TaskStatus `json:"status"`
 	RegisteredDurationMin int        `json:"registered_duration_min"`
 	ActualDurationSec     int        `json:"actual_duration_sec"`
+	IsStarred             bool       `json:"is_starred"`
 	StartedAt             *time.Time `json:"started_at"` // NULL = paused, submitted, or given up
 	CreatedAt             time.Time  `json:"created_at"`
 	UpdatedAt             time.Time  `json:"updated_at"`
@@ -131,6 +132,7 @@ type TaskSummary struct {
 	PenaltyMode           bool       `json:"penalty_mode"`
 	RegisteredDurationMin int        `json:"registered_duration_min"`
 	ActualDurationSec     int        `json:"actual_duration_sec"`
+	IsStarred             bool       `json:"is_starred"`
 	StartedAt             *time.Time `json:"started_at"`
 	CreatedAt             time.Time  `json:"created_at"`
 	CompletedAt           *time.Time `json:"completed_at"`
@@ -169,7 +171,7 @@ type UpdateTodosRequest struct {
 
 // ExtendRequest — Sent from FE when extending time
 type ExtendRequest struct {
-	AddMinutes int `json:"add_minutes" validate:"required,min=1,max=480"`
+	AddMinutes int `json:"add_minutes" validate:"required,min=1,max=120"`
 }
 
 type EditTaskTitleRequest struct {

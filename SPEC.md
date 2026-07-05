@@ -26,9 +26,9 @@ FocusFlow là công cụ **hành động**, không phải quản lý dự án. M
 Vườn hoa là bản đồ nỗ lực của người dùng. Mỗi hoa, cổng, đường đi trong vườn là kết quả của công việc thực sự. Vườn không thể mua hoàn toàn bằng tiền — phần lớn phải earn qua task.
 
 ### 2.3 Reward/Penalty System (optional penalty)
-- **Thưởng:** Hoàn thành task → nhận hoa (random) + bạc.
-- **Phạt (optional, user chọn bật/tắt per-task):** Give up task → hoa trong vườn bị ảnh hưởng.
-- Penalty mode được chọn lúc tạo task. User có thể enable/disable nó cho từng task riêng lẻ. Khi tắt, give up task chỉ mất lượt task trong ngày, không ảnh hưởng vườn.
+- **Thưởng:** Hoàn thành task → nhận hoa (random) + bạc + EXP (nâng level).
+- **Phạt (optional, user chọn bật/tắt per-task):** Give up task → hoa trong vườn bị ảnh hưởng (héo hoặc mất).
+- Penalty mode được chọn lúc tạo task. User có thể enable/disable nó cho từng task riêng lẻ. Khi tắt, give up task chỉ mất lượt task trong ngày, không ảnh hưởng vườn. Khi bật, give up task sẽ trigger penalty flow — random 1 item trong vườn bị héo (Legendary/Eternal) hoặc bị mất (Common-Epic).
 
 ---
 
@@ -42,7 +42,7 @@ User fill form trước khi bắt đầu:
 |---|---|
 | **Tiêu đề** | Tên task |
 | **Todo List** | Danh sách checkbox, hỗ trợ indent (checkbox con). Tối thiểu 1 item |
-| **Thời lượng** | Chọn trước: 25 / 30 / 45 / 60 / 90 / 120 phút (hoặc custom, minimum 25 phút, maximum 480 phút) |
+| **Thời lượng** | Chọn trước: 25 / 30 / 45 / 60 / 90 / 120 phút (hoặc custom, minimum 25 phút, maximum 480 phút). Có thể extend lên 999 phút tổng cộng |  
 | **Penalty Mode** | Toggle: ON/OFF — snapshot của setting này được lưu per-task |
 
 Sau khi fill xong → bấm **"Create Task"** → task được tạo và đồng hồ tự động bắt đầu → vào màn hình Focus. Ghi chú được thêm/sửa/xóa trong Focus screen (CRUD).
@@ -53,7 +53,7 @@ Màn hình cực tối giản, không có gì gây distraction:
 
 ```
 ┌─────────────────────────────────────┐
-│  [Tên task]                          │
+│  [Tên task]  [⭐]                    │
 │                                      │
 │         ⏱  0:00 → 45:00             │  ← Đồng hồ đếm tiến từ 0, có thanh progress
 │                                      │
@@ -63,8 +63,7 @@ Màn hình cực tối giản, không có gì gây distraction:
 │  [ ] Todo item 3                     │
 │  [+ Add todo]  [🗑 xóa todo đang chọn]│  ← Thêm/xóa todo (min 1 item)
 │                                      │
-│  � Notes:                           │  ← Append-only audit trail (scrollable)
-│  📝 Notes:                           │
+│  📝 Notes:                           │  ← Append-only audit trail (scrollable)
 │  ┌──────────────────────────────────┐│
 │  │ 14:32 Research logic...  [✏️] [🗑] ││
 │  │ 15:15 Race condition bug [✏️] [🗑] ││
@@ -72,6 +71,7 @@ Màn hình cực tối giản, không có gì gây distraction:
 │  └──────────────────────────────────┘│
 │                                      │
 │  [⏸ Pause/Resume]  [⏩ +15 min]     │
+│  [🔄 Reset]                          │
 │                                      │
 │  [✅ Submit]  [🏳 Give Up]           │
 └─────────────────────────────────────┘
@@ -81,7 +81,9 @@ Màn hình cực tối giản, không có gì gây distraction:
 
 - **Pause:** Dừng đồng hồ (task vẫn `active`), user có thể tiếp tục sau. Dữ liệu được lưu tự động.
 - **Resume:** Tiếp tục từ trạng thái paused, đồng hồ chạy lại.
-- **+15 min (Extend):** Thêm 15 phút vào thời lượng còn lại. Không giới hạn số lần extend.
+- **+15 min (Extend):** Thêm 15 phút vào thời lượng còn lại. Total không vượt quá 999 phút.
+- **Reset:** Reset timer về 0. Chỉ khả dụng khi task ở trạng thái `active`. Set `started_at = NOW()` và `actual_duration_sec = 0`.
+- **Star:** Ghim task lên đầu danh sách. Toggle giữa starred/unstarred. Starred tasks hiển thị trước những task không starred.
 - **Submit Task:** Gửi task để hoàn thành. Có thể submit từ trạng thái active hoặc paused. Tất cả todos sẽ được đánh dấu hoàn thành tự động. Submit thành công → trigger reward flow.
 - **Give Up:** Confirm dialog "Bạn chắc chắn muốn bỏ task này?" → Xác nhận → task về trạng thái `given_up` → trigger penalty flow (nếu penalty mode ON).
 
@@ -124,9 +126,10 @@ active (created & running timer) ──┬─→ paused → active (resume)
 | **Create/Start** | = NOW() | = 0 | Task chuyển active, bắt đầu đếm |
 | **Pause** | = NULL | += delta (NOW() - started_at) | Tạm dừng đồng hồ, task vẫn active |
 | **Resume** | = NOW() | không đổi | Tiếp tục từ lúc dừng |
+| **Reset** | = NOW() | = 0 | Reset timer về 0, task vẫn active |
 | **Submit** | = NULL | += delta (nếu started_at còn) | Lưu lại thời gian cuối, task → submitted |
 | **Given Up** | = NULL | không đổi | Không tính thời gian cuối, task → given_up |
-| **Extend +N min** | không đổi | không đổi | Tăng `registered_duration_min += N` |
+| **Extend +N min** | không đổi | không đổi | Tăng `registered_duration_min += N`, total ≤ 999 |
 
 **Recovery (tab close / mất mạng):**
 - Frontend query lại task: nếu `status = active` + `started_at` còn → tự tính `actual_duration_sec + (NOW() - started_at)` và đếm tiếp. Không cần DB update.
@@ -180,12 +183,15 @@ Grid size tại level 20: (25 + 5*expansion_level) × (25 + 5*expansion_level)
 | Uncommon | Xanh dương | ✓ | ✓ | Mất item |
 | Rare | Tím | ✓ (thấp) | ✓ | Mất item |
 | Epic | Cam | ✓ (rất thấp) | ✗ (không bán) | Mất item |
-| **Legendary** | Vàng ✨ | ✓ (jackpot) | ✗ | **Chỉ héo, không mất** |
+| **Legendary** | Vàng ✨ | ✓ (jackpot) | ✗ | Mất item |
+| **Eternal** | Đỏ ✨ | ✓ (cực hiếm) | ✗ | Mất item |
 
 **Trạng thái item:**
 - `healthy` → item đang hiển thị đẹp, tính đủ điểm vườn.
-- `wilted` → item héo/hư (do penalty hoặc inactive 7 ngày), vẫn chiếm ô nhưng xỉn màu, **không tính vào garden value**. Dùng **nước tưới** để hồi phục.
-- `gone` → item bị xóa khỏi vườn (chỉ xảy ra với Common→Epic khi penalty, hoặc user tự xóa).
+- `wilted` → item héo/hư (do inactive 7+ ngày), vẫn chiếm ô nhưng xỉn màu, **không tính vào garden value**. Dùng **nước tưới** để hồi phục.
+- `gone` → item bị xóa khỏi vườn (chỉ xảy ra khi user tự xóa hoặc give up task bị penalty).
+
+> **Chú ý:** Give up task (penalty mode ON) chỉ mất 1 item (không héo), không có tác động đến Legendary/Eternal như cơ chế inactive.
 
 > **Legendary bất tử:** Khi bị penalty, legendary chỉ chuyển sang `wilted`. Không bao giờ bị `gone`. Dùng 1 nước tưới để recover.
 
@@ -195,20 +201,34 @@ Grid size tại level 20: (25 + 5*expansion_level) × (25 + 5*expansion_level)
 Task submitted
     │
     ▼
-Roll reward:
-  - Bạc: dựa trên garden level hiện tại (xem bảng dưới)
-  - Hoa drop: 70% Common, 20% Uncommon, 7% Rare, 2.5% Epic, 0.5% Legendary
+Roll reward (dựa trên user experience level):
+  - Roll rarity theo tier table (phân cấp theo user level)
+  - Roll bạc dựa trên user level
+  - Roll EXP dựa trên user level
     │
     ▼
-Reward animation (confetti nếu Legendary 🎉)
+Grant item vào inventory, update wallet + EXP
+    │
+    ▼
+Reward animation (confetti nếu Legendary hoặc Eternal 🎉)
     │
     ▼
 User chọn: đặt item vào vườn ngay / lưu vào inventory
 ```
 
-**Silver Reward by Garden Level:**
+**Tier-Based Drop Rates (by user level):**
 
-| Garden Level | Silver Reward Range |
+| User Level | Common | Uncommon | Rare | Epic | Legendary | Eternal |
+|---|---|---|---|---|---|---|
+| 1–4 | 69.99% | 20% | 7% | 2.5% | 0.5% | 0.01% |
+| 5–9 | 57.99% | 22% | 12% | 7.5% | 0.5% | 0.01% |
+| 10–14 | 43.99% | 22% | 18% | 15.5% | 0.5% | 0.01% |
+| 15–19 | 27.99% | 22% | 22% | 27.5% | 0.5% | 0.01% |
+| 20+ | 16.49% | 20% | 25% | 38% | 0.5% | 0.01% |
+
+**Silver Reward by User Level:**
+
+| User Level | Silver Reward Range |
 |---|---|
 | 1–4 | 60–120 |
 | 5–9 | 150–250 |
@@ -216,16 +236,13 @@ User chọn: đặt item vào vườn ngay / lưu vào inventory
 | 15–19 | 450–650 |
 | 20+ | 700–1,200 |
 
-**Difficulty multiplier (optional)** dựa trên thời lượng task:
-```
-< 30 phút:  ×1.0
-30–60 phút: ×1.5
-60–90 phút: ×2.0
-> 90 phút:  ×2.5
-```
-Nhập: silver reward được nhân thêm (hoặc thay thế) nếu task duration dài hơn.
-
-**Pity system:** Sau 200 task liên tiếp không có legendary drop → lần submit kế tiếp guaranteed legendary. Counter reset sau khi drop.
+**EXP Per Task (by user level):**
+- Level 1: 10 EXP (1 task to reach level 2)
+- Level 2–3: 20 EXP per task
+- Level 4–7: 35 EXP per task
+- Level 8–11: 55 EXP per task
+- Level 12–16: 75 EXP per task
+- Level 17+: 85 + (level−17)×5 EXP per task
 
 ### 4.4 Penalty Flow (Give Up Task — Penalty Mode ON)
 
@@ -233,15 +250,14 @@ Nhập: silver reward được nhân thêm (hoặc thay thế) nếu task durati
 Give Up confirmed
     │
     ▼
-Random chọn 1–3 item trong vườn (ưu tiên item rarity thấp nhất):
-  - Common/Uncommon/Rare/Epic → item bị removed (gone)
-  - Legendary → item bị wilted
+Random select 1 item từ vườn (ưu tiên item rarity thấp nhất):
+  - All rarities (Common-Eternal) → item bị removed (gone)
     │
     ▼
-Animation: hoa héo/biến mất với hiệu ứng
+Animation: hoa biến mất với hiệu ứng
     │
     ▼
-Thông báo: "Bạn đã bỏ [Task name]. [Tên item] trong vườn đã [héo/mất]."
+Thông báo: "Bạn đã bỏ [Task name]. [Tên item] trong vườn đã mất."
 ```
 
 > Nếu vườn chưa có item nào → penalty không có effect.
@@ -251,7 +267,7 @@ Thông báo: "Bạn đã bỏ [Task name]. [Tên item] trong vườn đã [héo/
 Server-side cronjob chạy hàng ngày:
 - Nếu user không login ≥ 7 ngày → random **héo 1/4 số item đang `healthy`** (làm tròn lên).
 - Chỉ chuyển sang `wilted`, không xóa item.
-- Legendary cũng bị ảnh hưởng (wilted, không gone).
+- Legendary cũng bị ảnh hưởng (wilted, không gone). // TODO: Check bỏ trạng thái gone, là xóa thẳng tay db luôn đó
 - Khi user login lại → hiện notification "Bạn vắng mặt 7 ngày, [N] cây đã héo. Hãy tưới vườn!"
 
 ---
@@ -844,13 +860,18 @@ GET    /api/tasks/quota/today    → { used, limit }
 
 ### Garden
 ```
-GET    /api/garden               ← vườn user hiện tại
-GET    /api/garden/@:username    ← public view
-POST   /api/garden/place         { inventory_id, grid_x, grid_y }
-DELETE /api/garden/place/:id
-PATCH  /api/garden/place/:id     { grid_x, grid_y }
-POST   /api/garden/water/:id     ← dùng nước tưới (tốn 1 lọ)
-POST   /api/garden/expand        ← level 20, tốn bạc theo công thức
+GET    /api/garden/                    ✓ Get user's all gardens (list with meta)
+GET    /api/garden/{id}                ✓ Get garden by user_garden_id (detailed + placements)
+POST   /api/garden/{id}/placements     ✓ Place single item
+POST   /api/garden/{id}/placements/batch ✓ Place multiple items (batch)
+DELETE /api/garden/{id}/placements     ✓ Remove multiple items (batch)
+
+PLANNED (Not yet implemented):
+GET    /api/garden/@:username          Public view
+PATCH  /api/garden/{id}/placements/:id Move/rotate item
+POST   /api/garden/{id}/water/:id      Use watering can
+POST   /api/garden/20/expand           Expand level 20 (+5×5, cost in silver)
+GET    /api/garden/{id}/stats          Get garden value, rarity distribution
 ```
 
 ### Inventory

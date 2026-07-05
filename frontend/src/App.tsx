@@ -2,17 +2,21 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import Login from './pages/login'
 import ProtectedRoute from './components/auth/protected-route'
-import AppLayout from './components/layout/app-layout'
+import TaskLayout from './components/layout/task-layout'
 import AuthLayout from './components/layout/auth-layout'
+import AppLayout from './components/layout/app-layout'
 import Garden from './pages/garden'
 import Tasks from './pages/tasks'
 import Focus from './pages/focus'
+// Import thêm trang Profile của chúng ta
+import MePage from './pages/profile' 
+
 import { Toaster } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
 
 const queryClient = new QueryClient()
-function App() {
 
+function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
@@ -21,19 +25,25 @@ function App() {
             <Route element={<AuthLayout />}>
               <Route path="/login" element={<Login />} />
             </Route>
+
             <Route element={<ProtectedRoute />}>
-              <Route element={<AppLayout />}>
-                {/* TODO: Set Routes */}
+              
+              <Route element={<TaskLayout />}>
                 <Route path="/" element={<Navigate to="/garden" replace />} />
-                <Route path="/garden" element={<Garden />} />
                 <Route path="/tasks" element={<Tasks />} />
               </Route>
-              {/* Focus DONOT have sidebar/header — full screen */}
+
+              {/* Thêm Route /me vào AppLayout */}
+              <Route element={<AppLayout />}>
+                <Route path="/garden" element={<Garden />} />
+                <Route path="/profile/me" element={<MePage />} /> {/* <--- THÊM DÒNG NÀY */}
+              </Route>
+              
               <Route path="/focus/:taskId" element={<Focus />} />
             </Route>
           </Routes>
 
-          <Toaster richColors/>
+          <Toaster richColors />
         </TooltipProvider>
       </BrowserRouter>
     </QueryClientProvider>

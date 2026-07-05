@@ -1,15 +1,18 @@
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, Link } from 'react-router-dom'
 import { useEffect, useState, useRef } from 'react'
-import { useTaskDetail } from '@/pages/tasks/hooks/use-task-detail'
+import { useTranslation } from 'react-i18next'
+import { useLanguage } from '@/hooks/use-language'
+import { useTaskDetail } from '@/pages/focus/hooks/use-task-detail'
 import { EditableTitle } from './components/editable-title'
 import { TimerRing } from './components/timer-ring'
 import { ExtendTime } from './components/extend-time'
 import { TodosPanel } from './components/todos-panel'
 import { NotesBar } from './components/notes-bar'
 import { ActionBar } from './components/action-bar'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Star } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { TodoItem } from '@/types/task'
+import { cn } from '@/lib/utils'
 
 import { toast } from "sonner"
 import {
@@ -30,16 +33,17 @@ function calcElapsed(actualDurationSec: number, startedAt: string | null): numbe
 }
 
 const STATUS_CONFIG = {
-  active:   { label: 'Active',    color: 'text-emerald-600' },
-  paused:   { label: 'Paused',    color: 'text-amber-600'   },
-  submitted:{ label: 'Submitted', color: 'text-primary'     },
-  given_up: { label: 'Given up',  color: 'text-red-500'     },
+  active:   { label: 'active',    color: 'text-emerald-600' },
+  paused:   { label: 'paused',    color: 'text-amber-600'   },
+  submitted:{ label: 'submitted', color: 'text-primary'     },
+  given_up: { label: 'given_up',  color: 'text-red-500'     },
 } as const
 
 export default function FocusPage() {
   const { taskId } = useParams<{ taskId: string }>()
-  const navigate = useNavigate()
-  const { task, isLoading, isFetching, pause, resume, submit, giveUp, updateTodos, updateTitle, extend } =
+  const { t } = useTranslation('focus')
+  const { currentLang } = useLanguage()
+  const { task, isLoading, isFetching, pause, resume, submit, giveUp, updateTodos, updateTitle, extend, reset, toggleStar, isTogglingStar } =
     useTaskDetail(taskId!)
 
   const [elapsed, setElapsed] = useState(0)
@@ -47,15 +51,8 @@ export default function FocusPage() {
 
   const [showGiveUpConfirm, setShowGiveUpConfirm] = useState(false)
   const [isActioning, setIsActioning] = useState(false)
-
-  // ── Timer seed ────────────────────────────────────────────────────────────
-  // Chỉ theo dõi 2 primitive values từ server thay vì dùng seededRef.
-  // Mỗi khi pause/resume/extend làm actual_duration_sec hoặc started_at thay đổi,
-  // effect này tự snap lại elapsed đúng với DB — không cần ref phức tạp.
-  useEffect(() => {
-    if (!task) return
-    setElapsed(calcElapsed(task.actual_duration_sec, task.started_at))
-  }, [task?.actual_duration_sec, task?.started_at])
+  
+  const isResettingRef = useRef(false)
 
   // ── Timer interval ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -64,7 +61,14 @@ export default function FocusPage() {
       intervalRef.current = null
     }
 
-    if (!task || task.status !== 'active' || !task.started_at) return
+    if (!task) return
+
+    if (task.status !== 'active' || !task.started_at) {
+      if (!isResettingRef.current) {
+        setElapsed(calcElapsed(task.actual_duration_sec, task.started_at))
+      }
+      return
+    }
 
     const startTimeMs = new Date(task.started_at).getTime()
     const baseDurationSec = task.actual_duration_sec
@@ -74,6 +78,7 @@ export default function FocusPage() {
       setElapsed(baseDurationSec + Math.max(0, deltaSec))
     }
 
+    isResettingRef.current = false
     updateTimer()
     intervalRef.current = setInterval(updateTimer, 1000)
 
@@ -155,8 +160,8 @@ export default function FocusPage() {
     if (task?.status === 'active') {
       const isAllDone = todos.every((todo) => todo.done)
       if (!isAllDone) {
-        toast("Task is not yet complete", {
-          description: "Please complete all todos before submitting.",
+        toast(t('toast.task_incomplete_title'), {
+          description: t('toast.task_incomplete_desc'),
           style: {
             border: "1px solid #3b82f6",
             color: "#1e3a8a",
@@ -186,16 +191,47 @@ export default function FocusPage() {
     })
   }
 
+  async function handleReset() {
+    await withAction(async () => {
+      isResettingRef.current = true
+
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current)
+        intervalRef.current = null
+      }
+
+      setElapsed(0)
+      try {
+        await reset()
+        // KHÔNG finally clear flag ở đây
+      } catch {
+        // Chỉ clear khi fail — rollback hoàn toàn
+        isResettingRef.current = false
+        setElapsed(calcElapsed(task!.actual_duration_sec, task!.started_at))
+        toast.error(t('toast.failed_reset_timer'))
+
+        if (task!.status === 'active' && task!.started_at) {
+          const startTimeMs = new Date(task!.started_at).getTime()
+          const base = task!.actual_duration_sec
+          intervalRef.current = setInterval(() => {
+            const delta = Math.floor((Date.now() - startTimeMs) / 1000)
+            setElapsed(base + Math.max(0, delta))
+          }, 1000)
+        }
+      }
+    })
+  }
+
   // ── Guards ────────────────────────────────────────────────────────────────
   if (isLoading) return (
     <div className="flex min-h-dvh items-center justify-center text-muted-foreground text-sm">
-      Loading…
+      {t('loading_message')}
     </div>
   )
 
   if (!task) return (
     <div className="flex min-h-dvh items-center justify-center text-muted-foreground text-sm">
-      Task not found.
+      {t('task_not_found')}
     </div>
   )
 
@@ -213,26 +249,28 @@ export default function FocusPage() {
               variant="ghost"
               size="icon"
               className="h-8 w-8 text-muted-foreground hover:text-foreground"
-              onClick={() => navigate('/tasks')}
-              aria-label="Back to tasks"
+              asChild
             >
-              <ArrowLeft className="h-4 w-4" />
+              <Link to="/tasks" aria-label={t('back_to_tasks')}>
+                <ArrowLeft className="h-4 w-4" />
+              </Link>
             </Button>
 
             <div className="flex items-center gap-2">
               <span className={`text-sm font-medium ${STATUS_CONFIG[task.status].color}`}>
-                {STATUS_CONFIG[task.status].label}
+                {t(`status.${task.status}`)}
               </span>
               <span className="text-muted-foreground/40">·</span>
               <span className="text-sm text-muted-foreground">
-                {task.registered_duration_min} min session
+                {t('min_session', { duration: task.registered_duration_min })}
               </span>
             </div>
           </div>
           <span className="text-xs text-muted-foreground/60">
-            {new Date(task.created_at).toLocaleDateString('en-US', {
-              month: 'short', day: 'numeric', year: 'numeric',
-            })}
+            {new Date(task.created_at).toLocaleDateString(
+              currentLang === 'vi' ? 'vi-VN' : 'en-US',
+              { month: 'short', day: 'numeric', year: 'numeric' }
+            )}
           </span>
         </div>
       </header>
@@ -242,7 +280,25 @@ export default function FocusPage() {
 
           {/* ── Left column ── */}
           <div className="flex min-h-0 w-full flex-col gap-6 lg:w-0 lg:flex-1 lg:h-full">
-            <div className="shrink-0">
+            <div className="shrink-0 flex items-start gap-3">
+              {/* Star — chỉ active/paused, to hơn task card 1 chút */}
+              {!isReadOnly && (
+                <button
+                  type="button"
+                  onClick={() => toggleStar()}
+                  disabled={isTogglingStar || isReadOnly}
+                  aria-label={task.is_starred ? 'Unstar task' : 'Star task'}
+                  className={cn(
+                    'mt-2 shrink-0 transition-colors',
+                    task.is_starred
+                      ? 'text-amber-400 hover:text-amber-300'
+                      : 'text-muted-foreground/30 hover:text-amber-400',
+                    isTogglingStar && 'opacity-50 cursor-not-allowed'
+                  )}
+                >
+                  <Star className={cn('h-4 w-4', task.is_starred && 'fill-amber-400')} />
+                </button>
+              )}
               <EditableTitle
                 value={task.title}
                 isReadOnly={isReadOnly}
@@ -282,10 +338,15 @@ export default function FocusPage() {
                 elapsedSec={elapsed}
                 totalSec={totalSec}
                 isReadOnly={isReadOnly}
+                onReset={task.status === 'active' ? handleReset : undefined}
               />
-              {task.status === 'active' && (
+              {(task.status === 'active' || task.status === 'paused') && (
                 <div className="mt-2 flex justify-center">
-                  <ExtendTime onExtend={handleExtend} />
+                  <ExtendTime
+                    registeredDurationMin={task.registered_duration_min}
+                    disabled={isActioning}
+                    onExtend={handleExtend}
+                  />
                 </div>
               )}
             </div>
@@ -300,18 +361,18 @@ export default function FocusPage() {
       <AlertDialog open={showGiveUpConfirm} onOpenChange={setShowGiveUpConfirm}>
         <AlertDialogContent className="w-[95vw] sm:max-w-2xl pt-8">
           <AlertDialogHeader className="gap-4">
-            <AlertDialogTitle>Give up on this task?</AlertDialogTitle>
+            <AlertDialogTitle>{t('confirm_give_up.title')}</AlertDialogTitle>
             <AlertDialogDescription className="gap-4 pb-3">
-              This action cannot be undone. The task will be marked as given up.
+              {t('confirm_give_up.description')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="flex-row justify-center gap-4 sm:justify-center py-4">
-            <AlertDialogCancel className="w-16 hover:bg-gray">No</AlertDialogCancel>
+            <AlertDialogCancel className="w-16 hover:bg-gray">{t('confirm_give_up.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               className="w-16 bg-red-600 hover:bg-red-700 text-white"
               onClick={confirmGiveUp}
             >
-              Yes
+              {t('confirm_give_up.confirm')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

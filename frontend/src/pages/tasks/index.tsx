@@ -11,7 +11,7 @@ import type { FilterState } from '@/types/task'
 
 export default function TasksPage() {
   const [filter, setFilter] = useState<FilterState>(DEFAULT_FILTER)
-  const { tasks, quota, loading, error, reload, submitTask, submittingTaskId } = useTasks(filter)
+  const { tasks, quota, loading, error, reload, submitTask, submittingTaskId, toggleStar, isTogglingStarId } = useTasks(filter)
   const[modalOpen, setModalOpen] = useState(false)
 
   return (
@@ -30,17 +30,19 @@ export default function TasksPage() {
               <Loader2 className="h-6 w-6 animate-spin" />
             </div>
           ) : error ? (
-            <Alert variant="error" className="flex items-center">
-              <AlertTriangle aria-hidden />
-              {error}
-              <button
-                type="button"
-                onClick={reload}
-                className="ml-auto text-xs underline underline-offset-2 hover:opacity-70 transition-opacity"
-              >
-                Retry
-              </button>
-            </Alert>
+              <div className="w-full pt-8">
+                <Alert variant="warning" className="flex items-center">
+                  <AlertTriangle aria-hidden />
+                  {error}
+                  <button
+                    type="button"
+                  onClick={reload}
+                  className="ml-auto text-xs underline underline-offset-2 hover:opacity-70 transition-opacity"
+                >
+                  Retry
+                </button>
+              </Alert>
+            </div>
           ) : (
             // THAY ĐỔI 4: Không cần truyền maxHeight vào đây nữa!
             // Component TaskList sẽ tự động chiếm vùng không gian còn lại nhờ Flexbox.
@@ -50,6 +52,8 @@ export default function TasksPage() {
               onNewTask={() => setModalOpen(true)}
               onSubmit={submitTask}
               submittingTaskId={submittingTaskId}
+              onToggleStar={toggleStar}
+              isTogglingStarId={isTogglingStarId}
             />
           )}
         </section>

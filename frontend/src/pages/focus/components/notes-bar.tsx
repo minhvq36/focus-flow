@@ -1,7 +1,8 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Plus, Trash2, PanelRightClose, PanelRightOpen } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useTaskNotes } from '@/pages/tasks/hooks/use-task-notes'
+import { useTaskNotes } from '@/pages/focus/hooks/use-task-notes'
 import { NoteEditDialog } from './note-edit-dialog'
 import { createTextConstraintHandlers } from '@/pages/tasks/utils/text-constraints'
 import { NOTE_MAX_CHARS } from './note-constants'
@@ -32,6 +33,7 @@ interface NotesBarProps {
 }
 
 export function NotesBar({ taskId, isReadOnly }: NotesBarProps) {
+  const { t } = useTranslation('focus')
   const { notes, isLoading, createNote, updateNote, deleteNote, isCreating } =
     useTaskNotes(taskId)
 
@@ -44,8 +46,7 @@ export function NotesBar({ taskId, isReadOnly }: NotesBarProps) {
     const content = draft.trim()
     if (!content) return
     if (notes.length >= 5) {
-      toast.error('Can only add up to 5 notes per task', {
-      })
+      toast.error(t('notes.max_notes_error'))
       return
     }
     await createNote({ content })
@@ -75,13 +76,13 @@ export function NotesBar({ taskId, isReadOnly }: NotesBarProps) {
       <aside className="lg:sticky lg:top-20 w-full lg:w-72 xl:w-80 shrink-0">
         <div className="flex items-center justify-end gap-2 px-1">
           <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-            Notes
+            {t('notes.notes_label')}
           </span>
           <button
             type="button"
             onClick={() => setCollapsed(false)}
             className="rounded-md p-1 text-muted-foreground/50 hover:bg-muted/40 hover:text-muted-foreground transition-colors"
-            aria-label="Expand notes"
+            aria-label={t('notes.expand')}
           >
             <PanelRightOpen className="h-4 w-4" />
           </button>
@@ -98,13 +99,13 @@ export function NotesBar({ taskId, isReadOnly }: NotesBarProps) {
           {/* Header */}
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-              Notes
+              {t('notes.notes_label')}
             </span>
             <button
               type="button"
               onClick={() => setCollapsed(true)}
               className="rounded-md p-1 text-muted-foreground/50 hover:bg-muted/40 hover:text-muted-foreground transition-colors"
-              aria-label="Collapse notes"
+              aria-label={t('notes.collapse')}
             >
               <PanelRightClose className="h-4 w-4" />
             </button>
@@ -113,14 +114,14 @@ export function NotesBar({ taskId, isReadOnly }: NotesBarProps) {
           {/* Notes list with max height */}
           <div className="mt-4 flex flex-col gap-2 max-h-60 overflow-y-auto pr-0.5">
             {isLoading && (
-              <p className="text-xs italic text-muted-foreground/60">Loading…</p>
+              <p className="text-xs italic text-muted-foreground/60">{t('notes.loading')}</p>
             )}
 
             {!isLoading && notes.length === 0 && (
               <p className="text-xs italic text-muted-foreground/60">
                 {isReadOnly
-                  ? 'No notes were added.'
-                  : 'Add notes to keep context while you focus.'}
+                  ? t('notes.empty_readonly')
+                  : t('notes.empty_editable')}
               </p>
             )}
 
@@ -147,7 +148,7 @@ export function NotesBar({ taskId, isReadOnly }: NotesBarProps) {
                           type="button"
                           onClick={(e) => handleDelete(e, note.id)}
                           className="rounded p-0.5 text-muted-foreground/50 hover:text-destructive transition-colors"
-                          aria-label="Delete note"
+                          aria-label={t('notes.delete')}
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
@@ -171,7 +172,7 @@ export function NotesBar({ taskId, isReadOnly }: NotesBarProps) {
                     handleAdd()
                   }
                 }}
-                placeholder="Add a note… (Enter to save)"
+                placeholder={t('notes.placeholder')}
                 rows={2}
                 className="w-full resize-none rounded-lg border border-border bg-white/70 px-3 py-2 text-xs leading-relaxed text-foreground outline-none placeholder:text-muted-foreground/50 focus:border-primary/50 transition-colors"
                 {...draftConstraints}
@@ -188,7 +189,7 @@ export function NotesBar({ taskId, isReadOnly }: NotesBarProps) {
                 )}
               >
                 <Plus className="h-3.5 w-3.5" />
-                {isCreating ? 'Saving…' : 'Save note'}
+                {isCreating ? t('notes.saving') : t('notes.save')}
               </button>
             </div>
           )}

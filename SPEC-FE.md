@@ -22,7 +22,13 @@
 
 ---
 
-## 2. Project Structure
+## 2. Current Implementation Status (minimal)
+
+- The garden shop UI is already wired to the backend via the shop modal in `src/pages/garden/components/shop-modal.tsx` and economy hooks in `src/pages/garden/hooks/use-economy.ts`.
+- Wallet, shop buy/sell, inventory bag listing, and garden placement are implemented in the current codebase.
+- Marketplace, social feed/leaderboard, onboarding, and advanced realtime features remain not implemented or still stubbed.
+
+## 3. Project Structure
 
 ```
 /src
@@ -136,11 +142,11 @@
 
 ---
 
-### 3.2 Dashboard
+### 3.2 Dashboard / Tasks Page
 
-**Route:** `/dashboard`
+**Route:** `/tasks` (or `/dashboard` in SPEC, implemented as `/tasks`)
 
-**Status:** ✅ Partially Complete (task list + quota done, mini garden is placeholder)
+**Status:** ✅ Complete (95-100%: task list, filters, create modal, quota tracking all functional)
 
 **Layout:**
 ```
@@ -187,7 +193,7 @@
 
 **Route:** `/focus/:taskId`
 
-**Status:** ⏳ Skeleton Only (needs timer, todo editor, controls, notes)
+**Status:** ✅ Complete (100%: timer, todos, notes, action controls all implemented and functional)
 
 **Layout:**
 ```
@@ -195,7 +201,7 @@
 │ Minimal: just task timer, todos, notes              │
 ├─────────────────────────────────────────────────────┤
 │                                                     │
-│         [Task Title: Reading Chapter 5]             │
+│         [Task Title: Reading Chapter 5] [⭐]        │
 │                                                     │
 │              ⏱ 14:32 / 45:00                        │
 │              [=========>................]            │
@@ -214,7 +220,7 @@
 │         │ [+ Add note]                        │   │
 │         └─────────────────────────────────────┘   │
 │                                                     │
-│    [⏸ Pause]  [⏩ +15 min]  [Stop]                │
+│    [⏸ Pause]  [⏩ +15 min]  [🔄 Reset]            │
 │    [✅ Submit]        [🏳 Give Up]                 │
 │                                                     │
 │    (All buttons at bottom, spaced)                 │
@@ -244,9 +250,10 @@
   - Scrollable, auto-scroll to latest
 
 - **Controls:**
+  - Star: Toggle to pin task at top of list (⭐ button in title)
   - Pause/Resume Toggle: Single button that pauses timer when active, resumes when paused
-  - +15 min: extend duration, update display
-  - Stop/Leave: confirm dialog, return to dashboard (discards session)
+  - +15 min: extend duration, update display. Total cannot exceed 999 minutes
+  - Reset: Clear elapsed time back to 0. Only works in `active` state. Resets `started_at` to NOW() and `actual_duration_sec` to 0
   - Submit: send to server, auto-mark all todos as done
   - Give Up: confirm dialog, penalty flow if enabled
 
@@ -264,7 +271,7 @@
 
 **Route:** `/garden/:index` (default index=1)
 
-**Status:** ❌ Not Started (placeholder component only)
+**Status:** ✅ Complete (90-100%: PixiJS canvas, grid rendering, garden tabs, tile interaction all implemented)
 
 **Layout:**
 ```
@@ -312,7 +319,7 @@
 
 **Route:** `/shop`
 
-**Status:** ❌ Not Started
+**Status:** ❌ Not Started (UI components and API integration needed)
 
 **Tabs:**
 1. **Buy**
@@ -345,7 +352,7 @@
 
 **Route:** `/marketplace`
 
-**Status:** ❌ Not Started
+**Status:** ❌ Not Started (Legendary P2P trading UI and escrow logic needed)
 
 **Tabs:**
 
@@ -371,7 +378,7 @@
 
 **Route:** `/leaderboard`
 
-**Status:** ❌ Not Started
+**Status:** ❌ Not Started (Global/friends ranking UI and real-time updates needed)
 
 **Tabs:**
 
@@ -399,7 +406,7 @@
 
 **Route:** `/profile/:username` or `/profile/me`
 
-**Status:** ❌ Not Started
+**Status:** ❌ Not Started (User stats, garden link, hearts count UI needed)
 
 **Layout:**
 ```

@@ -2,7 +2,6 @@ package task
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"net/http"
 	"strings"
@@ -12,6 +11,7 @@ import (
 	"github.com/minhvq36/focus-flow/backend/internal/reward"
 	"github.com/minhvq36/focus-flow/backend/pkg/apperr"
 	"github.com/minhvq36/focus-flow/backend/pkg/logger"
+	"github.com/minhvq36/focus-flow/backend/pkg/request"
 	"github.com/minhvq36/focus-flow/backend/pkg/response"
 )
 
@@ -22,10 +22,12 @@ type ServiceInterface interface {
 	UpdateTodos(ctx context.Context, taskID, userID string, req UpdateTodosRequest) error
 	EditTaskTitle(ctx context.Context, taskID, userID string, req EditTaskTitleRequest) error
 	ExtendTask(ctx context.Context, taskID, userID string, req ExtendRequest) error
+	ResetTask(ctx context.Context, taskID, userID string) error
 	PauseTask(ctx context.Context, taskID, userID string) error
 	SubmitTask(ctx context.Context, taskID, userID string) (*SubmitResult, error)
 	GiveUpTask(ctx context.Context, taskID, userID string) (*reward.PenaltyResult, error)
 	ResumeTask(ctx context.Context, taskID, userID string) error
+	ToggleStar(ctx context.Context, taskID, userID string) (bool, error)
 	CreateNote(ctx context.Context, taskID, userID string, req CreateTaskNoteRequest) (*TaskNote, error)
 	GetNotes(ctx context.Context, taskID, userID string) ([]*TaskNote, error)
 	UpdateNote(ctx context.Context, noteID, userID, taskID string, req UpdateTaskNoteRequest) (*TaskNote, error)
@@ -132,8 +134,7 @@ func (h *Handler) CreateTask(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req CreateTaskRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.BadRequest(w, "INVALID_REQUEST", "Invalid request body")
+	if ok := request.BindAndValidate(w, r, &req); !ok {
 		return
 	}
 
@@ -169,8 +170,7 @@ func (h *Handler) UpdateTodos(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req UpdateTodosRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.BadRequest(w, "INVALID_REQUEST", "Invalid request body")
+	if ok := request.BindAndValidate(w, r, &req); !ok {
 		return
 	}
 
@@ -206,8 +206,7 @@ func (h *Handler) EditTaskTitle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req EditTaskTitleRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.BadRequest(w, "INVALID_REQUEST", "Invalid request body")
+	if ok := request.BindAndValidate(w, r, &req); !ok {
 		return
 	}
 
@@ -245,8 +244,7 @@ func (h *Handler) ExtendTask(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req ExtendRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.BadRequest(w, "INVALID_REQUEST", "Invalid request body")
+	if ok := request.BindAndValidate(w, r, &req); !ok {
 		return
 	}
 
@@ -268,6 +266,37 @@ func (h *Handler) ExtendTask(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response.Success(w, map[string]string{"message": "Task time extended successfully"})
+}
+
+func (h *Handler) ResetTask(w http.ResponseWriter, r *http.Request) {
+	userID, ok := auth.GetUserID(r.Context())
+	if !ok {
+		response.Unauthorized(w)
+		return
+	}
+
+	taskID := chi.URLParam(r, "id")
+	if taskID == "" {
+		response.BadRequest(w, "INVALID_ID", "Task ID is required")
+		return
+	}
+
+	h.log.Info("ResetTask", "user_id", userID, "task_id", taskID)
+	err := h.service.ResetTask(r.Context(), taskID, userID)
+	if err != nil {
+		switch {
+		case errors.Is(err, apperr.ErrNotFound):
+			response.NotFound(w, "Task")
+		case errors.Is(err, apperr.ErrInvalidState):
+			response.Conflict(w, "INVALID_STATE", err.Error())
+		default:
+			h.log.Error("ResetTask failed", "user_id", userID, "task_id", taskID, "error", err.Error())
+			response.InternalError(w)
+		}
+		return
+	}
+
+	response.Success(w, map[string]string{"message": "Task time reset successfully"})
 }
 
 // TODO: Check SSE to redirect all active task open when task stopped
@@ -395,6 +424,35 @@ func (h *Handler) ResumeTask(w http.ResponseWriter, r *http.Request) {
 	response.Success(w, map[string]string{"message": "Task resumed successfully"})
 }
 
+func (h *Handler) ToggleStar(w http.ResponseWriter, r *http.Request) {
+	userID, ok := auth.GetUserID(r.Context())
+	if !ok {
+		response.Unauthorized(w)
+		return
+	}
+
+	taskID := chi.URLParam(r, "id")
+	if taskID == "" {
+		response.BadRequest(w, "INVALID_ID", "Task ID is required")
+		return
+	}
+
+	h.log.Info("ToggleStar", "user_id", userID, "task_id", taskID)
+	isStarred, err := h.service.ToggleStar(r.Context(), taskID, userID)
+	if err != nil {
+		switch {
+		case errors.Is(err, apperr.ErrNotFound):
+			response.NotFound(w, "Task")
+		default:
+			h.log.Error("ToggleStar failed", "user_id", userID, "task_id", taskID, "error", err.Error())
+			response.InternalError(w)
+		}
+		return
+	}
+
+	response.Success(w, map[string]bool{"is_starred": isStarred})
+}
+
 func (h *Handler) GetNotes(w http.ResponseWriter, r *http.Request) {
 	userID, ok := auth.GetUserID(r.Context())
 	if !ok {
@@ -438,8 +496,7 @@ func (h *Handler) CreateNote(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req CreateTaskNoteRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.BadRequest(w, "INVALID_REQUEST", "Invalid request body")
+	if ok := request.BindAndValidate(w, r, &req); !ok {
 		return
 	}
 
@@ -481,8 +538,7 @@ func (h *Handler) UpdateNote(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req UpdateTaskNoteRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.BadRequest(w, "INVALID_REQUEST", "Invalid request body")
+	if ok := request.BindAndValidate(w, r, &req); !ok {
 		return
 	}
 

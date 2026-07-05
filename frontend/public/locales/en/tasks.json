@@ -1,0 +1,57 @@
+{
+  "title": "Today's Tasks",
+  "quota_summary": "{{used}}/{{limit}} tasks today",
+  "quota_remaining": "· {{remaining}} remaining",
+  "quota_exceeded": "Daily limit reached ({{used}}/{{limit}}). Resets tomorrow.",
+  "new_task": "New Task",
+  "empty_title": "No tasks yet",
+  "empty_subtitle": "Start a focus session to grow your garden.",
+  "retry": "Retry",
+  "status": {
+    "active": "Active",
+    "paused": "Paused",
+    "submitted": "Submitted",
+    "given_up": "Given up"
+  },
+  "action": {
+    "resume": "Resume",
+    "submit": "Submit",
+    "view": "View details"
+  },
+  "star": "Star task",
+  "unstar": "Unstar task",
+  "penalty_mode": "Penalty mode — give up affects your garden",
+  "todos": "{{done}}/{{total}} todos",
+  "create_modal": {
+    "title": "New Focus Task",
+    "title_label": "What will you focus on?",
+    "title_placeholder": "e.g. Write the product brief",
+    "title_required": "Title is required.",
+    "todos_label": "Todo checklist",
+    "todos_error": "Add at least one todo item.",
+    "todos_hint": "Enter to add · Tab to indent · Shift+Tab to unindent",
+    "duration_label": "Session duration",
+    "duration_custom_min": 25,
+    "duration_custom_max": 480,
+    "duration_max_warning": "Maximum session duration is {{max}} minutes (8 hours).",
+    "duration_out_of_range": "Enter a number between {{min}} and {{max}} minutes",
+    "penalty_mode_label": "Penalty mode",
+    "cancel": "Cancel",
+    "submit": "Create Task"
+  },
+  "filter": {
+    "title": "Filters",
+    "status_indicator": "status",
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "7days": "7 days",
+    "30days": "30 days",
+    "time_section": "Time",
+    "status_section": "Status"
+  },
+  "sidebar": {
+    "garden_awaits": "Your garden awaits your focus",
+    "summary_title": "Focus summary",
+    "summary_desc": "Complete tasks to grow plants in your garden."
+  }
+}

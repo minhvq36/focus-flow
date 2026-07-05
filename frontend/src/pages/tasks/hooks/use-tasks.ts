@@ -108,15 +108,24 @@ export function useTasks(filter: FilterState = DEFAULT_FILTER) {
 
   const submitTaskMutation = useMutation({
     mutationFn: (taskId: string) => 
-      // Sửa lại endpoint này cho đúng với Backend của bạn nhé (post, patch hay put)
       api.post(`/api/tasks/${taskId}/submit`, {}), 
     onSuccess: () => {
-      // Báo queryClient fetch lại list task sau khi submit thành công
       queryClient.invalidateQueries({
         queryKey: ['tasks', filter.dateRange, statusKey, user?.id],
       })
+      queryClient.invalidateQueries({ queryKey: ['economy', 'wallet'] })
     },
   })
+
+  const toggleStarMutation = useMutation({
+  mutationFn: (taskId: string) =>
+    api.post(`/api/tasks/${taskId}/star`, {}),
+  onSuccess: () => {
+    queryClient.invalidateQueries({
+      queryKey: ['tasks', filter.dateRange, statusKey, user?.id],
+    })
+  },
+})
 
   return {
     tasks,
@@ -131,5 +140,8 @@ export function useTasks(filter: FilterState = DEFAULT_FILTER) {
 
     submitTask: submitTaskMutation.mutateAsync,
     submittingTaskId: submitTaskMutation.isPending ? submitTaskMutation.variables : null,
+
+    toggleStar: toggleStarMutation.mutateAsync,
+    isTogglingStarId: toggleStarMutation.isPending ? toggleStarMutation.variables : null,
   }
 }
