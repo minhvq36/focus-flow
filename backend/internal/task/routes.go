@@ -1,0 +1,38 @@
+package task
+
+import (
+	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/minhvq36/focus-flow/backend/internal/reward"
+	"github.com/minhvq36/focus-flow/backend/pkg/logger"
+)
+
+func Routes(db *pgxpool.Pool, log *logger.Logger, economyAuditor EconomyAuditor) func(r chi.Router) {
+	rewardRepo := reward.NewRepository(db, log)
+	rewarder := reward.NewRewarder(db, rewardRepo, log)
+
+	repo := NewRepository(db, log)
+	service := NewService(db, repo, rewarder, economyAuditor, log)
+	handler := NewHandler(service, log)
+
+	return func(r chi.Router) {
+		r.Get("/", handler.GetUserTasks)
+		r.Post("/", handler.CreateTask)
+		r.Get("/quota/today", handler.GetQuotaToday)
+		r.Get("/{id}", handler.GetTaskByID)
+		r.Patch("/{id}/todos", handler.UpdateTodos)
+		r.Patch("/{id}/title", handler.EditTaskTitle)
+		r.Post("/{id}/extend", handler.ExtendTask)
+		r.Post("/{id}/reset", handler.ResetTask)
+		r.Post("/{id}/pause", handler.PauseTask)
+		r.Post("/{id}/submit", handler.SubmitTask)
+		r.Post("/{id}/giveup", handler.GiveUpTask)
+		r.Post("/{id}/resume", handler.ResumeTask)
+		r.Post("/{id}/star", handler.ToggleStar)
+
+		r.Get("/{id}/notes", handler.GetNotes)
+		r.Post("/{id}/notes", handler.CreateNote)
+		r.Patch("/{id}/notes/{nid}", handler.UpdateNote)
+		r.Delete("/{id}/notes/{nid}", handler.DeleteNote)
+	}
+}

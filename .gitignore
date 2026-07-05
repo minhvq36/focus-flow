@@ -30,3 +30,8 @@ go.work.sum
 # Editor/IDE
 # .idea/
 # .vscode/
+
+
+backend/scripts_local/
+frontend/.vite/
+frontend/public/test_assets/

@@ -1,0 +1,80 @@
+{
+  "status": {
+    "active": "Active",
+    "paused": "Paused",
+    "submitted": "Submitted",
+    "given_up": "Given up"
+  },
+  "loading_message": "Loading…",
+  "task_not_found": "Task not found.",
+  "min_session": "{{duration}} min session",
+  "back_to_tasks": "Back to tasks",
+  "toast": {
+    "task_incomplete_title": "Task is not yet complete",
+    "task_incomplete_desc": "Please complete all todos before submitting.",
+    "failed_reset_timer": "Failed to reset timer."
+  },
+  "todos": {
+    "mark_incomplete": "Mark incomplete",
+    "mark_complete": "Mark complete",
+    "placeholder": "Todo item…",
+    "remove": "Remove todo",
+    "max_reached": "Maximum {{max}} todos reached",
+    "max_depth_reached": "Maximum nesting depth is {{max}} levels"
+  },
+  "timer": {
+    "actual_time_used": "actual time used",
+    "reset_button": "Reset timer"
+  },
+  "notes": {
+    "notes_label": "Notes",
+    "expand": "Expand notes",
+    "collapse": "Collapse notes",
+    "loading": "Loading…",
+    "empty_readonly": "No notes were added.",
+    "empty_editable": "Add notes to keep context while you focus.",
+    "placeholder": "Add a note… (Enter to save)",
+    "saving": "Saving…",
+    "save": "Save note",
+    "max_notes_error": "Can only add up to 5 notes per task",
+    "delete": "Delete note"
+  },
+  "note_dialog": {
+    "title_readonly": "Note",
+    "title_edit": "Edit note",
+    "placeholder": "Write your note…",
+    "cancel": "Cancel",
+    "saving": "Saving…",
+    "save": "Save",
+    "discard_confirm_title": "Discard changes?",
+    "discard_confirm_desc": "You have unsaved changes. If you leave now, they will be lost.",
+    "keep_editing": "Keep editing",
+    "discard": "Discard"
+  },
+  "extend_time": {
+    "trigger": "+ Extend time",
+    "error_invalid": "Enter a number between 1–120",
+    "error_min": "Minimum is 1 min",
+    "error_max": "Maximum is 120 min",
+    "hint_clamped": "Will add {{clamped}} min ({{max}} min max total)",
+    "max_reached": "Max duration reached ({{max}} min)",
+    "placeholder": "5",
+    "unit": "min",
+    "confirm": "✓"
+  },
+  "actions": {
+    "my_tasks": "My Tasks",
+    "pause": "Pause",
+    "resume": "Resume",
+    "submit": "Submit",
+    "give_up": "Give up",
+    "submit_task": "Submit task",
+    "give_up_menu": "Give up"
+  },
+  "confirm_give_up": {
+    "title": "Give up on this task?",
+    "description": "This action cannot be undone. The task will be marked as given up.",
+    "cancel": "No",
+    "confirm": "Yes"
+  }
+}

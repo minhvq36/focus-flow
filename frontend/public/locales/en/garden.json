@@ -1,0 +1,8 @@
+{
+  "loading_message": "Loading garden…",
+  "garden_tab": "Garden {{index}}",
+  "tile_info": "Tile ({{col}}, {{row}})",
+  "empty_tile": "Empty",
+  "close_button": "✕",
+  "recenter_tooltip": "Recenter Camera"
+}
