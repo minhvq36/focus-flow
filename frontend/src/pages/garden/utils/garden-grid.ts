@@ -375,7 +375,7 @@ export class GardenGrid extends Container {
     this.onTileHover?.(col, row)
   }
 
-  private handleHoverOut(col: number, row: number): void {
+  private handleHoverOut(): void {
     this.lastHoveredCol = -1
     this.lastHoveredRow = -1
 
@@ -515,7 +515,7 @@ export class GardenGrid extends Container {
     // g.cursor = 'pointer'
 
     g.on('pointerover', () => this.handleHover(col, row))
-    g.on('pointerout',  () => this.handleHoverOut(col, row))
+    g.on('pointerout',  () => this.handleHoverOut())
     g.on('pointertap',  (e) => this.handleClick(col, row, placement, e.shiftKey))
     return g
   }

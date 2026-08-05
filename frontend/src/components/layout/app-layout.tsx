@@ -1,6 +1,7 @@
 import { Outlet } from 'react-router-dom'
 import Header from '@/components/layout/header'
 import Sidebar from '@/components/layout/sidebar'
+import { RouteSuspense } from '@/components/layout/route-suspense'
 
 export default function AppLayout() {
   return (
@@ -10,7 +11,9 @@ export default function AppLayout() {
       </div>
       <Sidebar />
       <main className="relative z-10 h-full w-full overflow-y-auto pt-16">
-        <Outlet />
+        <RouteSuspense>
+          <Outlet />
+        </RouteSuspense>
       </main>
       
     </div>

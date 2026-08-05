@@ -2,6 +2,7 @@ import { Outlet } from 'react-router-dom'
 import { BackgroundCurves } from "@/components/layout/background-curves"
 import Header from '@/components/layout/header'
 import Sidebar from '@/components/layout/sidebar'
+import { RouteSuspense } from '@/components/layout/route-suspense'
 
 export default function TaskLayout() {
   return (
@@ -14,7 +15,9 @@ export default function TaskLayout() {
       </div>
       <Sidebar />
       <main className="relative z-10 h-full w-full overflow-y-auto pt-16">
-        <Outlet />
+        <RouteSuspense>
+          <Outlet />
+        </RouteSuspense>
       </main>
       
     </div>

@@ -18,7 +18,7 @@ export const usePlacementStore = create<PlacementStore>((set) => ({
   activeItem: null,
   rotation: 0,
 
-  setTool: (tool) => set((state) => {
+  setTool: (tool) => set(() => {
     if (tool === 'shovel') {
       return { activeTool: tool, activeItem: null, rotation: 0 }
     }
