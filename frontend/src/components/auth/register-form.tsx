@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -14,16 +14,18 @@ import { GoogleButton, AuthDivider } from '@/components/auth/google-button'
 import { TurnstileWidget, type TurnstileHandle } from '@/components/auth/turnstile-widget'
 import { turnstileEnabled } from '@/lib/turnstile'
 
-export function LoginForm() {
+/**
+ * KHÔNG thu thập tên hiển thị ở đây: trigger `handle_new_auth_user` (migration
+ * 003) đặt display_name = phần trước @ của email và KHÔNG đọc raw_user_meta_data,
+ * nên tên nhập ở form sẽ bị bỏ qua. Người dùng đổi tên sau trong Profile.
+ */
+export function RegisterForm() {
   const navigate = useNavigate()
-  const location = useLocation()
   const { t } = useTranslation('auth')
   const [submitting, setSubmitting] = useState(false)
   const [captchaToken, setCaptchaToken] = useState<string | null>(null)
   const turnstileRef = useRef<TurnstileHandle>(null)
 
-  // Schema dựng trong component vì thông điệp lỗi đi qua i18n (đổi ngôn ngữ ->
-  // t đổi -> schema dựng lại).
   const schema = useMemo(
     () =>
       z.object({
@@ -40,36 +42,36 @@ export function LoginForm() {
     formState: { errors },
   } = useForm<FormValues>({ resolver: zodResolver(schema) })
 
-  // Quay lại đúng trang user định vào trước khi bị đá về /login.
-  const from =
-    (location.state as { from?: { pathname: string } } | null)?.from?.pathname ??
-    '/garden'
-
   const onSubmit = async (values: FormValues) => {
     setSubmitting(true)
-    const { error } = await supabase.auth.signInWithPassword({
-      ...values,
+    const { data, error } = await supabase.auth.signUp({
+      email: values.email,
+      password: values.password,
       options: { captchaToken: captchaToken ?? undefined },
     })
     if (error) {
-      toast.error(t('login_failed'), { description: t('login_failed_desc') })
+      toast.error(t('register_failed'), { description: error.message })
       turnstileRef.current?.reset() // token dùng 1 lần -> lấy token mới
       setSubmitting(false)
       return
     }
-    navigate(from, { replace: true })
+    // Bật xác nhận email trên Supabase -> chưa có session, phải verify trước.
+    if (!data.session) {
+      toast.success(t('confirm_email_sent'), {
+        description: t('confirm_email_sent_desc'),
+      })
+      navigate('/login', { replace: true })
+      return
+    }
+    navigate('/garden', { replace: true })
   }
 
   return (
     <div className="rounded-2xl border border-border bg-card shadow-sm p-8 flex flex-col gap-5">
 
-      <AuthDivider label={t('sign_in_with_email')} />
+      <AuthDivider label={t('sign_up_with_email')} />
 
-      {/*
-        Tạo handler NGAY TRONG event chứ không phải lúc render: onSubmit bao đóng
-        turnstileRef, nếu gọi handleSubmit(onSubmit) khi render thì rule
-        react-hooks/refs coi là đọc ref trong render.
-      */}
+      {/* Handler tạo trong event, không phải lúc render — xem chú thích ở login-form. */}
       <form onSubmit={e => void handleSubmit(onSubmit)(e)} className="flex flex-col gap-4">
         <div className="flex flex-col gap-1.5">
           <label htmlFor="email" className="text-sm font-medium">{t('email')}</label>
@@ -87,36 +89,19 @@ export function LoginForm() {
           )}
         </div>
 
-        {/*
-          Grid tách THỨ TỰ DOM khỏi VỊ TRÍ HIỂN THỊ mà không cần tabIndex dương:
-          link "Quên mật khẩu" đặt CUỐI khối trong DOM (Tab từ Email nhảy thẳng
-          xuống Password, không dính vào link) nhưng grid-area kéo nó về đúng góc
-          trên-phải như cũ. Focus order = reading order -> screen reader không loạn.
-        */}
-        <div className="grid grid-cols-[1fr_auto] gap-x-2 gap-y-1.5">
-          <label htmlFor="password" className="col-start-1 row-start-1 self-center text-sm font-medium">
-            {t('password')}
-          </label>
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="password" className="text-sm font-medium">{t('password')}</label>
           <PasswordInput
             id="password"
             placeholder="••••••••"
-            autoComplete="current-password"
+            autoComplete="new-password"
             aria-invalid={!!errors.password}
             disabled={submitting}
-            containerClassName="col-start-1 col-span-2 row-start-2"
             {...register('password')}
           />
           {errors.password && (
-            <p className="col-start-1 col-span-2 row-start-3 text-xs text-destructive">
-              {errors.password.message}
-            </p>
+            <p className="text-xs text-destructive">{errors.password.message}</p>
           )}
-          <Link
-            to="/forgot-password"
-            className="col-start-2 row-start-1 justify-self-end self-center text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors"
-          >
-            {t('forgot_password')}
-          </Link>
         </div>
 
         <TurnstileWidget ref={turnstileRef} onToken={setCaptchaToken} />
@@ -128,19 +113,19 @@ export function LoginForm() {
           disabled={submitting || (turnstileEnabled && !captchaToken)}
         >
           {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-          {t('sign_in')}
+          {t('sign_up')}
         </Button>
       </form>
 
-      <GoogleButton label={t('continue_with_google')} disabled={submitting} />
+      <GoogleButton label={t('sign_up_with_google')} disabled={submitting} />
 
       <p className="text-center text-sm text-muted-foreground">
-        {t('no_account')}{' '}
+        {t('have_account')}{' '}
         <Link
-          to="/register"
+          to="/login"
           className="font-medium text-primary underline-offset-2 hover:underline transition-colors"
         >
-          {t('create_account')}
+          {t('sign_in')}
         </Link>
       </p>
 

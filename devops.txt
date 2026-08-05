@@ -1,0 +1,61 @@
+Prepare:
+Beta
+Vercel Project
+Fly.io Project
+Upstash Project
+Supabase project
+Cloudflare đã đăng ký
+
+- migrate supabase
+
+- Vercel create project, import github, choose frontend as root
+	- add variables (setting -> environments -> click production)
+		- vào supabase dashboard -> Authen -> Attack-protection -> Turn on captcha turnstile
+			- cloudflare -> turnstile -> create widget -> add vercel hostname -> [non interactive] -> secret keys -> add secret to supabase
+		- add Site key to variables vercel
+	- setup setting -> build and deployment -> ignored build step -> custom 
+										-> git diff HEAD^ HEAD --quiet . ; if [ $? -eq 1 ] && [[ "$VERCEL_GIT_COMMIT_REF" == "main" || "$VERCEL_GIT_COMMIT_REF" == "staging" ]]; then echo "Changes detected, Building..."; exit 1; else echo "Ignored"; exit 0; fi	
+- Setup google oath -> supabase (console.cloud.google.com)
+	google console -> api & service -> clients -> fill Script Origin FE
+		supabase -> authen -> sign in/provider -> google enable
+			-> copy call back url to google oauth redirect
+			-> Dán oauth client ID, secret vào modal provider supabase
+		supabase -> authen -> url config -> site url: https://toeic-learning.vercel.app, redirect url: https://toeic-learning.vercel.app/**
+- Setup SMTP mail: Resend:
+	- Resend -> API keys -> Create API key
+- Supabase -> authen -> emails -> SMTP Setting -> Enable custom SMTP
+	Host: smtp.resend.com
+	Port: 465
+	User: resend (Nhập đúng chữ "resend" viết thường)
+	Password: Dán cái API Key (bắt đầu bằng re_...) bạn vừa copy ở Bước 1 vào đây.
+	Sender email: Điền tạm onboarding@resend.dev (Tôi sẽ giải thích lý do ở Bước 3).
+	Sender name: Tên web của bạn (VD: Toeic Learning).
+	Bước 4: Khi nào chạy thật (Production) thì phải làm gì?
+	Khi web của bạn hoàn thiện và có người dùng thật, bạn không thể bắt tất cả dùng chung email của bạn được. Lúc đó bạn cần làm các bước sau:
+	Mua một tên miền riêng (VD: toeiclearning.vn).
+	Vào Resend -> mục Domains -> Bấm Add Domain.
+	Điền tên miền của bạn vào. Resend sẽ cung cấp cho bạn các bản ghi DNS (TXT, MX).
+	Bạn vào nơi mua tên miền (Mắt Bão, Tenten, Cloudflare...), dán các bản ghi DNS đó vào để xác thực mình là chủ sở hữu.
+	Sau khi Resend báo Domain status là Verified (Đã xác minh).
+	Bạn quay lại Supabase -> SMTP Settings. Đổi cái Sender email từ onboarding@resend.dev thành email xịn của bạn (VD: noreply@toeiclearning.vn).
+	Đổi template đăng ký và resetpassword
+
+
+
+- Local: Supabase login and supabase link
+	cd infra supabase db push
+
+- Upstash -> redis -> create database -> sing, turn on eviction
+
+- fly.io -> dashboard -> add credit card
+	-> cài đặt flycli powershell -Command "iwr https://fly.io/install.ps1 -useb | iex" -> en global
+	-> cd backend flyctl auth login fly launch/ fly deploy
+	-> to fly dashboard add secrets: env, origin, postgres, redis, project
+	-> fly deploy
+
+-> Vercel -> update VITE_API_URL -> redeploy
+
+
+Staging
+
+Production 

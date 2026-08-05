@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import type { User } from '@supabase/supabase-js'
-import { supabase } from '@/lib/supabase'
+import { supabase, clearRecoveryPending } from '@/lib/supabase'
 
 interface UserStore {
   user: User | null
@@ -21,12 +21,16 @@ export const useUserStore = create<UserStore>((set) => ({
     set({ user: session?.user ?? null, loading: false })
 
     supabase.auth.onAuthStateChange((_event, session) => {
-      set({ user: session?.user ?? null })
+      const nextUser = session?.user ?? null
+      // Hết phiên -> cờ recovery (nếu còn) không thuộc về người đăng nhập sau.
+      if (!nextUser) clearRecoveryPending()
+      set({ user: nextUser })
     })
   },
 
   logout: async () => {
     await supabase.auth.signOut()
+    clearRecoveryPending()
     set({ user: null })
   },
 }))
