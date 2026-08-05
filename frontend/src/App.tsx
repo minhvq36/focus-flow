@@ -1,3 +1,4 @@
+import { lazy } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import Login from './pages/login'
@@ -8,11 +9,18 @@ import ProtectedRoute from './components/auth/protected-route'
 import TaskLayout from './components/layout/task-layout'
 import AuthLayout from './components/layout/auth-layout'
 import AppLayout from './components/layout/app-layout'
-import Garden from './pages/garden'
-import Tasks from './pages/tasks'
-import Focus from './pages/focus'
-// Import thêm trang Profile của chúng ta
-import MePage from './pages/profile' 
+import { RouteSuspense } from './components/layout/route-suspense'
+
+/*
+  Các trang sau đăng nhập được lazy-load để chunk khởi động không kéo theo
+  thư viện nặng: Garden gánh PixiJS (~1MB), Profile gánh react-easy-crop.
+  Khách vào /login chỉ tải đúng phần auth. Fallback spinner nằm trong
+  <RouteSuspense> đặt quanh <Outlet /> của từng layout.
+*/
+const Garden = lazy(() => import('./pages/garden'))
+const Tasks = lazy(() => import('./pages/tasks'))
+const Focus = lazy(() => import('./pages/focus'))
+const MePage = lazy(() => import('./pages/profile'))
 
 import { Toaster } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
@@ -50,7 +58,15 @@ function App() {
                 <Route path="/profile/me" element={<MePage />} /> {/* <--- THÊM DÒNG NÀY */}
               </Route>
               
-              <Route path="/focus/:taskId" element={<Focus />} />
+              {/* Route lẻ, không có layout → tự bọc Suspense */}
+              <Route
+                path="/focus/:taskId"
+                element={
+                  <RouteSuspense>
+                    <Focus />
+                  </RouteSuspense>
+                }
+              />
             </Route>
           </Routes>
 

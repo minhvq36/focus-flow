@@ -82,12 +82,11 @@ export function computeGridOrigin(
   canvasHeight: number,
   config: TileConfig,
 ): ScreenPoint {
-  const { tileWidth, tileHeight } = config
+  const { tileHeight } = config
 
   // Bounding box of the full diamond map:
-  //   width  = gridSize * tileWidth
+  //   width  = gridSize * tileWidth  (không cần: trục X canh theo tâm canvas)
   //   height = gridSize * tileHeight
-  const mapWidth = gridSize * tileWidth
   const mapHeight = gridSize * tileHeight
 
   return {
