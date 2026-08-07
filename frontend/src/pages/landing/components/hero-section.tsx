@@ -22,12 +22,18 @@ export default function HeroSection() {
           fetchPriority="high"
           decoding="async"
         />
-        <div className="absolute inset-0 bg-background/72 backdrop-blur-[1px]" />
+        {/*
+          Lớp phủ là GRADIENT chứ không phải một mảng phẳng: nhạt ở trên để mây
+          và dãy núi còn giữ được độ hùng vĩ, đậm dần xuống dải giữa nơi đặt tiêu
+          đề + mô tả (chỗ cần tương phản nhất).
+        */}
+        <div className="absolute inset-0 bg-gradient-to-b from-background/45 via-background/70 to-background/88" />
         {/* Tan dần xuống nền trang để hero không cắt ngang một đường cứng */}
         <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-b from-transparent to-background" />
       </div>
 
-      <div className="mx-auto flex min-h-[calc(100svh-4rem)] max-w-4xl flex-col items-center justify-center px-4 py-20 text-center md:px-8">
+      {/* pt-28 chừa chỗ cho header `fixed` (h-16) để chữ không nằm dưới nó */}
+      <div className="mx-auto flex min-h-svh max-w-4xl flex-col items-center justify-center px-4 pb-20 pt-28 text-center md:px-8">
 
         <span className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-card/70 px-4 py-1.5 text-xs font-medium text-muted-foreground backdrop-blur-sm">
           <Sparkles className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
