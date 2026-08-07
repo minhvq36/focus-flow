@@ -31,11 +31,12 @@ export function EditableTitle({ value, isReadOnly, onCommit, displayClassName }:
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const committedValueRef = useRef(value)
 
-  // Clear optimistic value once parent prop has caught up
+  // Đồng bộ ref với prop cha. Không cần clear optimisticValue ở đây:
+  // khi prop đã bắt kịp thì `optimisticValue ?? value` cho ra đúng cùng một chuỗi,
+  // nên setState trong effect chỉ tạo thêm một vòng render thừa.
   useEffect(() => {
     committedValueRef.current = value
-    if (optimisticValue === value) setOptimisticValue(null)
-  }, [value, optimisticValue])
+  }, [value])
 
   // ─── auto-grow ────────────────────────────────────────────────────────────
   const autoGrow = useCallback((el: HTMLTextAreaElement) => {

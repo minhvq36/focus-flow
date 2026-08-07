@@ -46,6 +46,76 @@ export function flatToNested(flat: FlatItem[]): TodoItem[] {
   return root
 }
 
+// ─── Sanitize ─────────────────────────────────────────────────────────────────
+
+function findFirstNonEmptyDescendant(flat: FlatItem[], startIdx: number): string | null {
+  const parentDepth = flat[startIdx].depth
+  for (let i = startIdx + 1; i < flat.length; i++) {
+    if (flat[i].depth <= parentDepth) break // out of subtree
+    if (flat[i].text.trim()) return flat[i].text
+  }
+  return null
+}
+
+function isSubtreeEmpty(flat: FlatItem[], startIdx: number): boolean {
+  const parentDepth = flat[startIdx].depth
+  if (flat[startIdx].text.trim()) return false
+  for (let i = startIdx + 1; i < flat.length; i++) {
+    if (flat[i].depth <= parentDepth) break
+    if (flat[i].text.trim()) return false
+  }
+  return true
+}
+
+export function sanitizeFlat(flat: FlatItem[]): FlatItem[] {
+  let result = [...flat]
+
+  // Rule 2 — Fill empty parents from first non-empty descendant (bottom-up pass)
+  // Iterate from end to start so we fill bottom nodes first
+  for (let i = result.length - 1; i >= 0; i--) {
+    if (!result[i].text.trim()) {
+      const label = findFirstNonEmptyDescendant(result, i)
+      if (label) {
+        result[i] = { ...result[i], text: label }
+      }
+    }
+  }
+
+  // Rule 3 — Delete fully empty subtrees (bottom-up)
+  // Build list of indices to remove
+  const toRemove = new Set<number>()
+  for (let i = result.length - 1; i >= 0; i--) {
+    if (toRemove.has(i)) continue
+    if (isSubtreeEmpty(result, i)) {
+      // Mark this node and all its descendants for removal
+      const parentDepth = result[i].depth
+      toRemove.add(i)
+      for (let j = i + 1; j < result.length; j++) {
+        if (result[j].depth <= parentDepth) break
+        toRemove.add(j)
+      }
+    }
+  }
+  result = result.filter((_, i) => !toRemove.has(i))
+
+  // Rule 1 — Trim trailing empty items (no children with text)
+  while (result.length > 0) {
+    const last = result[result.length - 1]
+    if (!last.text.trim()) {
+      result.pop()
+    } else {
+      break
+    }
+  }
+
+  // Guard — always keep at least 1 item
+  if (result.length === 0) {
+    result = [{ id: crypto.randomUUID(), text: '', depth: 0, done: false }]
+  }
+
+  return result
+}
+
 // ─── Validation ───────────────────────────────────────────────────────────────
 
 export function validateFlat(flat: FlatItem[]): { valid: boolean; error?: string } {

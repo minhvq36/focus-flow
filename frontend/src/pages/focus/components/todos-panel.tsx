@@ -142,7 +142,9 @@ function EditableTodos({ flat, setFlat }: EditableTodosProps) {
   // flatRef: read current flat in event handlers without triggering re-renders
   // and without needing setFlat just to peek at state.
   const flatRef = useRef(flat)
-  flatRef.current = flat
+  useEffect(() => {
+    flatRef.current = flat
+  }, [flat])
 
   const doneCount = flat.filter((t) => t.done).length
 

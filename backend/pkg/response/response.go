@@ -3,6 +3,7 @@ package response
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 )
 
 // ErrorPayload — Error details
@@ -77,6 +78,15 @@ func NotFound(w http.ResponseWriter, resource string) {
 
 func Conflict(w http.ResponseWriter, code, message string) {
 	Error(w, http.StatusConflict, code, message)
+}
+
+// TooManyRequests — rate limit vượt ngưỡng (429).
+// retryAfterSeconds > 0 sẽ gắn header Retry-After để FE biết chờ bao lâu.
+func TooManyRequests(w http.ResponseWriter, retryAfterSeconds int) {
+	if retryAfterSeconds > 0 {
+		w.Header().Set("Retry-After", strconv.Itoa(retryAfterSeconds))
+	}
+	Error(w, http.StatusTooManyRequests, "RATE_LIMITED", "Too many requests, please slow down")
 }
 
 func InternalError(w http.ResponseWriter) {

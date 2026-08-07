@@ -2,6 +2,7 @@
 import type { DateRange, FilterState, TaskStatus } from "@/types/task"
 import { useState, useMemo } from "react"
 import { useTranslation } from "react-i18next"
+import type { TFunction } from "i18next"
 import { ChevronUp, ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -23,7 +24,7 @@ interface FilterOptions {
   dateLabel: Record<DateRange, string>
 }
 
-function createFilterOptions(t: any): FilterOptions {
+function createFilterOptions(t: TFunction<'tasks'>): FilterOptions {
   return {
     dateRange: [
       { value: "today", label: t('filter.today', { defaultValue: 'Today' }) },

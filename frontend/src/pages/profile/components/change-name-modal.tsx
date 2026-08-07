@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { toast } from 'sonner';
 import { useUserPrivate } from '../hooks/use-profile';
 import { useProfileUpdate } from '../hooks/use-profile-update';
@@ -6,7 +6,6 @@ import { useWallet } from '@/pages/garden/hooks/use-economy';
 import { formatCurrency } from '@/lib/utils';
 
 interface ChangeNameModalProps {
-  isOpen: boolean;
   onClose: () => void;
   currentName: string;
 }
@@ -14,17 +13,12 @@ interface ChangeNameModalProps {
 const MAX_FREE_CHANGES = 2;
 const CHANGE_COST = 20000;
 
-export default function ChangeNameModal({ isOpen, onClose, currentName }: ChangeNameModalProps) {
+// Parent chỉ mount modal khi mở, nên `name` tự khởi tạo lại từ currentName mỗi lần.
+export default function ChangeNameModal({ onClose, currentName }: ChangeNameModalProps) {
   const [name, setName] = useState(currentName);
   const { data: privateData } = useUserPrivate();
   const { data: wallet } = useWallet();
   const { changeNameMutation } = useProfileUpdate();
-
-  useEffect(() => {
-    if (isOpen) setName(currentName);
-  }, [isOpen, currentName]);
-
-  if (!isOpen) return null;
 
   const changeCount = privateData?.name_change_count ?? 0;
   const remainingFree = MAX_FREE_CHANGES - changeCount;
@@ -46,8 +40,9 @@ export default function ChangeNameModal({ isOpen, onClose, currentName }: Change
           toast.success("Name changed successfully!");
           onClose();
         },
-        onError: (err: any) => {
-          toast.error(err?.response?.data?.message || "Failed to change name");
+        onError: (err) => {
+          // lib/api.ts ném Error đã mang sẵn message từ BE
+          toast.error(err.message || "Failed to change name");
         }
       }
     );

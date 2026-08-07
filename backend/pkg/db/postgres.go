@@ -8,23 +8,26 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func NewPool(ctx context.Context, databaseURL string) *pgxpool.Pool {
+// NewPool tạo connection pool PostgreSQL với giới hạn đọc từ config.
+func NewPool(ctx context.Context, databaseURL string, maxConns, minConns int32) (*pgxpool.Pool, error) {
 	config, err := pgxpool.ParseConfig(databaseURL)
 	if err != nil {
-		log.Fatalf("Invalid DB configuration: %v", err) // TODO: Convert all comments and logs to English, add [] tag for debugging
+		return nil, fmt.Errorf("[DB] invalid database configuration: %w", err)
 	}
 
-	config.MaxConns = 10 // TODO: Tune or optimize code to handle large load, read from .env or .yml
+	config.MaxConns = maxConns
+	config.MinConns = minConns
 
 	pool, err := pgxpool.NewWithConfig(ctx, config)
 	if err != nil {
-		log.Fatalf("Failed to create pool: %v", err)
+		return nil, fmt.Errorf("[DB] failed to create connection pool: %w", err)
 	}
 
 	if err := pool.Ping(ctx); err != nil {
-		log.Fatalf("Failed to ping DB: %v", err)
+		pool.Close()
+		return nil, fmt.Errorf("[DB] failed to ping database: %w", err)
 	}
 
-	fmt.Println("Database connection successful!")
-	return pool
+	log.Println("[DB] Database connection pool established successfully")
+	return pool, nil
 }

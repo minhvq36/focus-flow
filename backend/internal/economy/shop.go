@@ -5,11 +5,20 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/minhvq36/focus-flow/backend/pkg/apperr"
+	"github.com/minhvq36/focus-flow/backend/pkg/cache"
 	"github.com/minhvq36/focus-flow/backend/pkg/logger"
+)
+
+// Catalog shop là dữ liệu hệ thống (bảng items), giống nhau với mọi user và chỉ
+// đổi khi seed/migration -> cache thẳng 1 giờ, không cần invalidate theo user.
+const (
+	shopItemsCacheKey = "cache:shop:items"
+	shopItemsCacheTTL = time.Hour
 )
 
 // Khai báo Interface để Service gọi xuống Repo (Dễ Mock khi viết Unit Test)
@@ -33,15 +42,17 @@ type Service struct {
 	db       *pgxpool.Pool
 	repo     RepositoryInterface
 	currency *CurrencyService // Gọi sang Lõi Ví Tiền để thanh toán và ghi log
+	cache    *cache.Cache
 	log      *logger.Logger
 }
 
 // Cập nhật lại constructor để nhận thêm db pool và currency service
-func NewService(db *pgxpool.Pool, repo RepositoryInterface, currency *CurrencyService, log *logger.Logger) *Service {
+func NewService(db *pgxpool.Pool, repo RepositoryInterface, currency *CurrencyService, c *cache.Cache, log *logger.Logger) *Service {
 	return &Service{
 		db:       db,
 		repo:     repo,
 		currency: currency,
+		cache:    c,
 		log:      log,
 	}
 }
@@ -67,6 +78,15 @@ func (s *Service) GetWallet(ctx context.Context, userID string) (*WalletResponse
 // ==========================================
 
 func (s *Service) GetShopItems(ctx context.Context) ([]ShopItemResponse, error) {
+	// 1. Thử đọc cache trước — lỗi cache KHÔNG được làm hỏng API, chỉ log rồi query DB
+	var cached []ShopItemResponse
+	hit, err := s.cache.GetJSON(ctx, shopItemsCacheKey, &cached)
+	if err != nil {
+		s.log.Error("[CACHE] read shop items failed, falling back to DB", "error", err.Error())
+	} else if hit {
+		return cached, nil
+	}
+
 	items, err := s.repo.GetPurchasableItems(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("GetShopItems: %w", err)
@@ -87,7 +107,20 @@ func (s *Service) GetShopItems(ctx context.Context) ([]ShopItemResponse, error) 
 		})
 	}
 
+	// 2. Ghi cache — hỏng cũng không ảnh hưởng response
+	if err := s.cache.SetJSON(ctx, shopItemsCacheKey, result, shopItemsCacheTTL); err != nil {
+		s.log.Error("[CACHE] write shop items failed", "error", err.Error())
+	}
+
 	return result, nil
+}
+
+// InvalidateShopItems — xoá cache catalog. Dùng khi seed lại bảng items hoặc
+// khi có admin endpoint sửa item (chưa có ở thời điểm này).
+func (s *Service) InvalidateShopItems(ctx context.Context) {
+	if err := s.cache.Delete(ctx, shopItemsCacheKey); err != nil {
+		s.log.Error("[CACHE] invalidate shop items failed", "error", err.Error())
+	}
 }
 
 // ==========================================

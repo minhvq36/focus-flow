@@ -1,30 +1,21 @@
-import { useEffect, useState } from 'react';
-import Cropper from 'react-easy-crop';
+import { useState } from 'react';
+import Cropper, { type Area } from 'react-easy-crop';
 
 interface AvatarCropModalProps {
-  isOpen: boolean;
   imageSrc: string;
   onClose: () => void;
-  onConfirm: (croppedAreaPixels: any) => void;
+  onConfirm: (croppedAreaPixels: Area) => void;
   isProcessing: boolean;
 }
 
-export default function AvatarCropModal({ isOpen, imageSrc, onClose, onConfirm, isProcessing }: AvatarCropModalProps) {
+// Parent chỉ mount modal khi đang có ảnh tạm, nên crop/zoom tự reset mỗi lần mở.
+export default function AvatarCropModal({ imageSrc, onClose, onConfirm, isProcessing }: AvatarCropModalProps) {
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
-  const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
 
-  useEffect(() => {
-    if (isOpen) {
-      setZoom(1);
-      setCrop({ x: 0, y: 0 });
-    }
-  }, [isOpen]);
-
-  if (!isOpen) return null;
-
-  const onCropComplete = (_: any, croppedAreaPixels: any) => {
-    setCroppedAreaPixels(croppedAreaPixels);
+  const onCropComplete = (_: Area, areaPixels: Area) => {
+    setCroppedAreaPixels(areaPixels);
   };
 
   return (
@@ -73,8 +64,8 @@ export default function AvatarCropModal({ isOpen, imageSrc, onClose, onConfirm, 
             Cancel
           </button>
           <button 
-            onClick={() => onConfirm(croppedAreaPixels)}
-            disabled={isProcessing}
+            onClick={() => croppedAreaPixels && onConfirm(croppedAreaPixels)}
+            disabled={isProcessing || !croppedAreaPixels}
             className="px-6 py-2.5 bg-foreground text-background font-medium rounded-lg hover:opacity-90 disabled:opacity-50 flex items-center gap-2"
           >
             {isProcessing ? 'Processing...' : 'Save'}
