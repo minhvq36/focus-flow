@@ -139,21 +139,11 @@ function UserMenu() {
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="relative ml-2 inline-flex rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          className="ml-1 inline-flex rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           aria-label={t('menu.account')}
         >
-          {/*
-            Vầng hào quang — bật cho MỌI tài khoản, không gắn với gói cước.
-            Nằm trước Avatar trong DOM và không đặt z-index nên nó luôn vẽ ở dưới.
-            `ring-offset-transparent` để khe hở giữa ring và ảnh lộ chính vầng
-            sáng này, thay vì trám một mảng nền đục lên header đang trong suốt.
-          */}
-          <span
-            aria-hidden="true"
-            className="animate-avatar-halo pointer-events-none absolute -inset-1 rounded-full bg-[radial-gradient(circle,rgba(251,191,36,0.9)_0%,rgba(251,191,36,0.4)_45%,transparent_72%)] blur-[5px]"
-          />
-
-          <Avatar className="h-8 w-8 cursor-pointer ring-2 ring-amber-400/90 ring-offset-2 ring-offset-transparent shadow-[0_0_12px_2px_rgba(251,191,36,0.45)] transition-shadow hover:shadow-[0_0_16px_3px_rgba(251,191,36,0.65)]">
+          {/* Hào quang vàng — bật cho MỌI tài khoản, không gắn với gói cước */}
+          <Avatar className="h-8 w-8 cursor-pointer ring-2 ring-amber-400/90 ring-offset-2 ring-offset-background shadow-[0_0_12px_2px_rgba(251,191,36,0.5)]">
             {profile?.avatar_url && (
               <AvatarImage src={profile.avatar_url} alt={displayName} />
             )}

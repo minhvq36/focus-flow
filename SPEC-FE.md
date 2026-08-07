@@ -325,11 +325,11 @@ Dùng chung cho `AppLayout` và `TaskLayout`: logo · tab Garden/Tasks · đồn
   Profile, nên `setQueryData` sau khi đổi ảnh ở đó làm header đổi ngay, không cần
   refetch. `uploadUserImage` đã gắn `?t=<timestamp>` vào URL nên trình duyệt cũng
   không giữ ảnh cũ. Fallback là chữ cái đầu của `display_name` (hoặc email).
-- **Vầng hào quang vàng bật cho MỌI tài khoản**, không gắn với gói cước: ring
-  `ring-amber-400/90` + `ring-offset-transparent` (để khe hở lộ chính vầng sáng
-  thay vì trám nền đục lên header) + `shadow` glow, và một lớp radial-gradient
-  blur thở nhẹ bằng animation `animate-avatar-halo` (token `--animate-avatar-halo`
-  khai trong `index.css`, tự tắt dưới `prefers-reduced-motion: reduce`).
+- **Vầng hào quang vàng bật cho MỌI tài khoản**, không gắn với gói cước:
+  `ring-2 ring-amber-400/90 ring-offset-2 ring-offset-background` +
+  `shadow-[0_0_12px_2px_rgba(251,191,36,0.5)]`. Chỉ có vậy — không lớp blur phụ,
+  không animation: hào quang phải là viền mảnh và quầng sáng khuếch tán, thêm lớp
+  nữa là thành dày và thô.
 - Dropdown 2 mục: **My profile** → `/profile/me` · **Log out** (xem luồng ở §3).
 
 ### 7.7 Chưa làm ⬜
