@@ -104,11 +104,9 @@ export default function FocusPage() {
   useEffect(() => {
     if (!task) return
 
-    // Terminal status: luôn sync từ server, không cần guard
-    if (task.status === 'submitted' || task.status === 'given_up') {
-      setTodos(task.todos)
-      return
-    }
+    // Terminal status: todos đã đóng băng -> render thẳng task.todos khi render
+    // (xem `displayTodos` bên dưới), không cần giữ bản sao trong local state
+    if (task.status === 'submitted' || task.status === 'given_up') return
 
     // Đợi background refetch xong mới seed — tránh cache cũ đè lên DB mới
     // khi user back rồi resume lại
@@ -236,6 +234,8 @@ export default function FocusPage() {
   )
 
   const isReadOnly = task.status === 'submitted' || task.status === 'given_up'
+  // Task đã kết thúc thì todos là dữ liệu chết -> đọc thẳng từ server
+  const displayTodos = isReadOnly ? task.todos : todos
   const totalSec = task.registered_duration_min * 60
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -311,7 +311,7 @@ export default function FocusPage() {
               <div className="min-h-[135px] max-h-[calc(100vh-282px)] overflow-y-auto scroll-smooth [scrollbar-gutter:stable]">
                 <div className="p-6">
                   <TodosPanel
-                    todos={todos}
+                    todos={displayTodos}
                     isReadOnly={isReadOnly}
                     onChange={handleTodosChange}
                   />

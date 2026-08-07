@@ -64,4 +64,6 @@ function Button({
   )
 }
 
-export { Button, buttonVariants }
+// buttonVariants cố tình không export: hiện không file nào dùng, và export non-component
+// cạnh component làm vỡ Fast Refresh (react-refresh/only-export-components).
+export { Button }

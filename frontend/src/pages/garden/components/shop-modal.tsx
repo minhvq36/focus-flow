@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { X, Loader2, Store, ShoppingCart, Coins, CircleDollarSign } from 'lucide-react'
 import { toast } from 'sonner'
 import { 
@@ -55,8 +55,7 @@ function CoinIcon({
 type TxType = 'buy' | 'sell_silver' | 'sell_gold'
 
 interface TransactionDialogProps {
-  isOpen: boolean
-  isProcessing: boolean 
+  isProcessing: boolean
   type: TxType
   item: ShopItemResponse | SellableItemResponse | null
   maxQuantity: number
@@ -64,14 +63,12 @@ interface TransactionDialogProps {
   onConfirm: (quantity: number) => void
 }
 
-function TransactionDialog({ isOpen, isProcessing, type, item, maxQuantity, onClose, onConfirm }: TransactionDialogProps) {
+// Chỉ được mount khi dialog mở (xem chỗ render ở ShopModal), nên `amountStr`
+// tự reset về '1' mỗi lần mở — không cần effect đồng bộ theo isOpen.
+function TransactionDialog({ isProcessing, type, item, maxQuantity, onClose, onConfirm }: TransactionDialogProps) {
   const [amountStr, setAmountStr] = useState<string>('1')
 
-  useEffect(() => {
-    if (isOpen) setAmountStr('1')
-  }, [isOpen])
-
-  if (!isOpen || !item) return null
+  if (!item) return null
 
   const isGold = type === 'sell_gold'
   const isBuy = type === 'buy'
@@ -221,23 +218,24 @@ export function ShopModal({ isOpen, onClose }: ShopModalProps) {
   const items = activeTab === 'buy' ? buyItems : sellItems
 
   const openTransaction = (type: TxType, item: ShopItemResponse | SellableItemResponse) => {
-    let maxQty = 1;
-
     if (type === 'buy') {
       const bItem = item as ShopItemResponse;
       const affordable = wallet ? Math.floor(wallet.silver_balance / bItem.silver_price) : 0
-      maxQty = Math.min(affordable, 99) 
-      
-      if (maxQty < 1) return 
-    } else {
-      const sItem = item as SellableItemResponse;
-      maxQty = sItem.quantity;
+      const maxQty = Math.min(affordable, 99)
 
-      // Single Silver bypass
-      if (type === 'sell_silver' && maxQty === 1) {
-        executeSell(sItem, 1, 'silver')
-        return
-      }
+      if (maxQty < 1) return
+
+      setTxState({ isOpen: true, type, item, maxQty })
+      return
+    }
+
+    const sItem = item as SellableItemResponse;
+    const maxQty = sItem.quantity;
+
+    // Single Silver bypass
+    if (type === 'sell_silver' && maxQty === 1) {
+      executeSell(sItem, 1, 'silver')
+      return
     }
 
     setTxState({ isOpen: true, type, item, maxQty })
@@ -253,8 +251,9 @@ export function ShopModal({ isOpen, onClose }: ShopModalProps) {
           toast.success(`Sold ${qty}x ${sellItem.name} for ${currency === 'gold' ? 'Gold' : 'Silver'}!`)
           setTxState(prev => ({ ...prev, isOpen: false }))
         },
-        onError: (err: any) => {
-          toast.error(err?.response?.data?.message || 'Failed to sell item!')
+        onError: (err) => {
+          // lib/api.ts ném Error đã mang sẵn message từ BE
+          toast.error(err.message || 'Failed to sell item!')
           setTxState(prev => ({ ...prev, isOpen: false }))
         }
       }
@@ -273,8 +272,9 @@ export function ShopModal({ isOpen, onClose }: ShopModalProps) {
             toast.success(`Purchased ${quantity}x ${buyItem.name}!`)
             setTxState(prev => ({ ...prev, isOpen: false }))
           },
-          onError: (err: any) => {
-            toast.error(err?.response?.data?.message || 'Transaction failed!')
+          onError: (err) => {
+            // lib/api.ts ném Error đã mang sẵn message từ BE
+            toast.error(err.message || 'Transaction failed!')
             setTxState(prev => ({ ...prev, isOpen: false }))
           }
         }
@@ -325,15 +325,16 @@ export function ShopModal({ isOpen, onClose }: ShopModalProps) {
           </div>
         )}
 
-        <TransactionDialog 
-          isOpen={txState.isOpen}
-          isProcessing={isProcessing}
-          type={txState.type}
-          item={txState.item}
-          maxQuantity={txState.maxQty}
-          onClose={() => setTxState(prev => ({ ...prev, isOpen: false }))}
-          onConfirm={handleTransactionConfirm}
-        />
+        {txState.isOpen && (
+          <TransactionDialog
+            isProcessing={isProcessing}
+            type={txState.type}
+            item={txState.item}
+            maxQuantity={txState.maxQty}
+            onClose={() => setTxState(prev => ({ ...prev, isOpen: false }))}
+            onConfirm={handleTransactionConfirm}
+          />
+        )}
 
         <div className="flex items-center justify-between p-5 border-b border-slate-200 bg-slate-50/80 rounded-t-3xl relative z-10">
           <div className="flex items-center gap-3 text-xl font-extrabold text-slate-800">

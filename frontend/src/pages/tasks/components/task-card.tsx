@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import { Play, Eye, Send, Clock, Sprout, Pause, CheckSquare, Calendar, Star } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { TaskSummary, TaskStatus } from '@/types/task'
@@ -33,7 +34,7 @@ type StatusCfg = {
   icon: React.ReactNode
 }
 
-const getStatusCfg = (t: any): Record<TaskStatus, StatusCfg> => ({
+const getStatusCfg = (t: TFunction<'tasks'>): Record<TaskStatus, StatusCfg> => ({
   active: {
     border: 'border-l-emerald-400',
     badge:  'border-emerald-200 bg-emerald-50 text-emerald-700',

@@ -39,7 +39,9 @@ function getSavedZoom(gardenId: string): number | null {
 function saveZoom(gardenId: string, zoom: number): void {
   try {
     localStorage.setItem(ZOOM_KEY(gardenId), String(zoom))
-  } catch {}
+  } catch {
+    // localStorage bị chặn (private mode / hết quota) -> bỏ qua, zoom chỉ là tiện ích
+  }
 }
 
 const TILE_WIDTH = 64
@@ -52,15 +54,13 @@ export default function Garden() {
   const gardenGridRef = useRef<GardenGrid | null>(null)
 
   const { data: gardenList } = useGardenList()
-  const [activeGardenId, setActiveGardenId] = useState<string | null>(getLastGardenId())
+  const [selectedGardenId, setSelectedGardenId] = useState<string | null>(getLastGardenId())
 
   const [isCanvasReady, setIsCanvasReady] = useState(false)
 
-  useEffect(() => {
-    if (!activeGardenId && gardenList && gardenList.length > 0) {
-      setActiveGardenId(gardenList.at(-1)!.id)
-    }
-  }, [gardenList, activeGardenId])
+  // Chưa chọn vườn nào (lần đầu vào app) -> mặc định lấy vườn mới nhất trong danh sách.
+  // Derive thẳng khi render thay vì setState trong effect để tránh render thừa 1 vòng.
+  const activeGardenId = selectedGardenId ?? gardenList?.at(-1)?.id ?? null
 
   const { data: garden, isLoading } = useGarden(activeGardenId)
 
@@ -403,7 +403,7 @@ export default function Garden() {
   }
 
   const handleGardenChange = (id: string) => {
-    setActiveGardenId(id)
+    setSelectedGardenId(id)
     setSelectedTile(null)
   }
 

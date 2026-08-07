@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Dialog,
@@ -43,14 +43,11 @@ export function NoteEditDialog({
   isReadOnly = false,
 }: NoteEditDialogProps) {
   const { t } = useTranslation('focus')
-  const [text, setText] = useState('')
+  // Parent mount lại component này bằng `key={note.id}` mỗi khi đổi note,
+  // nên chỉ cần khởi tạo từ prop, không cần sync bằng effect.
+  const [text, setText] = useState(note?.content ?? '')
   const [showConfirm, setShowConfirm] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-
-  // Sync text when note changes
-  useEffect(() => {
-    if (note) setText(note.content)
-  }, [note])
 
   const isDirty = note ? text.trim() !== note.content.trim() : false
   const isOverLimit = text.length > NOTE_MAX_CHARS
