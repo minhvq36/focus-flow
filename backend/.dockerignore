@@ -1,0 +1,18 @@
+# QUAN TRỌNG NHẤT: .env chứa mật khẩu DB thật. `COPY . .` ở stage build sẽ nuốt
+# nó vào image nếu không chặn ở đây. Config production đi bằng `fly secrets set`.
+.env
+.env.*
+
+# Không cần trong image
+.git
+.gitignore
+.dockerignore
+Dockerfile
+fly.toml
+*.md
+logs/
+scripts_local/
+
+# Artifact build local (nếu có)
+*.exe
+run-app

@@ -13,16 +13,20 @@ import (
 	"github.com/minhvq36/focus-flow/backend/internal/inventory"
 	"github.com/minhvq36/focus-flow/backend/internal/profile"
 	"github.com/minhvq36/focus-flow/backend/internal/task"
+	"github.com/minhvq36/focus-flow/backend/pkg/cache"
+	"github.com/minhvq36/focus-flow/backend/pkg/config"
 	"github.com/minhvq36/focus-flow/backend/pkg/logger"
 	"github.com/minhvq36/focus-flow/backend/pkg/profanity"
 )
 
-func setupRoutes(jwks keyfunc.Keyfunc, db *pgxpool.Pool, log *logger.Logger, pf *profanity.Filter) *chi.Mux {
+func setupRoutes(cfg *config.Config, jwks keyfunc.Keyfunc, db *pgxpool.Pool, c *cache.Cache, log *logger.Logger, pf *profanity.Filter) *chi.Mux {
 	r := chi.NewRouter()
 
+	r.Use(chiMiddleware.RequestID)
+	r.Use(chiMiddleware.RealIP)
 	r.Use(chiMiddleware.Logger)
 	r.Use(chiMiddleware.Recoverer)
-	r.Use(corsMiddleware)
+	r.Use(corsMiddleware(cfg.CORSOrigin))
 
 	r.Get("/health", healthHandler)
 
@@ -32,32 +36,38 @@ func setupRoutes(jwks keyfunc.Keyfunc, db *pgxpool.Pool, log *logger.Logger, pf 
 
 	r.Group(func(r chi.Router) {
 		r.Use(auth.RequireAuth(jwks))
-		r.Route("/api/tasks", task.Routes(db, log, economyAuditor))
-		r.Route("/api/profile", profile.Routes(db, log, currencySvc, pf))
-		r.Route("/api/garden", garden.Routes(db, log))
+		// Lưới an toàn chung cho mọi request đã đăng nhập (chủ yếu là các route
+		// đọc). Các route ghi còn bị siết thêm bởi policy riêng trong từng domain.
+		r.Use(auth.RateLimit(c, log, auth.PolicyGlobal))
+
+		r.Route("/api/tasks", task.Routes(db, c, log, economyAuditor))
+		r.Route("/api/profile", profile.Routes(db, c, log, currencySvc, pf))
+		r.Route("/api/garden", garden.Routes(db, c, log))
 		r.Route("/api/inventory", inventory.Routes(db, log))
-		r.Route("/api/economy", economy.Routes(db, log))
+		r.Route("/api/economy", economy.Routes(db, c, log))
 	})
 
 	return r
 }
 
-func corsMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// TODO: IMPROVE: Make this more robust for production use (handle multiple origins, env config, etc.)
-		w.Header().Set("Access-Control-Allow-Origin", "http://localhost:5173")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
-		w.Header().Set("Access-Control-Allow-Credentials", "true")
+func corsMiddleware(allowedOrigin string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Access-Control-Allow-Origin", allowedOrigin)
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
+			w.Header().Set("Access-Control-Expose-Headers", "Retry-After")
+			w.Header().Set("Access-Control-Allow-Credentials", "true")
 
-		// Preflight — respond immediately, no auth needed
-		if r.Method == http.MethodOptions {
-			w.WriteHeader(http.StatusNoContent)
-			return
-		}
+			// Preflight — respond immediately, no auth needed
+			if r.Method == http.MethodOptions {
+				w.WriteHeader(http.StatusNoContent)
+				return
+			}
 
-		next.ServeHTTP(w, r)
-	})
+			next.ServeHTTP(w, r)
+		})
+	}
 }
 
 func healthHandler(w http.ResponseWriter, r *http.Request) {

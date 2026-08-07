@@ -67,12 +67,26 @@ Repo: `backend/` (Go 1.25, chi, pgx) · `frontend/` (React 19, TS, Vite, Tailwin
 - **Squash** (khi user yêu cầu): gộp entry cũ, **xoá thẳng tay** thông tin đã bị ghi đè hoặc hết giá trị. Chỉ giữ quyết định CÒN HIỆU LỰC.
 - Bug đã tốn nhiều thời gian truy vết thì ghi lại nguyên nhân gốc để không lặp lại.
 
-### 7. HIỆN TRẠNG & CẠM BẪY ĐÃ BIẾT
+### 7. REDIS (`pkg/cache` + `internal/auth/ratelimit.go`)
 
-- **Đã xong:** auth (JWT/JWKS), task + notes + quota, garden placements, inventory, reward roll/penalty, economy wallet + shop, profile.
-- **Mới là stub, đừng tưởng đã chạy:** `internal/session` (Redis), `internal/social`, `internal/ai`, `pkg/cache`, `pkg/realtime`, `cmd/cronjob`. Redis/Elasticsearch/Prometheus có config trong `infra/` nhưng **backend chưa nối**.
-- `cmd/server/main.go` chưa có **graceful shutdown** — nếu đụng vào phần khởi động server thì bổ sung luôn.
-- CORS trong `cmd/server/routes.go` đang **hardcode `http://localhost:5173`** — phải chuyển sang env trước khi deploy production.
-- `.github/workflows/ci.yml` gọi `npm run type-check` nhưng script này **không tồn tại** trong `frontend/package.json` → job CI frontend fail. Sửa 1 trong 2 phía khi có dịp.
-- Backend **chưa có test nào** (`go test ./...` pass rỗng). Viết logic thuần (reward roll, tính level/EXP, isometric) thì ưu tiên bổ sung unit test.
+- **Nguyên tắc: thoáng khi ĐỌC, chặt khi GHI.** Route đọc chỉ chịu `PolicyGlobal`; route ghi siết theo mức độ "đắt": ghi 1 bảng < transaction đa bảng < đụng ví tiền/RNG.
+- Bảng policy nằm **tập trung** ở `internal/auth/ratelimit.go` và là **hợp đồng 2 chiều** với `SPEC-BE.md` §5. Thêm route ghi mới → chọn policy có sẵn hoặc thêm policy + cập nhật SPEC trong cùng phiên. Không rải số magic vào từng `routes.go`.
+- Middleware `auth.RateLimit(...)` phải mount **SAU** `RequireAuth` (nó lấy `user_id` từ context).
+- **Fail-open** khi Redis lỗi lúc check rate limit (log `ERROR` rồi cho qua) — chặn user submit task vì Redis sập là cướp phần thưởng của cả phiên tập trung. **Fail-soft** khi cache lỗi (log rồi query DB). **Fail-fast** lúc boot (không ping được Redis thì không khởi động).
+- Cache mới phải trả lời được: key là gì, TTL bao nhiêu, **ai invalidate**. Không cache dữ liệu theo user nếu chưa có đường invalidate rõ ràng.
+
+### 8. HIỆN TRẠNG & CẠM BẪY ĐÃ BIẾT
+
+- **Đã xong:** auth (JWT/JWKS), task + notes + quota, garden placements, inventory, reward roll/penalty, economy wallet + shop, profile, Redis (rate limit + cache catalog shop), graceful shutdown, CORS + pool DB đọc từ env.
+- **Mới là stub, đừng tưởng đã chạy:** `internal/session` (timer state trên Redis), `internal/social`, `internal/ai`, `pkg/realtime`, `cmd/cronjob`, `cmd/server/wire.go`. Elasticsearch/Prometheus có config trong `infra/` nhưng **backend chưa nối**.
+- **Chưa seed `items` và `frames`** → reward roll sẽ tụt hết bậc và không rơi item nào. Đây là việc chặn nhiều thứ nhất hiện giờ.
+- **Mâu thuẫn chưa chốt:** `GetRandomItemByRarity` lọc `is_purchasable = true`, nên item thiết kế là "không bán trong shop" (Epic/Legendary/Eternal) sẽ **không bao giờ rơi**. Xem `SPEC.md` §4.2.
+- **`reward_rolls.seed` luôn NULL** — `Grant()` không gán `RollResult.Seed`.
+- **Penalty ăn cả đồ trong túi**, không chỉ đồ đã đặt trong vườn (chỉ trừ `on_market`); Legendary/Eternal miễn nhiễm. Xem `SPEC.md` §4.4.
+- `010_economy_transactions.sql` có **dấu phẩy thừa** trong danh sách CHECK (`'slug_change',`) → `supabase db push` từ đầu sẽ fail.
+- `INVALID_STATE` đang trả **400** ở `extend`/`title` nhưng **409** ở `reset`/`pause`/`resume`/`submit`/`giveup` — bất nhất đã biết, sửa thì sửa cả 2 phía.
+- `.github/workflows/ci.yml` dùng **Go 1.21** trong khi `go.mod` yêu cầu **1.25** → job CI backend fail.
+- Query key FE của `garden`/`inventory`/`economy`/`profile` **thiếu `user?.id`** → rò cache giữa 2 tài khoản trong cùng tab.
+- `lib/api.ts` luôn gọi `res.json()` → endpoint trả **204** sẽ ném lỗi parse (hiện chưa endpoint nào dùng 204).
+- Backend **chưa có test nào** (`go test ./...` pass rỗng). Viết logic thuần (reward roll, tính level/EXP, isometric, bounding box) thì ưu tiên bổ sung unit test.
 - Comment trong code viết tiếng Việt — giữ nguyên phong cách đó khi thêm code mới.
