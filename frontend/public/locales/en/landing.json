@@ -1,0 +1,74 @@
+{
+  "get_started": "Get started",
+  "go_to_garden": "Go to my garden",
+  "sign_in": "Sign in",
+
+  "hero": {
+    "badge": "Focus sessions that grow something real",
+    "title_line1": "Turn focused time",
+    "title_highlight": "into a garden",
+    "subtitle": "FocusFlow turns every task into a focus session. Finish one and you earn silver, EXP and items to build your own isometric garden — one deep-work block at a time.",
+    "cta_primary": "Start growing free",
+    "cta_secondary": "See how it works",
+    "note": "Free to start. No credit card needed."
+  },
+
+  "features": {
+    "title": "Everything a focus session needs",
+    "subtitle": "Plan the work, protect the time, and keep the reward for finishing what you started.",
+    "task": {
+      "title": "Tasks with intent",
+      "desc": "Write the task, break it into todos, set the duration. A daily quota keeps your list honest instead of endless."
+    },
+    "focus": {
+      "title": "One timer, one task",
+      "desc": "A single focus screen with a countdown ring, quick notes and nothing else. Pause, extend or give up — the server keeps the time, not the tab."
+    },
+    "reward": {
+      "title": "Rewards you earn",
+      "desc": "Every completed session rolls for silver, EXP and garden items. Give up and you pay for it — that is what makes finishing feel good."
+    },
+    "garden": {
+      "title": "A garden that remembers",
+      "desc": "Place what you earn on an isometric plot. Your garden becomes the record of every hour you actually focused."
+    }
+  },
+
+  "how": {
+    "title": "How it works",
+    "step1": {
+      "title": "Create a task",
+      "desc": "Give it a title, a duration and the todos that make it real."
+    },
+    "step2": {
+      "title": "Run the session",
+      "desc": "Start the timer and stay with one thing until it rings."
+    },
+    "step3": {
+      "title": "Collect the reward",
+      "desc": "Submit the task and roll for silver, EXP and items."
+    },
+    "step4": {
+      "title": "Grow the garden",
+      "desc": "Place your items and watch the plot fill up week after week."
+    }
+  },
+
+  "cta": {
+    "title": "Your garden starts with one session",
+    "subtitle": "Create an account, plant the first seed, and let your focused hours show for something.",
+    "button": "Create a free account"
+  },
+
+  "footer": {
+    "tagline": "Focus sessions that grow a garden.",
+    "product": "Product",
+    "features": "Features",
+    "how_it_works": "How it works",
+    "account": "Account",
+    "sign_in": "Sign in",
+    "sign_up": "Create account",
+    "language": "Language",
+    "rights": "All rights reserved."
+  }
+}
