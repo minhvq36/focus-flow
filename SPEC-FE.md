@@ -110,7 +110,11 @@ theo chiều ngược lại — người đã đăng nhập không bao giờ th�
 nằm trong `<RouteSuspense>` quanh `<Outlet />` của từng layout.
 
 > Garden không nhận `:index` trên URL — trang tự chọn vườn và nhớ vườn cuối bằng
-> `localStorage['last_garden_id']`.
+> `localStorage['last_garden_id']`. Key này **dùng chung cho mọi tài khoản** trong
+> cùng trình duyệt, nên `pages/garden/index.tsx` **bắt buộc đối chiếu giá trị đọc
+> ra với `useGardenList()`** trước khi dùng; id lạ thì bỏ và rơi về vườn mặc định.
+> Bỏ bước này thì tài khoản đăng nhập sau đọc trúng `user_garden_id` của người
+> trước → `GET /api/garden/:id` (lọc theo `user_id`) trả 404 → màn hình trống trơn.
 
 ---
 
@@ -224,12 +228,25 @@ server do TanStack Query giữ.
 - Trang **công khai**, không gọi API nào — chỉ đọc i18n. Người đã đăng nhập không
   thấy trang này (xem `GuestRoute`, §3).
 - Header landing: logo trái · `LanguageSwitcher` + **Sign in** + **Get started**
-  (→ `/register`) ở góc phải trên, `sticky top-0`.
+  (→ `/register`) ở góc phải trên.
+
+  **`fixed` chứ không `sticky`, và đổi hình dạng theo vị trí cuộn:**
+  | | Nền | Viền |
+  |---|---|---|
+  | `scrollY ≤ 24` (đang trên hero) | trong suốt | trong suốt |
+  | `scrollY > 24` | `bg-background/80` + `backdrop-blur-lg` | `border-border/60` + shadow |
+
+  `fixed` là để header nằm ngoài luồng → hero bắt đầu từ `y=0`, ảnh tràn hết viền
+  trên thay vì bị đẩy xuống 64 px. Đổi lại header sẽ đè lên nội dung khi cuộn nên
+  **bắt buộc** phải có trạng thái "đã cuộn" đục nền, nếu không chữ chồng chữ.
+  Hero tự chừa `pt-28`; các section dùng `scroll-mt-16` để anchor không chui
+  xuống dưới header.
 - Ảnh nền hero: `public/landing.jpg` (đã resize còn **1920×1081 / ~228 KB**, gốc
-  3840×2162 / 1.79 MB). Cách phủ: **giữ nguyên ảnh, chồng lên một lớp
-  `bg-background/72` + `backdrop-blur-[1px]`** và một dải gradient
-  `from-transparent to-background` ở đáy để tan vào nền trang. Không hạ `opacity`
-  của chính tấm ảnh — làm vậy ảnh xỉn và lớp phủ không đổi theo theme.
+  3840×2162 / 1.79 MB). Cách phủ: **giữ nguyên ảnh, chồng lên một GRADIENT**
+  `from-background/45 via-background/70 to-background/88` — nhạt ở trên cho mây
+  và núi giữ được độ hùng vĩ, đậm dần xuống dải giữa nơi có tiêu đề — cộng một
+  dải `from-transparent to-background` ở đáy để tan vào nền trang. Không hạ
+  `opacity` của chính tấm ảnh: làm vậy ảnh xỉn và lớp phủ không đổi theo theme.
 - Neo cuộn nội bộ: `#features`, `#how` (dùng ở CTA phụ của hero và ở footer).
 
 ### 7.1 Auth ✅ (`/login`, `/register`, `/forgot-password`, `/reset-password`)
@@ -308,6 +325,11 @@ Dùng chung cho `AppLayout` và `TaskLayout`: logo · tab Garden/Tasks · đồn
   Profile, nên `setQueryData` sau khi đổi ảnh ở đó làm header đổi ngay, không cần
   refetch. `uploadUserImage` đã gắn `?t=<timestamp>` vào URL nên trình duyệt cũng
   không giữ ảnh cũ. Fallback là chữ cái đầu của `display_name` (hoặc email).
+- **Vầng hào quang vàng bật cho MỌI tài khoản**, không gắn với gói cước: ring
+  `ring-amber-400/90` + `ring-offset-transparent` (để khe hở lộ chính vầng sáng
+  thay vì trám nền đục lên header) + `shadow` glow, và một lớp radial-gradient
+  blur thở nhẹ bằng animation `animate-avatar-halo` (token `--animate-avatar-halo`
+  khai trong `index.css`, tự tắt dưới `prefers-reduced-motion: reduce`).
 - Dropdown 2 mục: **My profile** → `/profile/me` · **Log out** (xem luồng ở §3).
 
 ### 7.7 Chưa làm ⬜
