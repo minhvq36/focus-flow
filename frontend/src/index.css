@@ -154,14 +154,6 @@
   --color-ff-header-bg: var(--ff-header-bg);
   --color-ff-tab-active-bg: var(--ff-tab-active-bg);
   --color-ff-tab-active-fg: var(--ff-tab-active-fg);
-
-  --animate-avatar-halo: avatar-halo 3.6s ease-in-out infinite;
-}
-
-/* Nhịp "thở" của vầng hào quang quanh avatar trên header */
-@keyframes avatar-halo {
-  0%, 100% { opacity: 0.5;  transform: scale(1);    }
-  50%      { opacity: 0.85; transform: scale(1.12); }
 }
 
 @keyframes blob-1 {
@@ -216,16 +208,5 @@
     0% { background-position: 0% 50%; }
     50% { background-position: 100% 50%; }
     100% { background-position: 0% 50%; }
-  }
-}
-
-/*
-  Không nằm trong @layer: CSS không phân tầng thắng mọi layer của Tailwind, nên
-  rule này chắc chắn đè được utility `animate-avatar-halo`.
-*/
-@media (prefers-reduced-motion: reduce) {
-  .animate-avatar-halo {
-    animation: none;
-    opacity: 0.7;
   }
 }
