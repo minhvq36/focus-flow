@@ -58,9 +58,18 @@ export default function Garden() {
 
   const [isCanvasReady, setIsCanvasReady] = useState(false)
 
-  // Chưa chọn vườn nào (lần đầu vào app) -> mặc định lấy vườn mới nhất trong danh sách.
-  // Derive thẳng khi render thay vì setState trong effect để tránh render thừa 1 vòng.
-  const activeGardenId = selectedGardenId ?? gardenList?.at(-1)?.id ?? null
+  /*
+    Chưa chọn vườn nào (lần đầu vào app) -> mặc định lấy vườn mới nhất trong danh sách.
+    Derive thẳng khi render thay vì setState trong effect để tránh render thừa 1 vòng.
+
+    PHẢI đối chiếu `selectedGardenId` với danh sách thật: nó đến từ
+    localStorage['last_garden_id'] — một key DÙNG CHUNG cho mọi tài khoản trong
+    cùng trình duyệt. Tài khoản mới đăng nhập sau sẽ đọc trúng user_garden_id của
+    người trước, `GET /api/garden/:id` (có lọc theo user_id) trả 404 và màn hình
+    đứng im ở trạng thái trống. Id không thuộc danh sách thì bỏ, rơi về vườn mặc định.
+  */
+  const storedIsValid = !!selectedGardenId && !!gardenList?.some(g => g.id === selectedGardenId)
+  const activeGardenId = (storedIsValid ? selectedGardenId : null) ?? gardenList?.at(-1)?.id ?? null
 
   const { data: garden, isLoading } = useGarden(activeGardenId)
 
