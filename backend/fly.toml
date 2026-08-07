@@ -1,55 +1,29 @@
-# fly.toml — FocusFlow backend
-# https://fly.io/docs/reference/configuration/
+# fly.toml app configuration file generated for focus-flow-dev1 on 2026-08-07T13:27:14+07:00
 #
-# Region: Fly KHÔNG có region Seoul. Hai region gần nhất khu vực Đông Bắc Á là
-# nrt (Tokyo) và sin (Singapore). Supabase của project đang ở aws-1-ap-northeast-2
-# (Seoul) -> chọn 'nrt': Tokyo–Seoul ~1.150km (~30ms), Singapore–Seoul ~4.600km
-# (~80ms). Mỗi request API chạm DB vài lần nên khoảng chênh này thấy rõ.
-# (toeic-learning dùng 'sin' vì DB của nó đặt ở Singapore — đừng copy sang đây.)
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
 
 app = 'focus-flow-dev1'
 primary_region = 'nrt'
-
-# LƯU Ý TOML: 2 key dưới đây phải nằm TRƯỚC mọi [section]. Đặt sau [env] thì
-# chúng bị hiểu là key con của [env] và Fly sẽ lặng lẽ bỏ qua.
-#
-# Fly gửi kill_signal rồi chờ kill_timeout giây mới SIGKILL.
-# main.go drain tối đa 15s (shutdownTimeout) — để 25s cho transaction
-# submit/give-up (tasks + inventory + wallet + reward_rolls) kịp commit.
 kill_signal = 'SIGINT'
-kill_timeout = 25
+kill_timeout = '25s'
 
 [build]
-  [build.args]
-    GO_VERSION = '1.26'
-
-# Chỉ để config vận hành KHÔNG nhạy cảm ở đây (file này vào git).
-# DATABASE_URL / REDIS_URL / SUPABASE_URL đi bằng `fly secrets set`.
 [env]
-  ENV = 'production'
-  PORT = '8080'
-  # ĐỔI thành domain frontend thật trước khi deploy — sai giá trị này thì
-  # browser chặn mọi request bằng lỗi CORS.
-  # VM 256MB + 1 machine: pool nhỏ là đủ và đỡ chiếm slot của Supabase free.
   DB_MAX_CONNS = '8'
   DB_MIN_CONNS = '2'
+  ENV = 'production'
+  PORT = '8080'
 
 [http_service]
   internal_port = 8080
   force_https = true
-  # Scale-to-zero: không có traffic thì machine tắt, không tính giờ chạy.
-  # Đây là thứ giữ chi phí ở mức tối thiểu.
   auto_stop_machines = 'stop'
   auto_start_machines = true
   min_machines_running = 0
   processes = ['app']
 
-# Cố ý KHÔNG khai báo [[http_service.checks]]: tài liệu Fly không nói rõ health
-# check có bị tính là hoạt động khiến machine không autostop hay không. App đã
-# fail-fast lúc boot (ping DB + Redis) nên lỗi khởi động thấy ngay ở `fly logs`
-# và `fly status`. Nếu sau này bỏ scale-to-zero thì thêm check vào cho tử tế.
-
 [[vm]]
   memory = '256mb'
-  cpu_kind = 'shared'
   cpus = 1
+  memory_mb = 256
