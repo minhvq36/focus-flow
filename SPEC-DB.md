@@ -22,6 +22,7 @@
 | `009_init_reward_rolls.sql` | `reward_rolls` | ✅ |
 | `010_economy_transactions.sql` | `economy_transactions` | ✅ |
 | `011_keepalive_cron.sql` | `system_heartbeat` + pg_cron keep-alive | ✅ |
+| `012_backfill_starter_garden.sql` | `fn_grant_starter_garden()` + trigger trên `public.users` + backfill | ✅ |
 | `999_rls.sql` | RLS policy + storage policy (luôn là file cuối) | ✅ |
 
 **Chưa có migration (PLANNED):** `marketplace_listings`, `friendships`, `feed_events`,
@@ -175,6 +176,23 @@ Chạy `AFTER INSERT ON auth.users`. Trong 1 lần chạy sẽ:
 4. `insert user_wallets` (số dư 0).
 5. `insert user_gardens` (khu vườn #1).
 
+### Lưới an toàn khu vườn: `fn_grant_starter_garden()` + `on_public_user_created` (`012`)
+
+`handle_new_auth_user()` chỉ treo trên `auth.users`, nên mọi đường tạo thẳng
+`public.users` (seed, import, sửa tay) đều lọt qua và để lại user **không có
+vườn nào** — triệu chứng ở FE là `GET /api/garden` trả mảng rỗng và màn Garden
+trống trơn.
+
+`012` bổ sung tầng hai:
+- `fn_grant_starter_garden(p_user_id uuid)` — idempotent
+  (`on conflict (user_id, garden_id) do nothing`), raise **`Z0001`** nếu khu vườn
+  khởi đầu không tồn tại.
+- Trigger `on_public_user_created` (`AFTER INSERT ON public.users`) gọi hàm trên.
+  Khi đăng ký bình thường nó chạy **trước** bước 5 của `handle_new_auth_user()`,
+  làm bước 5 thành no-op. `003` **không bị sửa**.
+- Backfill một lần: cấp khu vườn #1 cho mọi user hiện **chưa có vườn nào**
+  (điều kiện là "không có vườn nào", không phải "không có vườn #1").
+
 ---
 
 ## 3. Task
@@ -295,7 +313,9 @@ UNIQUE (user_id, garden_id)
 ```
 **Index:** `idx_user_gardens_garden_id`. **Trigger:** `trg_update_user_gardens_modtime`.
 
-- User nhận khu vườn #1 tự động lúc đăng ký.
+- User nhận khu vườn #1 tự động lúc đăng ký — qua **hai** đường độc lập:
+  `handle_new_auth_user()` (`003`) và `on_public_user_created` (`012`). Cả hai
+  đều `on conflict do nothing` nên chạy chồng nhau vô hại.
 - **Chưa có luồng mở khoá khu vườn tiếp theo** và **chưa có endpoint expand**
   (`expansion_level` hiện chỉ đọc) — PLANNED.
 - `last_watered_at` / `auto_water_until` phục vụ tưới cây — PLANNED.
@@ -425,7 +445,7 @@ daily_recaps  (id, user_id, date UNIQUE, content, tasks_completed, tasks_given_u
 
 | Code | Hàm | Ý nghĩa |
 |---|---|---|
-| **Z0001** | `handle_new_auth_user()` | Thiếu khu vườn khởi đầu → chặn đăng ký |
+| **Z0001** | `handle_new_auth_user()`, `fn_grant_starter_garden()` | Thiếu khu vườn khởi đầu → chặn đăng ký / chặn cấp vườn |
 | **Z0002** | `fn_tasks_protect_system_fields()` | `created_at` là bất biến |
 | **Z0003** | `fn_tasks_protect_system_fields()` | Client không được sửa cột hệ thống |
 | **Z0004** | `fn_enforce_task_quota()` | Vượt quota task/ngày theo plan |
