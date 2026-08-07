@@ -1,12 +1,25 @@
-import { Link, useLocation } from 'react-router-dom'
-import { useEffect, useMemo, useState, useRef } from "react"
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { useEffect, useMemo, useState } from "react"
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
-import { Sprout, Coins, CircleDollarSign } from 'lucide-react'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
+import { Sprout, Coins, CircleDollarSign, User, LogOut } from 'lucide-react'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { cn, formatCurrency } from '@/lib/utils'
 import { useLanguage } from '@/hooks/use-language'
+import { LanguageSwitcher } from '@/components/layout/language-switcher'
 import { useWallet } from '@/pages/garden/hooks/use-economy'
+import { useProfile } from '@/pages/profile/hooks/use-profile'
+import { useUserStore } from '@/store/user-store'
 
 const tabs = (t: TFunction<'common'>) => [
   { path: '/garden', label: t('nav.garden') },
@@ -20,17 +33,17 @@ function CoinIcon({ type, className = "" }: { type: 'silver' | 'gold', className
   const [imgError, setImgError] = useState(false)
 
   if (imgError) {
-    return type === 'gold' 
-      ? <Coins size={16} className={`text-amber-500 drop-shadow-sm ${className}`} /> 
+    return type === 'gold'
+      ? <Coins size={16} className={`text-amber-500 drop-shadow-sm ${className}`} />
       : <CircleDollarSign size={16} className={`text-slate-500 ${className}`} />
   }
 
   return (
-    <img 
+    <img
       src={`/coins/${type}-pile.png`}
-      alt={`${type} pile`} 
+      alt={`${type} pile`}
       className={`object-contain drop-shadow-sm ${className}`}
-      onError={() => setImgError(true)} 
+      onError={() => setImgError(true)}
     />
   )
 }
@@ -87,52 +100,80 @@ function UtcClock() {
   )
 }
 
-function LanguageSwitcher() {
-  const { currentLang, setLanguage, languages } = useLanguage()
-  const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
+// ==========================================
+// MENU TÀI KHOẢN
+// ==========================================
+function UserMenu() {
+  const { t } = useTranslation('common')
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const logout = useUserStore(s => s.logout)
+  const user = useUserStore(s => s.user)
 
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false)
-      }
+  /*
+    Dùng CHUNG query key ['profile','me'] với trang Profile, nên sau khi đổi ảnh
+    ở đó (`setQueryData` trong use-profile-update) avatar trên header đổi ngay,
+    không cần refetch. URL ảnh đã được `uploadUserImage` gắn `?t=` nên trình
+    duyệt cũng không giữ ảnh cũ trong cache.
+  */
+  const { data: profile } = useProfile()
+
+  const displayName = profile?.display_name ?? user?.email ?? ''
+  const initial = displayName.charAt(0).toUpperCase() || 'U'
+
+  const handleLogout = async () => {
+    try {
+      await logout()
+      navigate('/', { replace: true })
+      // Query key hiện chưa gắn user id (xem SPEC-FE §5.1) -> phải xoá sạch cache,
+      // nếu không tài khoản đăng nhập sau trong cùng tab sẽ thấy dữ liệu người trước.
+      queryClient.clear()
+      toast.success(t('menu.logout_success'))
+    } catch {
+      toast.error(t('menu.logout_failed'))
     }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
-
-  const current = languages.find(l => l.code === currentLang)
+  }
 
   return (
-    <div ref={ref} className="relative">
-      <button
-        onClick={() => setOpen(prev => !prev)}
-        className="font-mono text-[10px] font-medium uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors py-1.5"
-      >
-        {current?.shortLabel}
-      </button>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          className="ml-1 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          aria-label={t('menu.account')}
+        >
+          <Avatar className="h-8 w-8 cursor-pointer">
+            {profile?.avatar_url && (
+              <AvatarImage src={profile.avatar_url} alt={displayName} />
+            )}
+            <AvatarFallback className="bg-secondary text-secondary-foreground text-xs font-medium">
+              {initial}
+            </AvatarFallback>
+          </Avatar>
+        </button>
+      </DropdownMenuTrigger>
 
-      {open && (
-        <div className="absolute left-0 top-full mt-2 min-w-[120px] rounded-md border border-border bg-popover shadow-md">
-          {languages.map(lang => (
-            <button
-              key={lang.code}
-              onClick={() => { setLanguage(lang.code); setOpen(false) }}
-              className={cn(
-                'flex w-full items-center gap-2 px-3 py-2 text-sm transition-colors hover:bg-secondary',
-                currentLang === lang.code
-                  ? 'text-foreground font-medium'
-                  : 'text-muted-foreground'
-              )}
-            >
-              <span className="font-mono text-[10px] tracking-widest">{lang.shortLabel}</span>
-              <span>{lang.nativeLabel}</span>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
+      <DropdownMenuContent align="end" className="w-56">
+        <DropdownMenuLabel className="truncate">{displayName}</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+
+        <DropdownMenuItem asChild>
+          <Link to="/profile/me" className="cursor-pointer">
+            <User aria-hidden="true" />
+            {t('menu.my_profile')}
+          </Link>
+        </DropdownMenuItem>
+
+        <DropdownMenuItem
+          variant="destructive"
+          className="cursor-pointer"
+          onSelect={() => void handleLogout()}
+        >
+          <LogOut aria-hidden="true" />
+          {t('menu.logout')}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 
@@ -140,7 +181,7 @@ export default function Header() {
   const { pathname } = useLocation()
   const { t } = useTranslation('common')
   const tabsConfig = tabs(t)
-  
+
   // TODO: IMPORTANT: Use other endpoint, like user private
   const { data: wallet } = useWallet()
 
@@ -190,11 +231,7 @@ export default function Header() {
             </span>
           </div>
 
-          <Avatar className="h-8 w-8 cursor-pointer ml-1">
-            <AvatarFallback className="bg-secondary text-secondary-foreground text-xs font-medium">
-              U
-            </AvatarFallback>
-          </Avatar>
+          <UserMenu />
         </div>
 
       </div>

@@ -8,7 +8,7 @@ export type LangCode = keyof typeof SUPPORTED_LANGUAGES
 export const DEFAULT_LANGUAGE: LangCode = 'en'
 export const FALLBACK_LANGUAGE: LangCode = 'en'
 
-export const NAMESPACES = ['common', 'auth', 'garden', 'tasks', 'focus'] as const
+export const NAMESPACES = ['common', 'auth', 'garden', 'tasks', 'focus', 'landing'] as const
 export type Namespace = typeof NAMESPACES[number]
 
 export const PRELOADED_NAMESPACES: Namespace[] = ['common']

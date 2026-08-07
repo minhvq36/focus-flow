@@ -6,6 +6,7 @@ import Register from './pages/register'
 import ForgotPassword from './pages/forgot-password'
 import ResetPassword from './pages/reset-password'
 import ProtectedRoute from './components/auth/protected-route'
+import GuestRoute from './components/auth/guest-route'
 import TaskLayout from './components/layout/task-layout'
 import AuthLayout from './components/layout/auth-layout'
 import AppLayout from './components/layout/app-layout'
@@ -16,7 +17,11 @@ import { RouteSuspense } from './components/layout/route-suspense'
   thư viện nặng: Garden gánh PixiJS (~1MB), Profile gánh react-easy-crop.
   Khách vào /login chỉ tải đúng phần auth. Fallback spinner nằm trong
   <RouteSuspense> đặt quanh <Outlet /> của từng layout.
+
+  Landing cũng lazy nhưng theo chiều ngược lại: người đã đăng nhập không bao giờ
+  thấy nó nên không cần tải.
 */
+const Landing = lazy(() => import('./pages/landing'))
 const Garden = lazy(() => import('./pages/garden'))
 const Tasks = lazy(() => import('./pages/tasks'))
 const Focus = lazy(() => import('./pages/focus'))
@@ -34,6 +39,23 @@ function App() {
         <TooltipProvider>
           <Routes>
             {/*
+              `/` là trang công khai, KHÔNG redirect khi chưa đăng nhập.
+              Có session thì GuestRoute đưa thẳng sang /garden.
+            */}
+            <Route element={<GuestRoute />}>
+              <Route
+                path="/"
+                element={
+                  <div className="min-h-screen">
+                    <RouteSuspense>
+                      <Landing />
+                    </RouteSuspense>
+                  </div>
+                }
+              />
+            </Route>
+
+            {/*
               /reset-password nằm NGOÀI ProtectedRoute: link recovery hỏng/hết hạn
               thì Supabase không dựng session, ProtectedRoute sẽ đá về /login và
               user không bao giờ thấy thông báo "link không hợp lệ".
@@ -46,18 +68,16 @@ function App() {
             </Route>
 
             <Route element={<ProtectedRoute />}>
-              
+
               <Route element={<TaskLayout />}>
-                <Route path="/" element={<Navigate to="/garden" replace />} />
                 <Route path="/tasks" element={<Tasks />} />
               </Route>
 
-              {/* Thêm Route /me vào AppLayout */}
               <Route element={<AppLayout />}>
                 <Route path="/garden" element={<Garden />} />
-                <Route path="/profile/me" element={<MePage />} /> {/* <--- THÊM DÒNG NÀY */}
+                <Route path="/profile/me" element={<MePage />} />
               </Route>
-              
+
               {/* Route lẻ, không có layout → tự bọc Suspense */}
               <Route
                 path="/focus/:taskId"
@@ -68,6 +88,12 @@ function App() {
                 }
               />
             </Route>
+
+            {/*
+              URL lạ → về `/` và để GuestRoute quyết định: khách thấy landing,
+              người đã đăng nhập rơi tiếp về /garden.
+            */}
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
 
           <Toaster richColors />
