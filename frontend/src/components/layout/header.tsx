@@ -1,13 +1,14 @@
 import { Link, useLocation } from 'react-router-dom'
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useMemo, useState, useRef } from "react"
 import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import { Sprout, Coins, CircleDollarSign } from 'lucide-react'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { cn, formatCurrency } from '@/lib/utils'
 import { useLanguage } from '@/hooks/use-language'
 import { useWallet } from '@/pages/garden/hooks/use-economy'
 
-const tabs = (t: any) => [
+const tabs = (t: TFunction<'common'>) => [
   { path: '/garden', label: t('nav.garden') },
   { path: '/tasks',  label: t('nav.tasks')  },
 ]
@@ -36,37 +37,13 @@ function CoinIcon({ type, className = "" }: { type: 'silver' | 'gold', className
 
 function UtcClock() {
   const { currentLang } = useLanguage()
-  const [timeStr, setTimeStr] = useState("00:00:00")
-  const [dateStr, setDateStr] = useState("...") 
-  const [isMounted, setIsMounted] = useState(false) 
+
+  // Giữ 1 state duy nhất là mốc thời gian; chuỗi hiển thị derive lúc render.
+  // Khởi tạo lazy để ngay frame đầu đã đúng giờ, không cần placeholder + fade-in.
+  const [now, setNow] = useState(() => new Date())
 
   useEffect(() => {
-    const locale = currentLang === 'vi' ? 'vi-VN' : 'en-US'
-    const dateFormatter = new Intl.DateTimeFormat(locale, {
-      month: "short",
-      day: "numeric",
-      timeZone: "UTC",
-    })
-
-    let lastDateNum = -1
-
-    function tick() {
-      const now = new Date()
-
-      const hh = String(now.getUTCHours()).padStart(2, "0")
-      const mm = String(now.getUTCMinutes()).padStart(2, "0")
-      const ss = String(now.getUTCSeconds()).padStart(2, "0")
-      setTimeStr(`${hh}:${mm}:${ss}`)
-
-      const currentUtcDate = now.getUTCDate()
-      if (currentUtcDate !== lastDateNum) {
-        lastDateNum = currentUtcDate
-        setDateStr(dateFormatter.format(now))
-      }
-    }
-
-    tick()
-    setIsMounted(true) 
+    const tick = () => setNow(new Date())
     const id = setInterval(tick, 1000)
 
     const handleVisibilityChange = () => {
@@ -78,14 +55,27 @@ function UtcClock() {
       clearInterval(id)
       document.removeEventListener("visibilitychange", handleVisibilityChange)
     }
-  }, [currentLang])
+  }, [])
+
+  const dateFormatter = useMemo(
+    () =>
+      new Intl.DateTimeFormat(currentLang === 'vi' ? 'vi-VN' : 'en-US', {
+        month: "short",
+        day: "numeric",
+        timeZone: "UTC",
+      }),
+    [currentLang]
+  )
+
+  const hh = String(now.getUTCHours()).padStart(2, "0")
+  const mm = String(now.getUTCMinutes()).padStart(2, "0")
+  const ss = String(now.getUTCSeconds()).padStart(2, "0")
+  const timeStr = `${hh}:${mm}:${ss}`
+  const dateStr = dateFormatter.format(now)
 
   return (
     <div
-      className={cn(
-        "hidden items-center gap-2 rounded-md px-3 py-1.5 md:flex transition-opacity duration-300",
-        isMounted ? "opacity-100" : "opacity-0"
-      )}
+      className="hidden items-center gap-2 rounded-md px-3 py-1.5 md:flex"
       title="Current date and time in UTC"
       aria-label={`UTC: ${dateStr} ${timeStr}`}
     >

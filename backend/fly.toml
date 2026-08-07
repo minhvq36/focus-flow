@@ -1,0 +1,29 @@
+# fly.toml app configuration file generated for focus-flow-dev1 on 2026-08-07T13:27:14+07:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'focus-flow-dev1'
+primary_region = 'nrt'
+kill_signal = 'SIGINT'
+kill_timeout = '25s'
+
+[build]
+[env]
+  DB_MAX_CONNS = '8'
+  DB_MIN_CONNS = '2'
+  ENV = 'production'
+  PORT = '8080'
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ['app']
+
+[[vm]]
+  memory = '256mb'
+  cpus = 1
+  memory_mb = 256

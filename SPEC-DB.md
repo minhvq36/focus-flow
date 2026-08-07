@@ -1,520 +1,496 @@
-# SPEC-DB.md — FocusFlow v2 Database Schema
+# SPEC-DB.md — FocusFlow Database Schema
 
-> PostgreSQL/Supabase database schema, constraints, and relationships
-
----
-
-## 1. Core Tables
-
-### 1.1 Authentication & Users
-
-#### `auth.users` (managed by Supabase Auth)
-- Standard Supabase auth table
-- Stores email, OAuth providers, JWT tokens
-
-#### `users` (public profile)
-```sql
-id                  uuid PK → auth.users(id) [CASCADE delete]
-display_name        varchar(50) NOT NULL CHECK (char_length(trim(display_name)) >= 1)
-bio                 varchar(255)
-avatar_url          text
-active_frame_id     uuid FK → frames(id) [SET NULL on delete]
-level               int DEFAULT 1 CHECK (level > 0)  -- calculated from user_wallets.total_exp
-created_at          timestamptz
-updated_at          timestamptz
-```
-
-**Triggers:**
-- `trg_update_users_modtime` — auto-update `updated_at` on any update
-
-#### `user_private` (private user data, NOT exposed in public queries)
-```sql
-user_id             uuid PK → users(id) [CASCADE delete]
-email               varchar(255) UNIQUE NOT NULL
-plan_type           text DEFAULT 'free' → plan_quotas(plan_type)
-updated_at          timestamptz
-```
-
-**Note:** Penalty mode is stored per-task (`penalty_mode` field in tasks table) sent by client during task creation. User-level default preference can be stored in frontend localStorage. Currently, each task has its own penalty_mode snapshot sent at creation time.
-
-**Purpose:** Stores sensitive user data (email) and subscription plan. Never queried in public endpoints.
-
-**Triggers:**
-- `trg_update_user_private_modtime` — auto-update `updated_at`
-
-#### `user_wallets` (currency & experience balances)
-```sql
-user_id             uuid PK → users(id) [CASCADE delete]
-silver_balance      bigint DEFAULT 0 CHECK >= 0
-gold_balance        int DEFAULT 0 CHECK >= 0
-total_exp           int DEFAULT 0 CHECK >= 0  -- cumulative EXP, used to calculate user.level
-updated_at          timestamptz
-```
-
-**Rules:**
-- Silver earned only from task completion (cannot buy with real money)
-- Gold earned from IAP only
-- 1 gold = 10,000 silver (one-way conversion)
-- total_exp increases per task submission, level calculated via LevelFromExp(total_exp)
-
-**Triggers:**
-- `trg_update_user_wallets_modtime`
+> Schema PostgreSQL/Supabase, constraint, trigger và RLS.
+>
+> **Nguồn chân lý:** `infra/supabase/migrations/`. Tài liệu này mô tả đúng những gì
+> migration đã tạo. Mục nào chưa có migration đều được đánh dấu **PLANNED**.
 
 ---
 
-### 1.2 Plan Quotas (Lookup)
+## 0. Trạng thái migration
 
-#### `plan_quotas` (static reference table)
+| File | Nội dung | Trạng thái |
+|---|---|---|
+| `001_utils.sql` | `fn_set_updated_at()` | ✅ |
+| `002_init_cores.sql` | `plan_quotas`, `frames`, `items`, `gardens` + storage buckets + seed | ✅ |
+| `003_init_users.sql` | `users`, `user_frames`, `user_private`, `user_wallets` + trigger tạo user | ✅ |
+| `004_init_tasks.sql` | `tasks` + sanitize/protect trigger | ✅ |
+| `005_init_quotas.sql` | `task_daily_quotas` + trigger quota | ✅ |
+| `006_init_task_notes.sql` | `task_notes` + trigger giới hạn 5 note/task | ✅ |
+| `007_init_inventory.sql` | `inventory` | ✅ |
+| `008_init_gardens_and_placements.sql` | `user_gardens`, `garden_placements` | ✅ |
+| `009_init_reward_rolls.sql` | `reward_rolls` | ✅ |
+| `010_economy_transactions.sql` | `economy_transactions` | ✅ |
+| `011_keepalive_cron.sql` | `system_heartbeat` + pg_cron keep-alive | ✅ |
+| `999_rls.sql` | RLS policy + storage policy (luôn là file cuối) | ✅ |
+
+**Chưa có migration (PLANNED):** `marketplace_listings`, `friendships`, `feed_events`,
+`garden_hearts`, `daily_recaps`.
+
+**Seed data:** `plan_quotas` và `gardens` đã seed trong `002`. **`items` và `frames`
+CHƯA có seed** — không có item nào thì reward roll sẽ fallback hết bậc và trả về
+task không có vật phẩm; shop cũng rỗng.
+
+---
+
+## 1. Bảng lõi (lookup / catalog)
+
+### `plan_quotas`
 ```sql
 plan_type           text PK
 daily_task_limit    int NOT NULL
+details             jsonb DEFAULT NULL
 ```
+Seed: `free → 3`, `pro → 10`, `premium → 16` (task/ngày).
 
-**Data:**
-```
-free     → 3 tasks/day
-pro      → 10 tasks/day
-premium  → 16 tasks/day
-```
-
----
-
-### 1.3 Tasks & Sessions
-
-#### `tasks`
-```sql
-id                  uuid PK
-user_id             uuid NOT NULL → users(id) [CASCADE delete]
-title               text NOT NULL (non-empty)
-todos               jsonb NOT NULL DEFAULT []  -- array of {id, text, done, children[]}
-                                                   -- nested structure: max depth 5, max 50 total items
-                                                   -- synced via PATCH /api/tasks/:id/todos (debounced)
-penalty_mode        boolean DEFAULT false      -- snapshot of user.penalty_mode at creation
-is_starred          boolean NOT NULL DEFAULT false  -- user can pin task to top of list
-status              text DEFAULT 'active'
-                    CHECK (status IN ('active', 'paused', 'submitted', 'given_up'))
-registered_duration_min  int NOT NULL CHECK (BETWEEN 25 AND 999)  -- create: max 480, can extend to 999
-actual_duration_sec int DEFAULT 0 CHECK >= 0
-started_at          timestamptz                -- NULL when paused/submitted/reset
-created_at          timestamptz
-updated_at          timestamptz
-completed_at        timestamptz                -- set when submitted
-deleted_at          timestamptz                -- soft delete, not restored in current phase
-```
-
-**Constraints:**
-- `CHECK task_must_have_todos` — jsonb_array_length(todos) > 0
-
-**Triggers:**
-- `trg_update_tasks_modtime` — auto-update `updated_at`
-- `trg_pre_insert_task_quota` — enforce daily task limit, increment `task_daily_quotas`
-
-**Indexes:**
-- `idx_tasks_user_active` — (user_id) WHERE deleted_at IS NULL AND status='active'
-
-**Logic Notes:**
-- Task created with status='active' and `started_at` = NOW() (timer auto-starts immediately)
-- When paused, `actual_duration_sec` += (NOW() - started_at), then `started_at` = NULL
-- When reset, `actual_duration_sec` = 0 and `started_at` = NOW() (timer restarts from 0)
-- When submitted/given_up, finalize `actual_duration_sec` and set `completed_at`
-- `penalty_mode` is a per-task snapshot sent by client during task creation (can differ from user's default preference)
-- `is_starred` allows user to pin tasks to top of list in task list view
-- `deleted_at` used for soft delete; restore feature not implemented in current phase
-- **Todo Structure:**
-  - Nested array format: `{id, text, done, children: [{id, text, done, children}, ...]}`
-  - Max nesting depth: 5 levels
-  - Max total todos per task: 50
-  - All todos at a given level are unordered
-
-#### `task_daily_quotas` (auto-increment via trigger)
-```sql
-user_id             uuid FK → users(id) [CASCADE delete]
-target_date         date DEFAULT current_date
-usage_count         int DEFAULT 0 CHECK >= 0
-PRIMARY KEY         (user_id, target_date)
-```
-
-**Purpose:** Tracks how many tasks user has started today. Increment happens in `fn_enforce_task_quota()` trigger before INSERT on tasks.
-
-#### `task_notes` (audit trail, append-only)
-```sql
-id                  uuid PK
-task_id             uuid NOT NULL → tasks(id) [CASCADE delete]
-user_id             uuid NOT NULL → users(id) [CASCADE delete]
-content             text NOT NULL CHECK (char_length(trim(content)) > 0 AND char_length(content) <= 12000)
-created_at          timestamptz
-updated_at          timestamptz
-```
-
-**Index:**
-- `idx_task_notes_task_id` — (task_id DESC)
-
-**Logic:**
-- User can append notes during Focus session
-- Notes are immutable after creation (audit trail)
-- Updated_at only changes if note edited (rare), not on creation
-
----
-
-### 1.4 Garden System
-
-#### `gardens` (core template - no user_id)
-```sql
-id                  uuid PK
-garden_index        int NOT NULL CHECK BETWEEN 1 AND 20
-grid_size           int NOT NULL DEFAULT 5 CHECK > 0
-is_expandable       boolean NOT NULL DEFAULT false
-unlock_condition    jsonb DEFAULT NULL
-created_at          timestamptz
-```
-
-**Logic:**
-- Core resource table: defines garden templates for each level (1-20)
-- `grid_size`: base grid dimensions stored in DB (5×5 for level 1, increments per level, max 25×25 base for level 20)
-- `is_expandable`: whether users can expand this garden (only true for level 20)
-- `unlock_condition`: JSON conditions to unlock this garden level (e.g., `{"min_level": 5}` or null for always available)
-- Grid size at level N is determined by garden_index; expansions applied via `user_gardens.expansion_level`
-
-#### `user_gardens` (user ownership & progression)
-```sql
-id                  uuid PK
-user_id             uuid NOT NULL → users(id) [CASCADE delete]
-garden_id           uuid NOT NULL → gardens(id) [CASCADE delete]
-expansion_level     int NOT NULL DEFAULT 0 CHECK >= 0
-created_at          timestamptz
-updated_at          timestamptz
-UNIQUE              (user_id, garden_id)
-```
-
-**Logic:**
-- User-specific record linking a user to a garden level they own
-- `expansion_level` tracks how many times user expanded (only for garden_index=20)
-  - Expanded grid size: (base + 5×expansion_level) × (base + 5×expansion_level)
-- User automatically gets `garden_id=1` on signup
-- When all slots filled at level N → backend creates new `user_gardens` record for level N+1
-
-**Triggers:**
-- `trg_update_user_gardens_modtime`
-
-#### `garden_placements`
-```sql
-id                  uuid PK
-user_garden_id      uuid NOT NULL → user_gardens(id) [CASCADE delete]
-inventory_id        uuid NOT NULL UNIQUE → inventory(id) [CASCADE delete]
-grid_x              int NOT NULL CHECK >= 0
-grid_y              int NOT NULL CHECK >= 0
-rotation            smallint DEFAULT 0 CHECK IN (0, 90, 180, 270)
-health_status       varchar DEFAULT 'healthy' CHECK IN ('healthy', 'wilted')
-wilted_at           timestamptz DEFAULT NULL
-placed_at           timestamptz DEFAULT now()
-updated_at          timestamptz
-UNIQUE              (user_garden_id, grid_x, grid_y)
-```
-
-**Logic:**
-- Each garden placement occupies one grid cell (1×1)
-- `user_garden_id` references `user_gardens`, isolating placements by user+garden
-- `inventory_id` UNIQUE globally prevents item placed twice across all gardens
-- `health_status`: 
-  - `healthy` (default) — item displays normally, counts toward garden value
-  - `wilted` — item lost luster (from inactive 7+ days), doesn't count toward value
-- `wilted_at` tracks when item was wilted (only for inactive penalty, not from give-up)
-- Give up task with penalty mode ON deletes placement (inventory moves back to 'in_bag')
-- Inactive penalty (7+ days) wilts items (never deletes)
-
-**Triggers:**
-- `trg_after_garden_placement_change` — syncs `inventory.status` when placement inserted/deleted
-- `trg_update_garden_placements_modtime`
-
----
-
-### 1.5 Items & Inventory
-
-#### `items` (master catalog, static)
+### `items` (catalog vật phẩm, dữ liệu hệ thống)
 ```sql
 id                  uuid PK
 name                varchar(255) NOT NULL
-type                varchar(50) NOT NULL
-                    CHECK (type IN ('flower', 'structure', 'decoration', 'path'))
-rarity              varchar(50) NOT NULL
-                    CHECK (rarity IN ('common', 'uncommon', 'rare', 'epic', 'legendary', 'eternal'))
+type                varchar(50) NOT NULL CHECK IN ('flower','structure','decoration','path')
+rarity              varchar(50) NOT NULL CHECK IN ('common','uncommon','rare','epic','legendary','eternal')
 asset_key           varchar(255) NOT NULL UNIQUE
 height              int DEFAULT 1 CHECK > 0
 width               int DEFAULT 1 CHECK > 0
-silver_price        int DEFAULT NULL CHECK > 0  -- shop buy price (silver, NULL = not purchasable)
-is_purchasable      boolean DEFAULT true        -- controls visibility in shop
-can_wilt            boolean DEFAULT false       -- only true for flowers/plants
+silver_price        int DEFAULT NULL CHECK > 0
+is_purchasable      boolean DEFAULT true
+can_wilt            boolean DEFAULT false
 unlock_condition    jsonb DEFAULT NULL
-details             jsonb DEFAULT NULL          -- extra metadata (e.g. color, effect)
-created_at          timestamptz
+details             jsonb DEFAULT NULL
+created_at          timestamptz DEFAULT now()
 ```
+**Index:** `items_asset_key_idx` (unique), `idx_items_shop` — `(type) WHERE is_purchasable = true AND silver_price IS NOT NULL`.
 
-**Index:**
-- `idx_items_shop` — (type) WHERE is_purchasable=true AND silver_price NOT NULL
+**Quy tắc:** `silver_price IS NULL` → không bán trong shop (chỉ rơi từ reward).
+Giá mua lại do backend tính, KHÔNG lưu trong DB (xem `SPEC.md` §Economy).
 
-**Implementation note (current code):**
-- `public.items` is created by migration `002_init_cores.sql` and is currently used by the shop, inventory bag, and garden placement flows.
-- The backend reads item catalog rows from `public.items` and joins them with `public.inventory` for buy/sell and placement operations.
-- The current repo does not yet implement a separate marketplace table for P2P trade.
-
-**Logic:**
-- `silver_price` NULL → item not for sale (reward only)
-- Common→Rare can be purchased by silver (is_purchasable=true)
-- Epic cannot be purchased (is_purchasable=false, reward only)
-- Legendary cannot be purchased (is_purchasable=false, reward + marketplace P2P)
-- Sellback price: 50% of silver_price (calculated by backend, not stored)
-- `can_wilt` TRUE for flowers/plants, FALSE for structures/decorations
-- `details` stores rarity-specific metadata (colors, animations, etc.)
-
-#### `inventory` (user-owned items)
-```sql
-id                  uuid PK
-user_id             uuid NOT NULL → users(id) [CASCADE delete]
-item_id             uuid NOT NULL → items(id) [RESTRICT delete]
-status              varchar(20) DEFAULT 'in_bag'  -- 'in_bag' | 'placed' | 'on_market'
-acquired_at         timestamptz DEFAULT now()
-```
-
-**Logic:**
-- `status` tracks item location:
-  - `in_bag` — item in user's inventory (not placed in garden)
-  - `placed` — item currently placed in a garden
-  - `on_market` — item listed on marketplace (Legendary P2P only)
-- User can have multiple copies of same item
-- Synced automatically via trigger when `garden_placements` changed
-
----
-
-### 1.6 Avatar Cosmetics
-
-#### `frames` (master catalog)
+### `frames` (khung avatar — catalog)
 ```sql
 id                  uuid PK
 name                varchar(255) NOT NULL
-asset_url           text NOT NULL              -- CSS border or SVG
-silver_price        int DEFAULT NULL CHECK > 0
-gold_price          int DEFAULT NULL CHECK > 0
+asset_url           text NOT NULL
+silver_price        int DEFAULT NULL
+gold_price          int DEFAULT NULL
 is_purchasable      boolean DEFAULT true
 unlock_condition    jsonb DEFAULT NULL
-created_at          timestamptz
+details             jsonb DEFAULT NULL
+created_at          timestamptz DEFAULT now()
 ```
+> Bảng đã tồn tại nhưng **backend chưa có endpoint nào** cho frames (PLANNED).
 
-**Logic:**
-- Avatar frames are purely cosmetic borders around user profile avatar
-- Purchasable via shop using silver
-
-#### `user_frames` (ownership tracking)
+### `gardens` (template khu vườn — catalog)
 ```sql
 id                  uuid PK
-user_id             uuid NOT NULL → users(id) [CASCADE delete]
-frame_id            uuid NOT NULL → frames(id) [RESTRICT delete]
+garden_index        int NOT NULL
+grid_size           int NOT NULL DEFAULT 5 CHECK > 0   -- luôn vuông, đây là BASE size
+is_expandable       boolean NOT NULL DEFAULT false
+unlock_condition    jsonb DEFAULT NULL
+details             jsonb DEFAULT NULL
+created_at          timestamptz DEFAULT now()
+```
+
+**Seed hiện tại — 7 khu vườn (KHÔNG phải 20):**
+
+| garden_index | id | grid_size | is_expandable |
+|---|---|---|---|
+| 1 | `...0001` | 5 | false |
+| 2 | `...0002` | 7 | false |
+| 3 | `...0003` | 9 | false |
+| 4 | `...0004` | 11 | false |
+| 5 | `...0005` | 15 | false |
+| 6 | `...0006` | 20 | false |
+| 7 | `...0007` | 25 | **true** |
+
+Chỉ khu vườn cuối (index 7) mới mở rộng được. Kích thước thực tế =
+`grid_size + expansion_level × 5` (hằng số `expansionStep = 5`,
+`maxExpansionLevel = 5` trong `internal/garden/models.go`).
+
+### Storage buckets (tạo trong `002`)
+- `assets` — public, admin upload tay (sprite vườn, item).
+- `users` — public, `file_size_limit = 5MB`, chỉ nhận `image/webp|jpeg|png`.
+
+---
+
+## 2. Người dùng
+
+### `users` (hồ sơ công khai)
+```sql
+id                  uuid PK → auth.users(id) [CASCADE]
+display_name        varchar(50) NOT NULL CHECK (char_length(trim(display_name)) >= 1)
+bio                 varchar(255)
+avatar_url          text
+active_frame_id     uuid FK → frames(id) [SET NULL]
+level               int NOT NULL DEFAULT 1 CHECK > 0
+created_at          timestamptz NOT NULL DEFAULT now()
+updated_at          timestamptz NOT NULL DEFAULT now()
+```
+**Index:** `idx_users_active_frame_id`.
+**Trigger:** `trg_update_users_modtime`.
+
+### `user_private` (dữ liệu riêng tư)
+```sql
+user_id             uuid PK → users(id) [CASCADE]
+email               varchar(255) UNIQUE NOT NULL
+plan_type           text NOT NULL DEFAULT 'free' → plan_quotas(plan_type)
+name_change_count   int NOT NULL DEFAULT 0 CHECK >= 0
+updated_at          timestamptz NOT NULL DEFAULT now()
+```
+**Index:** `idx_user_private_plan_type`.
+**Trigger:** `trg_update_user_private_modtime`.
+
+`name_change_count` là cơ sở tính phí đổi tên (2 lần đầu miễn phí — xem `SPEC.md`).
+
+> `penalty_mode` **KHÔNG** nằm ở đây. Nó là snapshot theo từng task
+> (`tasks.penalty_mode`), client gửi lên lúc tạo task.
+
+### `user_wallets` (ví + EXP)
+```sql
+user_id             uuid PK → users(id) [CASCADE]
+silver_balance      bigint NOT NULL DEFAULT 0 CHECK >= 0
+gold_balance        int NOT NULL DEFAULT 0 CHECK >= 0
+total_exp           int NOT NULL DEFAULT 0 CHECK >= 0
+updated_at          timestamptz NOT NULL DEFAULT now()
+```
+**Trigger:** `trg_update_user_wallets_modtime`.
+
+`users.level` được backend tính từ `total_exp` bằng `reward.LevelFromExp()`
+(ngưỡng luỹ tiến `10 × level²`).
+
+### `user_frames` (sở hữu khung)
+```sql
+id                  uuid PK
+user_id             uuid NOT NULL → users(id) [CASCADE]
+frame_id            uuid NOT NULL → frames(id) [RESTRICT]
 acquired_at         timestamptz DEFAULT now()
-UNIQUE              (user_id, frame_id)
+UNIQUE (user_id, frame_id)
 ```
+**Index:** `idx_user_frames_frame_id`. (Backend chưa dùng — PLANNED.)
 
-**Logic:**
-- User can own multiple frames, only one active at a time
-- Active frame stored in `users.active_frame_id`
+### Trigger đăng ký: `handle_new_auth_user()`
+Chạy `AFTER INSERT ON auth.users`. Trong 1 lần chạy sẽ:
+1. Kiểm tra khu vườn khởi đầu `00000000-...-0001` có tồn tại không → thiếu thì
+   raise **`Z0001`** và chặn đăng ký.
+2. `insert users` (display_name = phần trước `@` của email).
+3. `insert user_private` (email).
+4. `insert user_wallets` (số dư 0).
+5. `insert user_gardens` (khu vườn #1).
 
 ---
 
-## 2. Reward & Economy Tables (Planned)
+## 3. Task
 
-### 2.1 Reward Tracking
+### `tasks`
 ```sql
-reward_rolls (
-  id uuid PK,
-  task_id uuid FK → tasks(id),
-  user_id uuid FK → users(id),
-  seed text,                      -- deterministic RNG seed
-  item_id uuid FK → items(id),
-  silver_amount int,
-  created_at timestamptz
-)
+id                      uuid PK
+user_id                 uuid NOT NULL → users(id) [CASCADE]
+title                   text NOT NULL CHECK (trim length > 0 AND length <= 255)
+todos                   jsonb NOT NULL DEFAULT '[]'
+penalty_mode            boolean NOT NULL DEFAULT false
+status                  text NOT NULL DEFAULT 'active'
+                        CHECK IN ('active','paused','submitted','given_up')
+registered_duration_min int NOT NULL CHECK (>= 25 AND <= 999)
+started_at              timestamptz            -- NULL = timer đang dừng
+actual_duration_sec     int DEFAULT 0 CHECK >= 0
+is_starred              boolean NOT NULL DEFAULT false
+created_at              timestamptz NOT NULL DEFAULT now()
+updated_at              timestamptz NOT NULL DEFAULT now()
+completed_at            timestamptz
+deleted_at              timestamptz            -- soft delete (chưa có endpoint)
 ```
 
-### 2.2 Economy Audit Trail
+**Constraint:**
+- `task_must_have_todos` — `jsonb_array_length(todos) BETWEEN 1 AND 50`
+  (đếm ở TẦNG GỐC; tổng số todo kể cả todo con do backend kiểm — tối đa 50).
+- `max_todos_size` — `octet_length(todos::text) <= 51200` (50KB).
+
+**Index:** `idx_tasks_user_id` — `(user_id)`.
+
+**Trigger:**
+- `trg_tasks_insert_sanitize` (BEFORE INSERT) — ép trạng thái khởi tạo bất kể
+  client gửi gì: `status='active'`, `actual_duration_sec=0`, `started_at=now()`,
+  `completed_at=NULL`, `deleted_at=NULL`, `created_at=now()`. **Timer tự chạy
+  ngay khi tạo task.**
+- `trg_pre_insert_task_quota` (BEFORE INSERT) — xem §4.
+- `trg_tasks_protect_system_fields` (BEFORE UPDATE) — chặn client (qua PostgREST)
+  sửa `created_at` (**`Z0002`**) và các cột hệ thống `penalty_mode`, `status`,
+  `started_at`, `actual_duration_sec`, `completed_at`, `deleted_at` (**`Z0003`**).
+  Backend chạy bằng role `postgres`/`service_role` nên được bỏ qua kiểm tra.
+- `trg_update_tasks_modtime`.
+
+**Cấu trúc `todos` (JSONB):**
+```jsonc
+[{ "id": "<uuid>", "text": "...", "done": false, "children": [ /* đệ quy */ ] }]
+```
+- `id` phải là UUID hợp lệ (backend validate bằng regex).
+- Độ sâu tối đa **5 cấp**, tổng số todo (tính cả con) tối đa **50**.
+
+**Vòng đời thời gian (nguồn chân lý duy nhất):**
+`elapsed = actual_duration_sec + (NOW() - started_at khi started_at IS NOT NULL)`
+- Pause: `actual_duration_sec += NOW() - started_at`, `started_at = NULL`.
+- Resume: `started_at = NOW()`.
+- Reset: `actual_duration_sec = 0`, `started_at = NOW()`.
+- Submit/give-up: chốt `actual_duration_sec`, `started_at = NULL`, `completed_at = NOW()`.
+
+### `task_daily_quotas`
 ```sql
-economy_transactions (
-  id uuid PK,
-  user_id uuid FK → users(id),
-  type varchar,                   -- earn_silver|spend_silver|earn_gold|spend_gold|iap
-  amount bigint,
-  reference_id uuid,              -- task_id, marketplace_listing_id, etc
-  note text,
-  created_at timestamptz
-)
+user_id             uuid NOT NULL → users(id) [CASCADE]
+target_date         date NOT NULL DEFAULT current_date
+usage_count         int DEFAULT 0 CHECK >= 0
+PRIMARY KEY (user_id, target_date)
 ```
+Trigger `fn_enforce_task_quota()` (BEFORE INSERT ON tasks) upsert `usage_count + 1`
+kèm điều kiện `usage_count < daily_task_limit`. Không upsert được → raise **`Z0004`**.
 
----
+> Quota đếm theo **lượt tạo task**, không hoàn lại khi give-up hay xoá.
 
-## 3. Social & Marketplace Tables (Planned)
-
-### 3.1 Friendships
+### `task_notes`
 ```sql
-friendships (
-  id uuid PK,
-  requester_id uuid FK → users(id),
-  addressee_id uuid FK → users(id),
-  status varchar,                 -- pending|accepted
-  created_at timestamptz,
-  UNIQUE(requester_id, addressee_id)
-)
+id                  uuid PK
+task_id             uuid NOT NULL → tasks(id) [CASCADE]
+user_id             uuid NOT NULL → users(id) [CASCADE]
+content             text NOT NULL CHECK (trim length > 0 AND length <= 12000)
+created_at          timestamptz NOT NULL DEFAULT now()
+updated_at          timestamptz NOT NULL DEFAULT now()
 ```
+**Index:** `idx_task_notes_task_id (task_id, created_at DESC)`, `idx_task_notes_user_id`.
 
-### 3.2 Legendary P2P Marketplace
+**Trigger `fn_enforce_task_note_limit()` (BEFORE INSERT):**
+1. `SELECT ... FOR UPDATE` task theo `(task_id, user_id)` → không thấy thì raise **`Z0005`** (không sở hữu task).
+2. Đếm note của task, `>= 5` thì raise **`Z0006`**.
+
+`trg_update_task_notes_modtime` cập nhật `updated_at`.
+
+> Note **KHÔNG** phải append-only: API có `PATCH` và `DELETE`.
+
+---
+
+## 4. Kho đồ & khu vườn
+
+### `inventory`
 ```sql
-marketplace_listings (
-  id uuid PK,
-  seller_id uuid FK → users(id),
-  inventory_id uuid FK → inventory(id),
-  price_gold int CHECK >= 5,
-  status varchar,                 -- active|sold|cancelled
-  listed_at timestamptz,
-  sold_at timestamptz,
-  UNIQUE(inventory_id, status='active')
-)
+id                  uuid PK
+user_id             uuid NOT NULL → users(id) [CASCADE]
+item_id             uuid NOT NULL → items(id) [RESTRICT]
+status              varchar(20) NOT NULL DEFAULT 'in_bag'
+                    CHECK IN ('in_bag','placed','on_market')
+acquired_at         timestamptz DEFAULT now()
 ```
+**Index:** `idx_inventory_user_id`, `idx_inventory_item_id`,
+`idx_inventory_penalty (user_id, status) WHERE status <> 'on_market'`.
 
-### 3.3 Social Feed Events
+Mỗi bản ghi là **một instance** — user có N cái cùng item thì có N dòng.
+`on_market` dành cho marketplace (PLANNED, chưa có luồng nào set giá trị này).
+
+### `user_gardens`
 ```sql
-feed_events (
-  id uuid PK,
-  user_id uuid FK → users(id),
-  event_type varchar,             -- level_up|legendary_drop|top10|streak_milestone
-  payload jsonb,
-  created_at timestamptz
-)
+id                  uuid PK
+user_id             uuid NOT NULL → users(id) [CASCADE]
+garden_id           uuid NOT NULL → gardens(id) [CASCADE]
+expansion_level     int NOT NULL DEFAULT 0 CHECK (>= 0 AND <= 5)
+created_at          timestamptz DEFAULT now()
+updated_at          timestamptz DEFAULT now()
+last_watered_at     timestamptz DEFAULT NULL
+auto_water_until    timestamptz DEFAULT NULL
+UNIQUE (user_id, garden_id)
 ```
+**Index:** `idx_user_gardens_garden_id`. **Trigger:** `trg_update_user_gardens_modtime`.
 
-### 3.4 Garden Hearts (Likes)
+- User nhận khu vườn #1 tự động lúc đăng ký.
+- **Chưa có luồng mở khoá khu vườn tiếp theo** và **chưa có endpoint expand**
+  (`expansion_level` hiện chỉ đọc) — PLANNED.
+- `last_watered_at` / `auto_water_until` phục vụ tưới cây — PLANNED.
+
+### `garden_placements`
 ```sql
-garden_hearts (
-  id uuid PK,
-  user_id uuid FK → users(id),    -- liker
-  target_user_id uuid FK → users(id),  -- garden owner
-  garden_index int,
-  created_at timestamptz,
-  UNIQUE(user_id, target_user_id, garden_index)
-)
+id                  uuid PK
+user_garden_id      uuid NOT NULL → user_gardens(id) [CASCADE]
+inventory_id        uuid NOT NULL UNIQUE → inventory(id) [CASCADE]
+grid_x              int NOT NULL CHECK >= 0
+grid_y              int NOT NULL CHECK >= 0
+effective_width     int NOT NULL DEFAULT 1 CHECK > 0
+effective_height    int NOT NULL DEFAULT 1 CHECK > 0
+rotation            smallint NOT NULL DEFAULT 0 CHECK IN (0,90,180,270)
+health_status       varchar(50) DEFAULT 'healthy' CHECK IN ('healthy','wilted')
+wilted_at           timestamptz DEFAULT NULL
+placed_at           timestamptz DEFAULT now()
+updated_at          timestamptz DEFAULT now()
+UNIQUE (user_garden_id, grid_x, grid_y)
 ```
+
+**Điểm cần nhớ:**
+- Item có thể **lớn hơn 1 ô**. `effective_width/height` là kích thước SAU khi
+  xoay (`rotation` 90/270 thì hoán đổi w/h) và được lưu lại để tính va chạm.
+- `UNIQUE (user_garden_id, grid_x, grid_y)` chỉ khoá **ô gốc**. Chống chồng lấn
+  cho item nhiều ô do **backend** làm bằng bounding box trong transaction có
+  `SELECT ... FOR UPDATE` trên `user_gardens` (`internal/garden/service.go`) —
+  DB không đủ sức làm việc này.
+- `inventory_id UNIQUE` toàn cục → 1 instance không thể nằm ở 2 vườn.
+
+**Trigger:**
+- `trg_reset_inventory_on_placement_delete` (**AFTER DELETE**) — trả
+  `inventory.status = 'in_bag'`. Lưu ý: **không có** trigger chiều ngược lại;
+  khi đặt đồ, backend tự `UPDATE inventory SET status='placed'` trong cùng CTE.
+- `trg_update_garden_placements_modtime`.
 
 ---
 
-## 4. Analytics Tables (Planned)
+## 5. Reward & Economy
 
-### 4.1 Daily Recaps
+### `reward_rolls` (nhật ký RNG — bắt buộc ghi mỗi lần roll)
 ```sql
-daily_recaps (
-  id uuid PK,
-  user_id uuid FK → users(id),
-  date date UNIQUE,
-  content text,                   -- AI-generated summary
-  tasks_completed int,
-  tasks_given_up int,
-  silver_earned bigint,
-  items_earned jsonb,
-  ai_suggestions jsonb,
-  created_at timestamptz
-)
+id                  uuid PK
+task_id             uuid NOT NULL → tasks(id) [CASCADE]
+user_id             uuid NOT NULL → users(id) [CASCADE]
+roll_type           varchar(20) NOT NULL DEFAULT 'reward' CHECK IN ('reward','penalty')
+item_id             uuid → items(id)          -- NULL khi không rơi item
+silver_amount       int DEFAULT 0             -- âm nếu về sau có penalty trừ bạc
+seed                text
+created_at          timestamptz DEFAULT now()
+CONSTRAINT unique_task_reward_per_user UNIQUE (task_id)
+```
+**Index:** `idx_reward_rolls_task_id`, `idx_reward_rolls_user_id`, `idx_reward_rolls_item_id`.
+
+> `UNIQUE (task_id)` là **chốt chống double-submit ở tầng DB**: một task chỉ
+> sinh được đúng 1 dòng roll, dù là reward hay penalty. Submit lần 2 sẽ vi phạm
+> unique và cả transaction bị rollback.
+
+### `economy_transactions` (sổ cái, append-only)
+```sql
+id                  uuid PK
+user_id             uuid NOT NULL → users(id) [CASCADE]
+silver_change       int NOT NULL DEFAULT 0    -- âm = trừ tiền
+gold_change         int NOT NULL DEFAULT 0
+action_type         varchar(50) NOT NULL CHECK IN (
+                      'task_reward','shop_buy','shop_sell',
+                      'market_buy','market_sell','market_fee',
+                      'iap_purchase','gold_to_silver',
+                      'name_change','slug_change')
+reference_id        uuid                      -- task_id / listing_id...
+description         text
+created_at          timestamptz NOT NULL DEFAULT now()
+```
+**Index:** `idx_eco_trans_user (user_id, created_at DESC)`.
+
+Mọi thay đổi số dư **bắt buộc** đi qua `internal/economy` để ghi 1 dòng ở đây.
+Cấm `UPDATE user_wallets` rải rác ở domain khác.
+
+`action_type` đang dùng thật: `task_reward`, `shop_buy`, `shop_sell`, `name_change`.
+Các giá trị còn lại dành cho tính năng PLANNED.
+
+> ⚠️ **Lỗi cú pháp đã biết:** danh sách CHECK trong `010_economy_transactions.sql`
+> có dấu phẩy thừa sau `'slug_change',`. File này chạy được trên DB hiện tại
+> nhưng sẽ fail nếu `supabase db push` lại từ đầu. Cần sửa trước khi dựng môi
+> trường mới.
+
+---
+
+## 6. Hạ tầng
+
+### `system_heartbeat` + pg_cron (`011_keepalive_cron.sql`)
+```sql
+id                  smallint PK DEFAULT 1 CHECK (id = 1)   -- luôn đúng 1 dòng
+last_ping_at        timestamptz NOT NULL DEFAULT now()
+ping_count          bigint NOT NULL DEFAULT 0
+```
+- `fn_keepalive_ping()` (SECURITY DEFINER) update dòng đó, `REVOKE ALL FROM public`.
+- Job `keepalive-heartbeat` chạy `'17 3 */6 * *'` (03:17 UTC các ngày 1,7,13,19,25,31)
+  → khoảng cách lớn nhất 6 ngày < ngưỡng pause 7 ngày của Supabase Free.
+- Lý do ghi 1 dòng thay vì `select 1`: cần dấu vết kiểm chứng job có chạy thật.
+- RLS bật, **không có policy** → PostgREST chặn sạch.
+
+---
+
+## 7. Bảng PLANNED (chưa có migration)
+
+Giữ lại làm thiết kế tham chiếu, **đừng code như thể đã tồn tại**.
+
+```sql
+-- P2P legendary
+marketplace_listings (id, seller_id, inventory_id, price_gold CHECK >= 5,
+                      status IN ('active','sold','cancelled'), listed_at, sold_at)
+-- Xã hội
+friendships   (id, requester_id, addressee_id, status IN ('pending','accepted'),
+               created_at, UNIQUE(requester_id, addressee_id))
+feed_events   (id, user_id, event_type, payload jsonb, created_at)
+garden_hearts (id, user_id, target_user_id, garden_index, created_at,
+               UNIQUE(user_id, target_user_id, garden_index))
+-- AI
+daily_recaps  (id, user_id, date UNIQUE, content, tasks_completed, tasks_given_up,
+               silver_earned, items_earned jsonb, ai_suggestions jsonb, created_at)
 ```
 
 ---
 
-## 5. Key Constraints & Validations
+## 8. Mã lỗi DB (`errcode` tự định nghĩa)
 
-### Task Constraints
-- User can start max N tasks per day (from `plan_quotas`)
-- Each task must have ≥1 todo item
-- Task duration must be > 0 minutes
-- Actual elapsed time must be ≥ 0 seconds
+| Code | Hàm | Ý nghĩa |
+|---|---|---|
+| **Z0001** | `handle_new_auth_user()` | Thiếu khu vườn khởi đầu → chặn đăng ký |
+| **Z0002** | `fn_tasks_protect_system_fields()` | `created_at` là bất biến |
+| **Z0003** | `fn_tasks_protect_system_fields()` | Client không được sửa cột hệ thống |
+| **Z0004** | `fn_enforce_task_quota()` | Vượt quota task/ngày theo plan |
+| **Z0005** | `fn_enforce_task_note_limit()` | Không sở hữu task |
+| **Z0006** | `fn_enforce_task_note_limit()` | Vượt 5 note/task |
 
-### Garden Constraints
-- User has exactly 1 garden per level (1-20)
-- Each placement occupies 1 grid cell
-- No overlapping placements (unique garden_id, grid_x, grid_y)
-- Item placed globally once (unique inventory_id across all placements)
+Backend map các mã này ở `pkg/db/errors.go` → `pkg/apperr` → HTTP status
+(xem `SPEC-BE.md` §7).
 
-### Wallet Constraints
-- Silver/gold balances never negative
-- Silver cannot be purchased (only earned)
-- Gold purchased via IAP only
-
-### Marketplace Constraints
-- Only Legendary items can be listed
-- Minimum price: 5 gold
-- 10% transaction fee (rounded up, min 1 gold)
+> **Z0007 / Z0008** từng được đặt cho hàm `fn_submit_task_reward()` — hàm này
+> **không tồn tại**; luồng reward đã chuyển hẳn sang Go (`internal/reward`).
+> Đừng tham chiếu 2 mã đó nữa.
 
 ---
 
-## 6. Triggers & Functions
+## 9. RLS (`999_rls.sql`)
 
-### Auto-Timestamp Updates
-- `fn_set_updated_at()` — sets `updated_at = now()` on any UPDATE
+**Nguyên tắc:** RLS là mặc định. Bảng backend-only thì `enable row level security`
+và **không tạo policy nào** → PostgREST chặn sạch. Frontend chỉ dùng supabase-js
+cho **Auth và Storage**; mọi dữ liệu nghiệp vụ đi qua Go API.
 
-### Task Quota Enforcement
-- `fn_enforce_task_quota()` — validates daily task limit before INSERT on tasks
-  - Checks user's plan and compares against `task_daily_quotas`
-  - Raises exception if quota exceeded
+| Bảng | Policy |
+|---|---|
+| `plan_quotas`, `frames`, `items`, `gardens` | SELECT cho mọi `authenticated` |
+| `users` | SELECT cho mọi `authenticated`; UPDATE cho chủ sở hữu (`auth.uid() = id`) |
+| `user_frames`, `user_private`, `user_wallets` | SELECT cho chủ sở hữu |
+| `tasks` | SELECT/INSERT/UPDATE cho chủ sở hữu; UPDATE kèm `deleted_at IS NULL`. Không có policy DELETE |
+| `task_notes` | SELECT/INSERT/UPDATE/DELETE cho chủ sở hữu (kiểm qua `EXISTS` trên `tasks`) |
+| `task_daily_quotas` | SELECT cho chủ sở hữu |
+| `inventory` | SELECT cho chủ sở hữu |
+| `user_gardens` | SELECT cho **mọi** `authenticated` (phục vụ xem vườn người khác) |
+| `garden_placements` | SELECT cho mọi `authenticated`; INSERT/UPDATE/DELETE cho chủ vườn |
+| `reward_rolls`, `economy_transactions` | SELECT cho chủ sở hữu |
+| `system_heartbeat` | RLS bật, **không policy** → chặn hoàn toàn |
 
-### Garden Placement Sync
-- `fn_sync_inventory_placement()` — syncs `inventory.is_placed` when `garden_placements` changes
-  - INSERT: set `is_placed = true`
-  - DELETE: set `is_placed = false`
-  - UPDATE: sync both old and new inventory
-
----
-
-## 7. Indexing Strategy
-
-### High-Priority Indexes
-- `tasks (user_id) WHERE deleted_at IS NULL AND status='active'` — for daily task list
-- `task_notes (task_id DESC)` — for audit trail queries
-- `garden_placements (garden_id)` — for rendering garden grid
-- `inventory (user_id, is_placed)` — for available items filtering
-- `user_private (email)` — already PK on user_id
-
-### Low-Priority (Future)
-- `friendships (requester_id, addressee_id)` — for friend search
-- `marketplace_listings (seller_id, status)` — for seller's active listings
-- `feed_events (user_id, created_at DESC)` — for social feed pagination
+**Storage bucket `users`:** user chỉ được SELECT file trong thư mục
+`{uid}/`, và chỉ được INSERT/UPDATE/DELETE **đúng 2 đường dẫn**:
+`{uid}/avatar.webp` và `{uid}/wallpaper.webp`.
 
 ---
 
-## 8. Security & RLS
+## 10. Ràng buộc nghiệp vụ đặt ở DB (đã có)
 
-### Row-Level Security (RLS)
-- `users` → public profile, readable by all
-- `user_private` → readable by owner only
-- `user_wallets` → readable by owner only
-- `tasks` → readable/writable by owner only
-- `inventory` → readable/writable by owner only
-- `gardens` → readable by all (for public garden view), writable by owner only
-- `garden_placements` → readable by all (for public garden view), writable by owner only
-- `garden_hearts` → readable by all, writable by authenticated users
+| Bất biến | Cơ chế |
+|---|---|
+| Quota task theo ngày | trigger `fn_enforce_task_quota` (Z0004) |
+| Tối đa 5 note/task, phải sở hữu task | trigger `fn_enforce_task_note_limit` (Z0005/Z0006) |
+| Client không sửa được cột hệ thống của task | trigger `fn_tasks_protect_system_fields` (Z0002/Z0003) |
+| Task luôn khởi tạo ở trạng thái sạch | trigger `tasks_insert_sanitize` |
+| Số dư không âm | `CHECK silver_balance >= 0`, `gold_balance >= 0` |
+| Một task chỉ roll thưởng 1 lần | `UNIQUE (task_id)` trên `reward_rolls` |
+| 1 instance không nằm 2 chỗ | `UNIQUE inventory_id` trên `garden_placements` |
+| 1 ô gốc chỉ 1 item | `UNIQUE (user_garden_id, grid_x, grid_y)` |
+| Trả đồ về túi khi gỡ khỏi vườn | trigger `trg_reset_inventory_on_placement_delete` |
 
-### API Authentication
-- All write operations require JWT token (Supabase Auth)
-- Public garden views don't require auth (read-only)
+Đã có trigger lo thì backend **không check trùng lặp**, chỉ map đúng lỗi trigger
+trả về sang `apperr`.
 
 ---
 
-## 9. Migration Status
+## 11. Ràng buộc do BACKEND giữ (DB không đủ sức)
 
-### ✅ Completed Migrations
-- `001_utils.sql` — utility functions (fn_set_updated_at)
-- `002_init_cores.sql` — items, frames, gardens, plan_quotas lookup tables
-- `003_init_users.sql` — users, user_private, user_wallets tables with triggers
-- `004_init_tasks.sql` — tasks table with state machine and protection triggers
-- `005_init_quotas.sql` — task_daily_quotas table and quota enforcement trigger
-- `006_init_task_notes.sql` — task_notes table (append-only audit trail)
-- `007_init_inventory.sql` — inventory table with item tracking
-- `008_init_gardens_and_placements.sql` — user_gardens and garden_placements tables
-- `009_init_reward_rolls.sql` — reward_rolls table for drop history and pity counter tracking
-- `999_rls.sql` — Row-Level Security policies (status: **not verified** — needs testing)
-
-### ⏳ Seed Data (Not Yet Implemented)
-- Items catalog (flowers, structures, decorations)
-- Frame cosmetics
-- 20 garden level templates
-- Placeholder user accounts for testing
+- Chống chồng lấn item nhiều ô trong vườn (bounding box + `FOR UPDATE`).
+- Item nằm trong biên lưới hiện tại (`base + expansion × 5`).
+- Tổng số todo ≤ 50 kể cả todo con, độ sâu ≤ 5, `id` todo là UUID.
+- Tổng `registered_duration_min` sau khi extend ≤ 999.
+- Xác suất và giá trị phần thưởng (RNG chỉ ở server, dùng `crypto/rand`).
+- Giá mua lại (`buyback`) khi bán đồ về shop.

@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import type { Area } from 'react-easy-crop';
 import { toast } from 'sonner';
 import type { Profile } from '@/types/profile';
 import { useProfileUpdate } from '../hooks/use-profile-update';
@@ -64,7 +65,7 @@ export default function ProfileHeader({ profile }: ProfileHeaderProps) {
           toast.success("Bio updated successfully!");
           setIsEditingBio(false);
         },
-        onError: (err: any) => toast.error(err?.response?.data?.message || "Failed to update bio")
+        onError: (err) => toast.error(err.message || "Failed to update bio")
       }
     );
   };
@@ -94,10 +95,10 @@ export default function ProfileHeader({ profile }: ProfileHeaderProps) {
     if (avatarInputRef.current) avatarInputRef.current.value = ''; // Reset input
   };
 
-  const handleCropConfirm = async (croppedAreaPixels: any) => {
+  const handleCropConfirm = async (croppedAreaPixels: Area) => {
     if (!tempImage) return;
 
-    let toastId: any;
+    let toastId: string | number | undefined;
     try {
       setIsUploadingAvatar(true);
       toastId = toast.loading("Processing image..."); 
@@ -120,14 +121,16 @@ export default function ProfileHeader({ profile }: ProfileHeaderProps) {
             toast.success("Avatar updated successfully", { id: toastId });
             handleCloseCrop();
           },
-          onError: (err: any) => {
-            toast.error(err?.response?.data?.message || "Error saving Avatar", { id: toastId });
+          onError: (err) => {
+            // lib/api.ts ném Error đã mang sẵn message từ BE
+            toast.error(err.message || "Error saving Avatar", { id: toastId });
             setIsUploadingAvatar(false);
           }
         }
       );
-    } catch (error: any) {
-      toast.error("An error occurred while saving image", { id: toastId }); 
+    } catch (err) {
+      console.error(err);
+      toast.error("An error occurred while saving image", { id: toastId });
       setIsUploadingAvatar(false);
     }
   };
@@ -247,16 +250,19 @@ export default function ProfileHeader({ profile }: ProfileHeaderProps) {
       {/* ========================================== */}
       
       {/* 1. Modal Đổi Tên */}
-      <ChangeNameModal isOpen={isNameModalOpen} onClose={() => setIsNameModalOpen(false)} currentName={profile.display_name} />
-      
+      {isNameModalOpen && (
+        <ChangeNameModal onClose={() => setIsNameModalOpen(false)} currentName={profile.display_name} />
+      )}
+
       {/* 2. Modal Crop Ảnh */}
-      <AvatarCropModal 
-        isOpen={!!tempImage} 
-        imageSrc={tempImage?.src || ''} 
-        onClose={handleCloseCrop} 
-        onConfirm={handleCropConfirm} 
-        isProcessing={isUploadingAvatar}
-      />
+      {tempImage && (
+        <AvatarCropModal
+          imageSrc={tempImage.src}
+          onClose={handleCloseCrop}
+          onConfirm={handleCropConfirm}
+          isProcessing={isUploadingAvatar}
+        />
+      )}
 
       {/* 3. Overlay Xem Ảnh To */}
       {isViewingAvatar && profile.avatar_url && (

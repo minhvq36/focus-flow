@@ -6,24 +6,20 @@ export function getShadowTransform(date: Date = new Date()) {
   const minutes = date.getMinutes()
   const time = hour + minutes / 60
 
-  let skewX = 0
-  let alpha = 0.3
-  let scaleYMultiplier = 1.0
-
+  // Ban ngày: bóng đổ theo góc mặt trời, ngắn và nhạt nhất lúc giữa trưa
   if (time >= 6 && time <= 18) {
     const progress = (time - 6) / 12
-    skewX = 0.8 - (progress * 1.6)
     const distFromNoon = Math.abs(progress - 0.5)
-    alpha = 0.28 - (Math.pow(distFromNoon, 1.5) * 0.3)
-    scaleYMultiplier = 0.55 + (distFromNoon * 1.6)
 
-  } else {
-    skewX = -0.6
-    alpha = 0.15
-    scaleYMultiplier = 0.8
+    return {
+      skewX: 0.8 - (progress * 1.6),
+      alpha: 0.28 - (Math.pow(distFromNoon, 1.5) * 0.3),
+      scaleYMultiplier: 0.55 + (distFromNoon * 1.6),
+    }
   }
 
-  return { skewX, alpha, scaleYMultiplier }
+  // Ban đêm: bóng cố định, mờ
+  return { skewX: -0.6, alpha: 0.15, scaleYMultiplier: 0.8 }
 }
 
 // HÀM MỚI: Tách toàn bộ logic tạo bóng ra đây
