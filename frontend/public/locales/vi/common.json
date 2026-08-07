@@ -3,5 +3,12 @@
     "garden": "Khu Vườn",
     "tasks": "Nhiệm Vụ"
   },
+  "menu": {
+    "account": "Tài khoản",
+    "my_profile": "Trang cá nhân",
+    "logout": "Đăng xuất",
+    "logout_success": "Đã đăng xuất",
+    "logout_failed": "Không đăng xuất được"
+  },
   "app_name": "FocusFlow"
 }

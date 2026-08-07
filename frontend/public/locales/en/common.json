@@ -3,5 +3,12 @@
     "garden": "My Garden",
     "tasks": "My Tasks"
   },
+  "menu": {
+    "account": "Account",
+    "my_profile": "My profile",
+    "logout": "Log out",
+    "logout_success": "Logged out",
+    "logout_failed": "Could not log out"
+  },
   "app_name": "FocusFlow"
 }

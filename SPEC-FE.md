@@ -36,6 +36,7 @@
   index.css                ✅ Tailwind v4 + theme token
 
   /pages
+    /landing   index.tsx + components/                     ✅ trang công khai `/`
     /login /register /forgot-password /reset-password   ✅ auth
     /tasks     index.tsx + components/ + hooks/ + utils/  ✅
     /focus     index.tsx + components/ + hooks/           ✅
@@ -44,9 +45,11 @@
 
   /components
     /auth      login/register/forgot/reset form, password-input,
-               google-button, turnstile-widget, protected-route   ✅
+               google-button, turnstile-widget, protected-route,
+               guest-route                                        ✅
     /layout    app-layout, auth-layout, task-layout, header,
-               sidebar, background-curves, route-suspense         ✅
+               sidebar, background-curves, route-suspense,
+               language-switcher                                  ✅
     /ui        shadcn primitive (alert, alert-dialog, avatar, button,
                dialog, dropdown-menu, image-with-fallback, input,
                separator, sonner, switch, tooltip)                ✅
@@ -74,17 +77,36 @@ cục bộ. Chỉ nâng lên `src/components/` khi dùng ở **≥ 2 page**. Pri
 
 ## 3. Routing (`App.tsx`)
 
-| Route | Layout | Component | Ghi chú |
-|---|---|---|---|
-| `/login` `/register` `/forgot-password` `/reset-password` | `AuthLayout` | eager | `/reset-password` **nằm ngoài** `ProtectedRoute` để link recovery hỏng vẫn hiện được thông báo |
-| `/` | `TaskLayout` | → redirect `/garden` | |
-| `/tasks` | `TaskLayout` | `Tasks` (lazy) | |
-| `/garden` | `AppLayout` | `Garden` (lazy) | |
-| `/profile/me` | `AppLayout` | `MePage` (lazy) | |
-| `/focus/:taskId` | không layout | `Focus` (lazy) trong `RouteSuspense` | |
+| Route | Guard | Layout | Component | Ghi chú |
+|---|---|---|---|---|
+| `/` | `GuestRoute` | không layout | `Landing` (lazy) | **Chưa có session thì ở lại landing, KHÔNG redirect.** Có session → `/garden` |
+| `/login` `/register` `/forgot-password` `/reset-password` | — | `AuthLayout` | eager | `/reset-password` **nằm ngoài** `ProtectedRoute` để link recovery hỏng vẫn hiện được thông báo |
+| `/tasks` | `ProtectedRoute` | `TaskLayout` | `Tasks` (lazy) | |
+| `/garden` | `ProtectedRoute` | `AppLayout` | `Garden` (lazy) | Đích mặc định sau khi đăng nhập |
+| `/profile/me` | `ProtectedRoute` | `AppLayout` | `MePage` (lazy) | |
+| `/focus/:taskId` | `ProtectedRoute` | không layout | `Focus` (lazy) trong `RouteSuspense` | |
+| `*` | — | — | → redirect `/` | `/` tự phân nhánh tiếp theo trạng thái session |
 
-**Code splitting:** 4 trang sau đăng nhập đều `lazy()` để chunk khởi động không
-kéo theo PixiJS (~1MB, Garden) và `react-easy-crop` (Profile). Fallback spinner
+**Hai guard đối xứng nhau** (`components/auth/`):
+
+| | Chưa có session | Có session | Đang `loading` |
+|---|---|---|---|
+| `ProtectedRoute` | → `/login` | render `<Outlet />` | spinner |
+| `GuestRoute` | render `<Outlet />` | → `/garden` | spinner |
+
+`GuestRoute` **cố ý chỉ bọc `/`**, không bọc `/login` `/register`
+`/reset-password`: luồng recovery cần vào được `/reset-password` ngay cả khi
+Supabase vừa dựng session từ link, bọc vào sẽ đá user đi trước khi kịp đổi mật khẩu.
+
+**Đăng xuất** (`user-store.logout()` gọi từ menu avatar trên header):
+`supabase.auth.signOut()` → xoá session khỏi localStorage + `clearRecoveryPending()`
+→ `set({ user: null })` → điều hướng `/` (`replace`) → `queryClient.clear()`.
+Bắt buộc clear cache vì query key hiện chưa gắn `user.id` (§5.1) — không clear thì
+tài khoản đăng nhập sau trong cùng tab sẽ đọc trúng dữ liệu của người trước.
+
+**Code splitting:** các trang sau đăng nhập đều `lazy()` để chunk khởi động không
+kéo theo PixiJS (~1MB, Garden) và `react-easy-crop` (Profile). Landing cũng `lazy()`
+theo chiều ngược lại — người đã đăng nhập không bao giờ thấy nó. Fallback spinner
 nằm trong `<RouteSuspense>` quanh `<Outlet />` của từng layout.
 
 > Garden không nhận `:index` trên URL — trang tự chọn vườn và nhớ vườn cuối bằng
@@ -173,6 +195,8 @@ hình thì để `useState`, đừng đẩy lên global.
 ```
 `restoreSession()` được gọi **một lần trong `main.tsx` trước khi render**, đồng
 thời đăng ký `supabase.auth.onAuthStateChange`. Hết phiên thì xoá cờ recovery.
+`logout()` chỉ lo phần session (signOut + xoá cờ + `user = null`); việc điều hướng
+và `queryClient.clear()` do phía gọi (menu avatar) đảm nhiệm — xem §3.
 
 ### `placement-store.ts` ✅ (chỉ dùng cho Garden)
 ```ts
@@ -192,6 +216,21 @@ server do TanStack Query giữ.
 ---
 
 ## 7. Các màn hình
+
+### 7.0 Landing ✅ (`/`)
+`pages/landing/index.tsx` + `components/`: `landing-header`, `hero-section`,
+`features-section`, `how-section`, `cta-section`, `landing-footer`.
+
+- Trang **công khai**, không gọi API nào — chỉ đọc i18n. Người đã đăng nhập không
+  thấy trang này (xem `GuestRoute`, §3).
+- Header landing: logo trái · `LanguageSwitcher` + **Sign in** + **Get started**
+  (→ `/register`) ở góc phải trên, `sticky top-0`.
+- Ảnh nền hero: `public/landing.jpg` (đã resize còn **1920×1081 / ~228 KB**, gốc
+  3840×2162 / 1.79 MB). Cách phủ: **giữ nguyên ảnh, chồng lên một lớp
+  `bg-background/72` + `backdrop-blur-[1px]`** và một dải gradient
+  `from-transparent to-background` ở đáy để tan vào nền trang. Không hạ `opacity`
+  của chính tấm ảnh — làm vậy ảnh xỉn và lớp phủ không đổi theo theme.
+- Neo cuộn nội bộ: `#features`, `#how` (dùng ở CTA phụ của hero và ở footer).
 
 ### 7.1 Auth ✅ (`/login`, `/register`, `/forgot-password`, `/reset-password`)
 - Email/password + Google OAuth (`google-button.tsx`).
@@ -261,7 +300,17 @@ tab bán). Không có trang `/shop`.
   (`user_private.name_change_count`).
 - `frame-selector` là **UI đi trước backend** — chưa có endpoint frames.
 
-### 7.6 Chưa làm ⬜
+### 7.6 Header ứng dụng ✅ (`components/layout/header.tsx`)
+Dùng chung cho `AppLayout` và `TaskLayout`: logo · tab Garden/Tasks · đồng hồ UTC ·
+`LanguageSwitcher` · số dư ví · **menu avatar**.
+
+- Avatar đọc `useProfile()` — **cùng query key `['profile','me']`** với trang
+  Profile, nên `setQueryData` sau khi đổi ảnh ở đó làm header đổi ngay, không cần
+  refetch. `uploadUserImage` đã gắn `?t=<timestamp>` vào URL nên trình duyệt cũng
+  không giữ ảnh cũ. Fallback là chữ cái đầu của `display_name` (hoặc email).
+- Dropdown 2 mục: **My profile** → `/profile/me` · **Log out** (xem luồng ở §3).
+
+### 7.7 Chưa làm ⬜
 Onboarding, Settings, Marketplace, Leaderboard, Social/Feed, Search,
 public garden view, thanh toán/nâng cấp gói.
 
@@ -270,7 +319,8 @@ public garden view, thanh toán/nâng cấp gói.
 ## 8. i18n
 
 - 2 ngôn ngữ: `en` (mặc định + fallback), `vi`.
-- Namespace: `common`, `auth`, `garden`, `tasks`, `focus`. Preload `common`.
+- Namespace: `common`, `auth`, `garden`, `tasks`, `focus`, `landing`. Preload `common`.
+- `common.menu.*` phục vụ menu avatar trên header; `landing.*` phục vụ trang `/`.
 - Nguồn: `/locales/{{lng}}/{{ns}}.json` (http-backend), phát hiện theo
   `localStorage` → `navigator`, lưu ở key `focusflow_lang`.
 - **Không hardcode chuỗi hiển thị.** Thêm key phải thêm ở **cả 2 ngôn ngữ** —
