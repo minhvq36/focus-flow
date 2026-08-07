@@ -1,0 +1,74 @@
+{
+  "get_started": "Bắt đầu ngay",
+  "go_to_garden": "Vào khu vườn",
+  "sign_in": "Đăng nhập",
+
+  "hero": {
+    "badge": "Mỗi phiên tập trung đều để lại một thứ có thật",
+    "title_line1": "Biến thời gian tập trung",
+    "title_highlight": "thành khu vườn",
+    "subtitle": "FocusFlow biến mỗi công việc thành một phiên tập trung. Hoàn thành một phiên, bạn nhận bạc, EXP và vật phẩm để dựng nên khu vườn isometric của riêng mình — từng khối thời gian một.",
+    "cta_primary": "Trồng cây đầu tiên",
+    "cta_secondary": "Xem cách hoạt động",
+    "note": "Miễn phí để bắt đầu. Không cần thẻ ngân hàng."
+  },
+
+  "features": {
+    "title": "Đủ thứ một phiên tập trung cần",
+    "subtitle": "Lên kế hoạch, giữ lấy khoảng thời gian đó, và nhận phần thưởng vì đã làm xong thứ mình bắt đầu.",
+    "task": {
+      "title": "Nhiệm vụ có chủ đích",
+      "desc": "Viết nhiệm vụ, chia thành todo, đặt thời lượng. Hạn mức mỗi ngày giữ cho danh sách thành thật chứ không phình vô tận."
+    },
+    "focus": {
+      "title": "Một đồng hồ, một việc",
+      "desc": "Một màn hình tập trung duy nhất với vòng đếm ngược, ghi chú nhanh và không gì khác. Tạm dừng, gia hạn hay bỏ cuộc — thời gian do server giữ, không phải cái tab của bạn."
+    },
+    "reward": {
+      "title": "Phần thưởng bạn tự kiếm",
+      "desc": "Mỗi phiên hoàn thành đều quay ra bạc, EXP và vật phẩm cho khu vườn. Bỏ cuộc thì phải trả giá — chính vì thế mà việc làm xong mới đáng."
+    },
+    "garden": {
+      "title": "Khu vườn ghi nhớ tất cả",
+      "desc": "Đặt những gì bạn kiếm được lên mảnh đất isometric. Khu vườn trở thành bản ghi của từng giờ bạn thật sự tập trung."
+    }
+  },
+
+  "how": {
+    "title": "Hoạt động thế nào",
+    "step1": {
+      "title": "Tạo nhiệm vụ",
+      "desc": "Đặt tiêu đề, thời lượng và những todo khiến nó thành hình."
+    },
+    "step2": {
+      "title": "Chạy phiên tập trung",
+      "desc": "Bấm giờ và ở lại với đúng một việc cho tới khi chuông reo."
+    },
+    "step3": {
+      "title": "Nhận phần thưởng",
+      "desc": "Nộp nhiệm vụ và quay ra bạc, EXP cùng vật phẩm."
+    },
+    "step4": {
+      "title": "Xây khu vườn",
+      "desc": "Đặt vật phẩm xuống và nhìn mảnh đất đầy dần qua từng tuần."
+    }
+  },
+
+  "cta": {
+    "title": "Khu vườn của bạn bắt đầu từ một phiên",
+    "subtitle": "Tạo tài khoản, gieo hạt giống đầu tiên, và để những giờ tập trung của bạn hiện ra thành một thứ gì đó.",
+    "button": "Tạo tài khoản miễn phí"
+  },
+
+  "footer": {
+    "tagline": "Phiên tập trung nuôi lớn một khu vườn.",
+    "product": "Sản phẩm",
+    "features": "Tính năng",
+    "how_it_works": "Cách hoạt động",
+    "account": "Tài khoản",
+    "sign_in": "Đăng nhập",
+    "sign_up": "Tạo tài khoản",
+    "language": "Ngôn ngữ",
+    "rights": "Bảo lưu mọi quyền."
+  }
+}

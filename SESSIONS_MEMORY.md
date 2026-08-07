@@ -10,6 +10,31 @@
 
 ---
 
+## [2026-08-07] Session 3: Fix SPA 404 trên Vercel + gỡ toàn bộ lỗi lint FE
+
+**Vấn đề:** (1) `focusflow-four.vercel.app` F5 ở route con trả 404 — BrowserRouter không có file tĩnh tương ứng. (2) Job CI frontend crash `TypeError: util.styleText is not a function`.
+
+**Quyết định:**
+- Thêm `frontend/vercel.json`: rewrite `/(.*)` -> `/index.html`. Dùng **rewrite, không redirect** (giữ nguyên URL); Vercel ưu tiên filesystem nên `/locales/*`, `/assets/*` không bị nuốt. File đặt ở `frontend/` vì Vercel Root Directory = `frontend`.
+- CI: Node `18 -> 22` (ESLint 10 cần `^20.19 || ^22.13 || >=24`, `util.styleText` chỉ có từ Node 20.12), Go `1.21 -> 1.25`, `checkout@v3 -> v4`, `setup-node@v3 -> v4`, `setup-go@v4 -> v5`.
+- Crash chỉ **che mất 34 lỗi lint thật** — chọn sửa hết thay vì hạ rule xuống `warn`.
+  - 15 `any` -> `TFunction<ns>` cho hàm nhận `t`; `Area` (react-easy-crop) cho crop avatar; bỏ annotation `onError` để TanStack Query suy ra `Error`.
+  - 9 `set-state-in-effect` -> derive lúc render, hoặc reset state bằng mount (`{isOpen && <Modal/>}`, `key={note.id}`) thay vì effect. Bỏ prop `isOpen` khỏi 3 modal.
+  - `sanitizeFlat` chuyển `components/todo-editor.tsx` -> `utils/todo-utils.ts`; bỏ export `buttonVariants` (không ai dùng); xoá `'use client'` lạc giữa `lib/utils.ts`.
+
+**Bug thật đào ra khi type hoá `any`:** 5 chỗ `onError` đọc `err?.response?.data?.message` — shape của **axios**, trong khi `lib/api.ts` dùng `fetch` và ném `Error` có message ở `err.message`. Toast lỗi shop/profile luôn rơi vào fallback, nuốt message BE (trái `CLAUDE.md` §4). Đã đổi sang `err.message`.
+
+**File ảnh hưởng:** `frontend/vercel.json` (mới), `.github/workflows/ci.yml`, 20 file FE (`components/layout/header.tsx`, `components/ui/button.tsx`, `lib/utils.ts`, `pages/{focus,garden,profile,tasks}/**`).
+
+**Trạng thái:** `npm run lint` 0 errors (còn 7 warning `exhaustive-deps` không chặn CI), `type-check` + `build` pass, backend `go build`/`go vet` sạch. **Chưa commit.**
+
+**Còn treo:**
+- CI chỉ chạy trên `main`/`develop` — nhánh feature không kích hoạt.
+- `go fmt ./...` trong CI **không bao giờ fail** (ghi đè tại chỗ, exit 0). Muốn chặn thật phải đổi sang `test -z "$(gofmt -l .)"`.
+- 7 warning `exhaustive-deps` ở timer focus + Pixi garden — sửa đụng logic, cần quyết riêng.
+
+---
+
 ## [2026-08-07] Session 2: Nối Redis, đồng bộ SPEC, cấu hình deploy Fly.io
 
 **Việc đã làm:**
@@ -44,7 +69,7 @@ Chi tiết đã ghi ở `CLAUDE.md` mục 8. Xếp theo mức độ chặn việ
 6. **Dockerfile bắt buộc `COPY data ./data`** — `main.go` đọc `data/badwords.txt` bằng đường dẫn tương đối và `log.Fatalf` nếu thiếu. Bê Dockerfile toeic (chỉ copy binary) sang là crash loop.
 7. **`.env` lọt vào Docker image** — `COPY . .` nuốt cả mật khẩu DB. Đã thêm `.dockerignore` cho focus-flow; **toeic đang dính lỗi này**, chưa sửa.
 8. **`kill_timeout` phải đặt trước mọi `[section]`** trong fly.toml, nếu không TOML hiểu là key con của `[env]` và Fly bỏ qua im lặng.
-9. **CI dùng Go 1.21** trong khi `go.mod` yêu cầu 1.25 -> job backend fail. (Ghi chú cũ về `npm run type-check` đã lỗi thời — script đó tồn tại rồi.)
+9. ~~**CI dùng Go 1.21**~~ — đã sửa ở Session 3 (Go 1.25 + Node 22).
 10. **`INVALID_STATE` bất nhất**: 400 ở `extend`/`title` nhưng 409 ở `reset`/`pause`/`resume`/`submit`/`giveup`.
 11. **Query key FE thiếu `user?.id`** ở `garden`/`inventory`/`economy`/`profile` -> rò cache giữa 2 tài khoản trong cùng tab.
 12. **`lib/api.ts` luôn gọi `res.json()`** -> endpoint trả 204 sẽ ném lỗi parse (hiện chưa endpoint nào dùng 204).
