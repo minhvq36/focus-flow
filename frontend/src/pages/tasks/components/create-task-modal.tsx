@@ -21,7 +21,8 @@ import {
 import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { TodoEditor, sanitizeFlat } from './todo-editor'
+import { TodoEditor } from './todo-editor'
+import { sanitizeFlat } from '@/pages/tasks/utils/todo-utils'
 import { type FlatItem, flatToNested } from '@/pages/tasks/utils/todo-utils'
 import type { Task, CreateTaskRequest } from '@/types/task'
 

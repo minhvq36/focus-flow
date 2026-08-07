@@ -30,8 +30,6 @@ export function formatCurrency(num: number): string {
   return `${bValue.toLocaleString("en-US", { maximumFractionDigits: 2 })}B`
 }
 
-'use client';
-
 /**
  * Convert mọi loại ảnh (JPG, PNG) sang chuẩn WebP, tối ưu hiệu năng và độ tin cậy.
  * @param file File ảnh gốc

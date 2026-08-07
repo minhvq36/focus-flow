@@ -1,5 +1,6 @@
-import { useState, useRef, useCallback, useEffect } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import { cn } from '@/lib/utils'
 
 const INPUT_MAX = 120
@@ -11,7 +12,7 @@ interface ExtendTimeProps {
   onExtend: (addMinutes: number) => Promise<void>
 }
 
-function validate(raw: string, registeredDurationMin: number, t: any): {
+function validate(raw: string, registeredDurationMin: number, t: TFunction<'focus'>): {
   value: number | null
   error: string | null
   hint: string | null
@@ -44,9 +45,9 @@ export function ExtendTime({ registeredDurationMin, disabled, onExtend }: Extend
   const hasInput = raw !== ''
   const canCommit = value != null && value > 0
 
-  useEffect(() => {
-    if (!isMaxed) setShowMaxed(false)
-  }, [isMaxed])
+  // Chỉ hiện cảnh báo "đã kịch trần" khi task còn đang kịch trần thật.
+  // Derive lúc render thay vì reset showMaxed bằng effect.
+  const showMaxedWarning = showMaxed && isMaxed
 
   const startEditing = useCallback(() => {
     setRaw('')
@@ -94,7 +95,7 @@ export function ExtendTime({ registeredDurationMin, disabled, onExtend }: Extend
 
         <p className={cn(
           'text-[11px] text-destructive transition-opacity select-none',
-          showMaxed ? 'opacity-100' : 'opacity-0 pointer-events-none'
+          showMaxedWarning ? 'opacity-100' : 'opacity-0 pointer-events-none'
         )}>
           {t('extend_time.max_reached', { max: TASK_MAX })}
         </p>

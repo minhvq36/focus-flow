@@ -197,7 +197,9 @@ export function NotesBar({ taskId, isReadOnly }: NotesBarProps) {
         </div>
       </aside>
 
+      {/* key theo note.id: đổi note = remount dialog, state `text` tự reset theo prop */}
       <NoteEditDialog
+        key={editingNote?.id ?? 'none'}
         note={editingNote}
         open={editingNote !== null}
         onClose={() => setEditingNote(null)}
